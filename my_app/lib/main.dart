@@ -12,9 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: .fromSeed(seedColor: Colors.green),
-      ),
+      theme: ThemeData(colorScheme: .fromSeed(seedColor: Colors.deepPurple)),
       home: const MyHomePage(title: 'Flutter Demo Home Page'),
     );
   }
@@ -30,45 +28,53 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  String msg = " Hello";
   int _counter = 0;
-  String msg = "Sundor";
 
   void _incrementCounter() {
     setState(() {
-    
       _counter++;
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    
     return Scaffold(
-      appBar: AppBar(
-       
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-       
-        title: Text(widget.title),
+      // body: Center(
+      //   child: Column(
+
+      //     children: [
+      //       Row(),
+      //       Stack(),
+      //       ListView(),
+      //       Column(),
+
+      //     Text('Hello2'),
+      //   ],),
+      // ),
+      
+      appBar: AppBar(),
+      body: Text("This is a good msg",
+        textAlign: TextAlign.center,
+        maxLines: 24,
+        overflow: TextOverflow.ellipsis,
       ),
-      body: Center(
-       
-        child: Column(
-          
-          mainAxisAlignment: .center,
-          children: [
-            Text(msg),
-            const Text('You have button this many times:'),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+      drawer: const Drawer(),
+      floatingActionButton: FloatingActionButton(onPressed: () {}),
+      bottomNavigationBar: NavigationBar(
+        destinations: [
+          NavigationDestination(
+            icon: Icon(Icons.access_alarm),
+            selectedIcon: Icon(Icons.alarm),
+            label: 'access_alarm',
+          ),
+
+          NavigationDestination(
+            icon: Icon(Icons.abc_sharp),
+            selectedIcon: Icon(Icons.abc),
+            label: 'abc_sharp',
+          ),
+        ],
       ),
     );
   }
