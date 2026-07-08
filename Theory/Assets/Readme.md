@@ -183,3 +183,57 @@ ListView  → Scrollable list
 Stack     → Overlapping widgets
 Icon      → Shows symbol/icon
 mainAxisAlignment → Spacing on Row/Column main direction
+
+
+
+Bare minimum for main.dart 
+
+import 'package:flutter/material.dart';
+
+void main() {
+  runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: Text('Hello Flutter'),
+        ),
+      ),
+    );
+  }
+}
+
+home widget means home screen 
+
+
+colors to access all colors ....accent mean to access all that color property 
+
+if i have hex code we can use color (oxff(hex code)to int code )
+
+
+to include image we can create assest file 
+image in png it is a class 
+
+mainaxisalignment 
+MainAxisAlignment controls the main direction.
+
+MainAxisAlignment.start        // beginning
+MainAxisAlignment.center       // middle
+MainAxisAlignment.end          // end
+MainAxisAlignment.spaceBetween // space between items
+MainAxisAlignment.spaceAround  // space around items
+MainAxisAlignment.spaceEvenly  // equal space everywhere
+
+
+CrossAxisAlignment controls the opposite direction.
+
+CrossAxisAlignment.start   // left in Column, top in Row
+CrossAxisAlignment.center  // center
+CrossAxisAlignment.end     // right in Column, bottom in Row
+CrossAxisAlignment.stretch // stretch to fill opposite direction
