@@ -1,8 +1,8 @@
 """Standalone loader for the pre-trained TF-IDF course recommender.
 
-Loads the v2 bundle in ``E:/Flutter_app/models/v2/`` (plus the shared metadata
-in ``model_metadata.json``) and exposes a small ``RecommendationModelAdapter``
-that the Flask routes consume.
+Loads the v2 bundle in ``E:/Flutter_app/ml/artifacts/models/v2/`` (plus the
+shared metadata in ``model_metadata.json``) and exposes a small
+``RecommendationModelAdapter`` that the Flask routes consume.
 
 Public surface required by ``model_service.py``:
 
@@ -26,8 +26,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel
 
 
-_DEFAULT_MODEL_DIR = Path(r"E:/Flutter_app/models/v2")
-_DEFAULT_META_PATH = Path(r"E:/Flutter_app/models/model_metadata.json")
+_DEFAULT_MODEL_DIR = Path(r"E:/Flutter_app/ml/artifacts/models/v2")
+_DEFAULT_META_PATH = Path(r"E:/Flutter_app/ml/artifacts/models/model_metadata.json")
 
 
 class ModelLoadError(Exception):

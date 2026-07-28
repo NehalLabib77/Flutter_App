@@ -1,6 +1,6 @@
 """Smoke tests for the API."""
 
-from app1 import create_app
+from app import create_app
 
 
 def _client():

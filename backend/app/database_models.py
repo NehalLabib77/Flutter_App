@@ -22,7 +22,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from extensions import db
+from .extensions import db
 
 
 def _utcnow() -> datetime:

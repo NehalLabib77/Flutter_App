@@ -1,12 +1,47 @@
+# ---- Python ----
 __pycache__/
 *.pyc
 *.pyo
 *.pyd
-.env
 .venv/
 venv/
+.env
+.env.local
+
+# ---- Flutter / Dart ----
+frontend/.dart_tool/
+frontend/.flutter-plugins-dependencies
+frontend/.flutter-plugins
+frontend/.idea/
+frontend/.flutter_run.log
+frontend/build/
+frontend/.metadata
+frontend/*.iml
+frontend/analyze.txt
+
+# Platform folders that ship generated noise
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/key.properties
+frontend/android/app/release/
+frontend/ios/Pods/
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.framework
+frontend/ios/Flutter/Flutter.podspec
+frontend/macos/Pods/
+frontend/macos/.symlinks/
+frontend/linux/build/
+frontend/windows/build/
+frontend/web/build/
+
+# ---- Jupyter ----
 .ipynb_checkpoints/
+ml/notebooks/.ipynb_checkpoints/
+
+# ---- OS ----
 .DS_Store
 Thumbs.db
-backend/models/*.pkl
-dataset/*.csv
+
+# ---- IDE ----
+.vscode/
+.puku/

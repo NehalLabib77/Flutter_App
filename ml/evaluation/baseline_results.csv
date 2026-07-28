@@ -1,0 +1,38 @@
+query,precision_at_5,recall_at_10,reciprocal_rank,ndcg_at_10,number_of_relevant_courses,number_of_retrieved_courses,model_version
+beginner Python programming,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+advanced Python automation,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+Python data analysis with pandas,1.0,0.375,1.0,1.0,16,10,word_tfidf_baseline
+machine learning with Python,1.0,0.35294117647058826,1.0,1.0,17,10,word_tfidf_baseline
+deep learning with TensorFlow,1.0,0.35294117647058826,1.0,1.0,17,10,word_tfidf_baseline
+data science with visualization,1.0,0.3333333333333333,1.0,0.9219164590090186,18,10,word_tfidf_baseline
+exploratory data analysis for beginners,1.0,0.3333333333333333,1.0,0.9918798531332953,18,10,word_tfidf_baseline
+web development with JavaScript,1.0,0.3333333333333333,1.0,0.992068494167878,18,10,word_tfidf_baseline
+React front-end development,1.0,0.35294117647058826,1.0,0.981761566904652,17,10,word_tfidf_baseline
+mobile app development with Flutter,1.0,0.375,1.0,1.0,16,10,word_tfidf_baseline
+Android app development with Kotlin,1.0,0.35294117647058826,1.0,1.0,17,10,word_tfidf_baseline
+cybersecurity and ethical hacking,1.0,0.4117647058823529,1.0,0.8824195969638063,17,10,word_tfidf_baseline
+network security certification,1.0,0.3333333333333333,1.0,0.7911543863301187,18,10,word_tfidf_baseline
+cloud computing with AWS,1.0,0.3333333333333333,1.0,0.9849554356339667,18,10,word_tfidf_baseline
+Google Cloud architecture certification,1.0,0.35294117647058826,1.0,0.8364330686549111,17,10,word_tfidf_baseline
+SQL database design for beginners,1.0,0.35294117647058826,1.0,1.0,17,10,word_tfidf_baseline
+PostgreSQL data engineering,1.0,0.375,1.0,0.823902808327302,16,10,word_tfidf_baseline
+digital marketing for beginners,1.0,0.35294117647058826,1.0,0.8975704933960452,17,10,word_tfidf_baseline
+social media marketing analytics,1.0,0.375,1.0,1.0,16,10,word_tfidf_baseline
+business analytics for decision making,1.0,0.375,1.0,1.0,16,10,word_tfidf_baseline
+business strategy and management,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+finance for managers,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+financial accounting and investment analysis,1.0,0.3333333333333333,1.0,0.9194216859701274,18,10,word_tfidf_baseline
+project management certification,1.0,0.3333333333333333,1.0,0.8068437533082709,18,10,word_tfidf_baseline
+agile project management for beginners,1.0,0.3333333333333333,1.0,0.9851682529266631,18,10,word_tfidf_baseline
+graphic design with Adobe Photoshop,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+UI UX design portfolio,1.0,0.4444444444444444,1.0,0.9900205809350956,18,10,word_tfidf_baseline
+calculus and linear algebra for engineers,1.0,0.375,1.0,0.9577066467829223,16,10,word_tfidf_baseline
+statistics and probability for data science,1.0,0.3333333333333333,1.0,0.996793650563907,18,10,word_tfidf_baseline
+learn Spanish for beginners,1.0,0.3888888888888889,1.0,0.9077360142302882,18,10,word_tfidf_baseline
+English grammar and vocabulary,1.0,0.5,1.0,0.9754590760037873,14,10,word_tfidf_baseline
+programming for complete beginners,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+intro to data analysis with Excel,1.0,0.3333333333333333,1.0,0.996793650563907,18,10,word_tfidf_baseline
+advanced machine learning model deployment,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+advanced cloud security engineering,1.0,0.3333333333333333,1.0,0.9700442267960275,18,10,word_tfidf_baseline
+AWS certification preparation,1.0,0.3333333333333333,1.0,1.0,18,10,word_tfidf_baseline
+CompTIA Security+ practice,1.0,0.6923076923076923,1.0,0.9490707397193666,13,10,word_tfidf_baseline

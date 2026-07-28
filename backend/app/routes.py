@@ -21,7 +21,7 @@ from flask_jwt_extended import (
 
 from datetime import datetime, timedelta, timezone
 
-from database_models import (
+from .database_models import (
     BillingEvent,
     CourseProgress,
     Favorite,
@@ -31,7 +31,7 @@ from database_models import (
     User,
     UserInterest,
 )
-from extensions import db
+from .extensions import db
 
 
 log = logging.getLogger(__name__)

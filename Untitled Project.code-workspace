@@ -1,7 +1,32 @@
 {
     "folders": [
         {
-            "path": "."
+            "path": "frontend"
+        },
+        {
+            "path": "backend"
+        },
+        {
+            "path": "ml"
+        },
+        {
+            "path": "data"
+        },
+        {
+            "path": "docs"
+        },
+        {
+            "path": "scripts"
         }
-    ]
+    ],
+    "settings": {
+        "files.exclude": {
+            "**/build": true,
+            "**/.dart_tool": true,
+            "**/.venv": true,
+            "**/__pycache__": true,
+            "**/.idea": true,
+            "**/.gradle": true
+        }
+    }
 }

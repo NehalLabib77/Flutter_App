@@ -9,12 +9,12 @@ import os
 
 from dotenv import load_dotenv
 
-from billing_service import get_billing_provider
-from config import get_config
-from database_models import db
-from extensions import cors, jwt
-from model_service import load_recommender
-from routes import bp as api_bp
+from .billing_service import get_billing_provider
+from .config import get_config
+from .database_models import db
+from .extensions import cors, jwt
+from .model_service import load_recommender
+from .routes import bp as api_bp
 
 
 load_dotenv()
@@ -38,7 +38,7 @@ def create_app(skip_model_load: bool = False):
     )
 
     if app.config["AUTO_CREATE_DB"]:
-        from database_models import (  # noqa: F401 — register tables
+        from .database_models import (  # noqa: F401 — register tables
             BillingEvent,
             CourseProgress,
             Favorite,

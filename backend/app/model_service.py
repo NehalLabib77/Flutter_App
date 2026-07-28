@@ -10,7 +10,7 @@ no package-relative imports, no leftover ``app/`` prefix.
 
 from __future__ import annotations
 
-from model_loader import (
+from .model_loader import (
     BundleMeta,
     CourseRow,
     ModelLoadError,
