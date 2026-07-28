@@ -1,5 +1,0 @@
-name: flutter_widget_library_offline
-description: Offline searchable reference data for common Flutter widgets.
-version: 0.1.0
-environment:
-  sdk: '>=3.0.0 <4.0.0'

@@ -1,0 +1,223 @@
+"""SQLAlchemy tables for user data.
+
+Course records are NOT stored here — they live in the loaded TF-IDF bundle.
+This module only persists user accounts, favourites, history, progress,
+billing, and notifications.
+"""
+
+from __future__ import annotations
+
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from extensions import db
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+class User(db.Model):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True)
+    full_name = Column(String(120), nullable=False)
+    email = Column(String(180), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    phone_number = Column(String(32), nullable=True, index=True)
+    phone_verified = Column(Boolean, nullable=False, default=False)
+    avatar_key = Column(String(64), nullable=False, default="default")
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False,
+                        default=_utcnow, onupdate=_utcnow)
+
+    interests = relationship("UserInterest", backref="user",
+                             cascade="all, delete-orphan")
+    favorites = relationship("Favorite", backref="user",
+                             cascade="all, delete-orphan")
+    history = relationship("History", backref="user",
+                           cascade="all, delete-orphan")
+    progress = relationship("CourseProgress", backref="user",
+                            cascade="all, delete-orphan")
+    learning_progress = relationship("LearningPathProgress", backref="user",
+                                     cascade="all, delete-orphan")
+    subscription = relationship("Subscription", backref="user",
+                               cascade="all, delete-orphan", uselist=False)
+
+    def set_password(self, password: str) -> None:
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password: str) -> bool:
+        return check_password_hash(self.password_hash, password)
+
+    def to_dict(self) -> dict:
+        return {
+            "id": self.id,
+            "full_name": self.full_name,
+            "email": self.email,
+            "phone_number": self.phone_number,
+            "phone_verified": self.phone_verified,
+            "avatar_key": self.avatar_key,
+            "interests": [i.interest for i in self.interests],
+            "created_at": self.created_at.isoformat() if self.created_at else None,
+        }
+
+
+class UserInterest(db.Model):
+    __tablename__ = "user_interests"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    interest = Column(String(80), nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "interest", name="uq_user_interest"),
+    )
+
+
+class Favorite(db.Model):
+    __tablename__ = "favorites"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=False, index=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "course_id", name="uq_user_favorite"),
+    )
+
+
+class History(db.Model):
+    __tablename__ = "history"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=True, index=True)
+    query = Column(String(255), nullable=True)
+    action = Column(String(64), nullable=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class CourseProgress(db.Model):
+    __tablename__ = "course_progress"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=False, index=True)
+    progress = Column(Integer, nullable=False, default=0)
+    completed = Column(Boolean, nullable=False, default=False)
+    started_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False,
+                        default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "course_id", name="uq_user_course"),
+    )
+
+
+class LearningPathProgress(db.Model):
+    __tablename__ = "learning_path_progress"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    path_id = Column(String(64), nullable=False, index=True)
+    step_id = Column(String(64), nullable=False)
+    completed = Column(Boolean, nullable=False, default=False)
+    updated_at = Column(DateTime, nullable=False,
+                        default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "path_id", "step_id",
+                         name="uq_user_path_step"),
+    )
+
+
+class Subscription(db.Model):
+    __tablename__ = "subscriptions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, unique=True)
+    provider = Column(String(64), nullable=False, default="mock")
+    plan_code = Column(String(64), nullable=False, default="free")
+    status = Column(String(32), nullable=False, default="inactive")
+    provider_reference = Column(String(128), nullable=True)
+    subscriber_id_masked = Column(String(64), nullable=True)
+    started_at = Column(DateTime, nullable=True)
+    expires_at = Column(DateTime, nullable=True)
+    updated_at = Column(DateTime, nullable=False,
+                        default=_utcnow, onupdate=_utcnow)
+
+    def is_premium(self) -> bool:
+        return self.status == "active" and self.plan_code == "premium"
+
+    def to_dict(self) -> dict:
+        return {
+            "provider": self.provider,
+            "plan_code": self.plan_code,
+            "status": self.status,
+            "provider_reference": self.provider_reference,
+            "subscriber_id_masked": self.subscriber_id_masked,
+            "started_at": self.started_at.isoformat() if self.started_at else None,
+            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
+            "is_premium": self.is_premium(),
+        }
+
+
+class BillingEvent(db.Model):
+    __tablename__ = "billing_events"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
+                     nullable=True, index=True)
+    event_type = Column(String(64), nullable=False)
+    provider = Column(String(64), nullable=False, default="mock")
+    provider_reference = Column(String(128), nullable=True)
+    status = Column(String(32), nullable=False, default="ok")
+    safe_metadata_json = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+class Notification(db.Model):
+    __tablename__ = "notifications"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    title = Column(String(180), nullable=False)
+    body = Column(String(500), nullable=False, default="")
+    category = Column(String(64), nullable=False, default="general")
+    course_id = Column(String(64), nullable=True)
+    is_read = Column(Boolean, nullable=False, default=False)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+
+
+__all__ = [
+    "User",
+    "UserInterest",
+    "Favorite",
+    "History",
+    "CourseProgress",
+    "LearningPathProgress",
+    "Subscription",
+    "BillingEvent",
+    "Notification",
+]

@@ -1,0 +1,65 @@
+{
+  "info": {
+    "name": "EduCompass API",
+    "_postman_id": "educompass-api-v1",
+    "description": "Requests for the EduCompass Flask course recommendation API.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://127.0.0.1:5000"
+    },
+    {
+      "key": "course_id",
+      "value": "1"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/health"
+      }
+    },
+    {
+      "name": "Recommend Courses",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"query\": \"beginner Python data analysis using pandas\",\n  \"top_n\": 10,\n  \"minimum_rating\": 4.0,\n  \"free_only\": false\n}"
+        },
+        "url": "{{base_url}}/api/recommend"
+      }
+    },
+    {
+      "name": "Course Details",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/courses/{{course_id}}"
+      }
+    },
+    {
+      "name": "Similar Courses",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/courses/{{course_id}}/similar?top_n=10"
+      }
+    },
+    {
+      "name": "Filters",
+      "request": {
+        "method": "GET",
+        "url": "{{base_url}}/api/filters"
+      }
+    }
+  ]
+}

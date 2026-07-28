@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>EduCompass Course Recommender</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            color: #172033;
+            background: #f3f5fb;
+        }
+
+        .container {
+            width: min(1150px, 92%);
+            margin: auto;
+            padding: 50px 0;
+        }
+
+        .hero {
+            margin-bottom: 35px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            margin: 0 0 12px;
+            font-size: 48px;
+            color: #5b4bd8;
+        }
+
+        .hero p {
+            max-width: 700px;
+            margin: auto;
+            color: #68758a;
+            font-size: 17px;
+            line-height: 1.6;
+        }
+
+        .search-card {
+            max-width: 760px;
+            margin: auto;
+            padding: 28px;
+            background: white;
+            border-radius: 18px;
+            box-shadow:
+                0 15px 45px rgba(31, 46, 84, 0.10);
+        }
+
+        .search-card label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: bold;
+        }
+
+        .search-row {
+            display: flex;
+            gap: 12px;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 0;
+            height: 52px;
+            padding: 0 16px;
+            font-size: 16px;
+            border: 1px solid #d5dcea;
+            border-radius: 11px;
+            outline: none;
+        }
+
+        .search-input:focus {
+            border-color: #6757e8;
+            box-shadow:
+                0 0 0 4px rgba(103, 87, 232, 0.12);
+        }
+
+        .recommend-button {
+            min-width: 150px;
+            height: 52px;
+            padding: 0 20px;
+            color: white;
+            font-weight: bold;
+            font-size: 15px;
+            background: #6757e8;
+            border: none;
+            border-radius: 11px;
+            cursor: pointer;
+        }
+
+        .recommend-button:hover {
+            background: #5545ce;
+        }
+
+        .help-text {
+            margin-top: 10px;
+            color: #7a879a;
+            font-size: 13px;
+        }
+
+        .error {
+            max-width: 760px;
+            margin: 18px auto 0;
+            padding: 14px 16px;
+            color: #9b2639;
+            background: #fff0f2;
+            border: 1px solid #ffd0d7;
+            border-radius: 11px;
+        }
+
+        .selected-course {
+            max-width: 900px;
+            margin: 35px auto 0;
+            padding: 20px;
+            background: #ece9ff;
+            border: 1px solid #d9d3ff;
+            border-radius: 14px;
+        }
+
+        .selected-course h2 {
+            margin-top: 0;
+            margin-bottom: 8px;
+        }
+
+        .selected-meta {
+            color: #626f84;
+        }
+
+        .results-heading {
+            margin: 45px 0 20px;
+        }
+
+        .results-heading h2 {
+            margin-bottom: 7px;
+            font-size: 30px;
+        }
+
+        .results-heading p {
+            margin: 0;
+            color: #6f7c90;
+        }
+
+        .course-grid {
+            display: grid;
+            grid-template-columns:
+                repeat(3, minmax(0, 1fr));
+            gap: 20px;
+        }
+
+        .course-card {
+            overflow: hidden;
+            background: white;
+            border-radius: 16px;
+            box-shadow:
+                0 10px 30px rgba(31, 46, 84, 0.08);
+        }
+
+        .image-area {
+            position: relative;
+            height: 170px;
+            background:
+                linear-gradient(
+                    135deg,
+                    #ded9ff,
+                    #d9f1ef
+                );
+        }
+
+        .course-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .image-placeholder {
+            display: flex;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            color: #5e53af;
+            font-size: 34px;
+            font-weight: bold;
+        }
+
+        .similarity {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            padding: 7px 10px;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(20, 29, 47, 0.82);
+            border-radius: 20px;
+        }
+
+        .course-content {
+            padding: 18px;
+        }
+
+        .provider {
+            margin-bottom: 7px;
+            color: #6757e8;
+            font-size: 12px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .course-content h3 {
+            min-height: 48px;
+            margin: 0 0 15px;
+            font-size: 18px;
+            line-height: 1.35;
+        }
+
+        .details {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+        }
+
+        .detail {
+            padding: 9px;
+            background: #f6f8fb;
+            border-radius: 9px;
+        }
+
+        .detail-label {
+            display: block;
+            margin-bottom: 3px;
+            color: #79869a;
+            font-size: 10px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .detail-value {
+            display: block;
+            overflow: hidden;
+            font-size: 13px;
+            font-weight: bold;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .course-link {
+            display: block;
+            margin-top: 16px;
+            padding: 11px;
+            color: white;
+            text-align: center;
+            font-weight: bold;
+            text-decoration: none;
+            background: #172033;
+            border-radius: 9px;
+        }
+
+        .unavailable {
+            display: block;
+            margin-top: 16px;
+            padding: 11px;
+            color: #8792a4;
+            text-align: center;
+            font-weight: bold;
+            background: #edf0f5;
+            border-radius: 9px;
+        }
+
+        @media (max-width: 900px) {
+            .course-grid {
+                grid-template-columns:
+                    repeat(2, minmax(0, 1fr));
+            }
+        }
+
+        @media (max-width: 620px) {
+            .hero h1 {
+                font-size: 38px;
+            }
+
+            .search-row {
+                flex-direction: column;
+            }
+
+            .recommend-button {
+                width: 100%;
+            }
+
+            .course-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+
+        <div class="hero">
+            <h1>EduCompass</h1>
+
+            <p>
+                Search for a course you already know.
+                Select a suggestion and discover the six
+                most similar courses.
+            </p>
+        </div>
+
+
+        <div class="search-card">
+
+            <form method="POST">
+
+                <label for="course-name">
+                    Search for a course
+                </label>
+
+                <div class="search-row">
+
+                    <input
+                        id="course-name"
+                        class="search-input"
+                        type="text"
+                        name="course_name"
+                        list="course-list"
+                        value="{{ search_value }}"
+                        placeholder="Start typing a course name..."
+                        autocomplete="off"
+                        required
+                    >
+
+                    <datalist id="course-list">
+
+                        {% for course_name in courses %}
+
+                            <option value="{{ course_name }}">
+
+                        {% endfor %}
+
+                    </datalist>
+
+                    <button
+                        class="recommend-button"
+                        type="submit"
+                    >
+                        Recommend
+                    </button>
+
+                </div>
+
+                <div class="help-text">
+                    Begin typing—for example,
+                    “Python” or “Machine Learning”.
+                    Matching course names will appear automatically.
+                </div>
+
+            </form>
+
+        </div>
+
+
+        {% if error_message %}
+
+            <div class="error">
+                {{ error_message }}
+            </div>
+
+        {% endif %}
+
+
+        {% if selected_course %}
+
+            <div class="selected-course">
+
+                <h2>
+                    Selected course
+                </h2>
+
+                <strong>
+                    {{ selected_course.name }}
+                </strong>
+
+                <div class="selected-meta">
+                    {{ selected_course.provider }}
+                    ·
+                    {{ selected_course.level }}
+                    ·
+                    Rating: {{ selected_course.rating }}
+                </div>
+
+            </div>
+
+        {% endif %}
+
+
+        {% if recommendations %}
+
+            <div class="results-heading">
+
+                <h2>
+                    Similar courses
+                </h2>
+
+                <p>
+                    Recommended based on course title,
+                    skills, subject, description and level.
+                </p>
+
+            </div>
+
+
+            <div class="course-grid">
+
+                {% for course in recommendations %}
+
+                    <article class="course-card">
+
+                        <div class="image-area">
+
+                            {% if course.image_url %}
+
+                                <img
+                                    class="course-image"
+                                    src="{{ course.image_url }}"
+                                    alt="{{ course.name }}"
+                                    onerror="
+                                        this.style.display='none';
+                                        this.nextElementSibling.style.display='flex';
+                                    "
+                                >
+
+                                <div
+                                    class="image-placeholder"
+                                    style="display: none;"
+                                >
+                                    {{ course.name[:2]|upper }}
+                                </div>
+
+                            {% else %}
+
+                                <div class="image-placeholder">
+                                    {{ course.name[:2]|upper }}
+                                </div>
+
+                            {% endif %}
+
+
+                            <div class="similarity">
+
+                                {{
+                                    "%.0f"|format(
+                                        course.similarity_score * 100
+                                    )
+                                }}% match
+
+                            </div>
+
+                        </div>
+
+
+                        <div class="course-content">
+
+                            <div class="provider">
+                                {{ course.provider }}
+                            </div>
+
+                            <h3>
+                                {{ course.name }}
+                            </h3>
+
+
+                            <div class="details">
+
+                                <div class="detail">
+                                    <span class="detail-label">
+                                        Level
+                                    </span>
+
+                                    <span class="detail-value">
+                                        {{ course.level }}
+                                    </span>
+                                </div>
+
+
+                                <div class="detail">
+                                    <span class="detail-label">
+                                        Rating
+                                    </span>
+
+                                    <span class="detail-value">
+                                        {{ course.rating }}
+                                    </span>
+                                </div>
+
+
+                                <div class="detail">
+                                    <span class="detail-label">
+                                        Duration
+                                    </span>
+
+                                    <span class="detail-value">
+                                        {{ course.duration }}
+                                    </span>
+                                </div>
+
+
+                                <div class="detail">
+                                    <span class="detail-label">
+                                        Price
+                                    </span>
+
+                                    <span class="detail-value">
+                                        {{ course.price }}
+                                    </span>
+                                </div>
+
+                            </div>
+
+
+                            {% if course.url %}
+
+                                <a
+                                    class="course-link"
+                                    href="{{ course.url }}"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    View course
+                                </a>
+
+                            {% else %}
+
+                                <span class="unavailable">
+                                    Course link unavailable
+                                </span>
+
+                            {% endif %}
+
+                        </div>
+
+                    </article>
+
+                {% endfor %}
+
+            </div>
+
+        {% endif %}
+
+    </div>
+</body>
+</html>

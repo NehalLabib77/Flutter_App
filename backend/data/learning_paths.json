@@ -1,0 +1,48 @@
+[
+  {
+    "id": "data-science-foundations",
+    "title": "Data Science Foundations",
+    "summary": "Learn the core toolkit of a modern data scientist — Python, statistics, and machine learning — through curated Coursera, edX, and Coursera-style courses.",
+    "level": "Beginner",
+    "estimated_hours": 60,
+    "subject": "Data Science",
+    "tags": ["python", "statistics", "machine-learning", "pandas"],
+    "steps": [
+      {"id": "step-1", "title": "Python for Everybody", "course_id": "1"},
+      {"id": "step-2", "title": "Statistics with Python", "course_id": "2"},
+      {"id": "step-3", "title": "Pandas & NumPy", "course_id": "3"},
+      {"id": "step-4", "title": "Intro to Machine Learning", "course_id": "4"}
+    ]
+  },
+  {
+    "id": "web-developer",
+    "title": "Full-Stack Web Developer",
+    "summary": "Become a full-stack web developer — front-end, back-end, and deployment — with curated courses covering HTML, React, Node.js and cloud deployment.",
+    "level": "Intermediate",
+    "estimated_hours": 90,
+    "subject": "Web Development",
+    "tags": ["html", "css", "javascript", "react", "node"],
+    "steps": [
+      {"id": "step-1", "title": "HTML & CSS Foundations", "course_id": "5"},
+      {"id": "step-2", "title": "JavaScript Essentials", "course_id": "6"},
+      {"id": "step-3", "title": "React Basics", "course_id": "7"},
+      {"id": "step-4", "title": "Node.js APIs", "course_id": "8"},
+      {"id": "step-5", "title": "Deploy to the Cloud", "course_id": "9"}
+    ]
+  },
+  {
+    "id": "deep-learning-ai",
+    "title": "Deep Learning & AI",
+    "summary": "Progress from neural-network basics to modern transformer architectures with hands-on deep-learning specialisations.",
+    "level": "Advanced",
+    "estimated_hours": 110,
+    "subject": "Artificial Intelligence",
+    "tags": ["deep-learning", "tensorflow", "pytorch", "transformers"],
+    "steps": [
+      {"id": "step-1", "title": "Neural Networks Basics", "course_id": "10"},
+      {"id": "step-2", "title": "Convolutional Networks", "course_id": "11"},
+      {"id": "step-3", "title": "Sequence Models", "course_id": "12"},
+      {"id": "step-4", "title": "Transformers & Attention", "course_id": "13"}
+    ]
+  }
+]

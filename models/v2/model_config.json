@@ -1,0 +1,31 @@
+{
+    "selected_model_version": "word_tfidf_baseline",
+    "field_weights": {
+        "course_name": 3.0,
+        "skills": 3.0,
+        "subject": 2.0,
+        "description": 1.5,
+        "metadata": 0.5
+    },
+    "rerank_weights": {
+        "similarity_weight": 0.85,
+        "popularity_weight": 0.1,
+        "quality_weight": 0.05
+    },
+    "number_of_courses": 24646,
+    "number_of_features": 50000,
+    "evaluation_metrics": {
+        "precision_at_5": 1.0,
+        "recall_at_10": 0.3646304675716441,
+        "mrr": 1.0,
+        "ndcg_at_10": 0.9610573091978746
+    },
+    "creation_timestamp_utc": "2026-07-27T18:45:14.131997+00:00",
+    "required_packages": {
+        "pandas": "2.2.3",
+        "numpy": "2.2.3",
+        "scikit_learn": "1.6.1",
+        "scipy": "1.15.2",
+        "joblib": "1.4.2"
+    }
+}

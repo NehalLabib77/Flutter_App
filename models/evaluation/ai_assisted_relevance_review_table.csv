@@ -1,0 +1,667 @@
+query,course_id,course_name,relevance_grade,explanation,confidence,judgment_source,human_reviewed_grade,human_notes,review_status
+beginner Python programming,21304,Python Programming for Begineers,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,20980,Python Programming in 5 Hours,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,19709,Python Programming For Everyone,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,22170,The Python Programming For Everyone Immersive Training,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,20238,Programming with Python,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+beginner Python programming,18965,2022-Master in Core Python Programming in 99Days,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+beginner Python programming,22,Using Python to Interact with the Operating System,2,title matches=1; skills matches=2; level match=Beginner Level,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,43,Crash Course on Python,3,title matches=1; skills matches=2; description matches=2; level match=Beginner Level,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,332,Python Basics for Data Science,3,title matches=1; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,390,Introdução à Ciência da Computação com Python Parte 1,3,title matches=1; skills matches=2; description matches=1; level match=Beginner Level,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,401,DevOps and Software Engineering,2,skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,492,Quantitative Methods for Biology,2,skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,84,Programming for Everybody (Getting Started with Python),3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,126,Computing in Python I: Fundamentals and Procedural Programming,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,308,CS50's Introduction to Programming with Python,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,325,CS50's Web Programming with Python and JavaScript,3,title matches=2; skills matches=2; description matches=1,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,457,Programming for Everybody (Getting Started with Python),3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+beginner Python programming,619,Teach teens computing: Programming in Python,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,21080,Learn Pro Advanced Python Programming,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,19648,Learn Advanced Python Programming,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,19553,Learn Advanced Python Programming in 2022,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,19888,Python Programming/Script/OOP/Advanced for Python Projects,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,22438,TOTAL Python: Become an Advanced Python Developer in 16 days,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,22482,Complete Python Programming-Python Basics to Advanced Python,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,839,Modeling and Simulation of Multibody Systems - Part I,2,skills matches=2; description matches=1; level match=Advanced,0.93,AI-assisted,,,needs_human_review
+advanced Python automation,1477,Full Stack Application Development,2,"skills matches=2; description matches=1; level match=Introductory, Intermediate, Advanced",0.93,AI-assisted,,,needs_human_review
+advanced Python automation,1572,Applied Tiny Machine Learning (TinyML) for Scale,2,"skills matches=1; description matches=1; level match=Intermediate, Advanced",0.77,AI-assisted,,,needs_human_review
+advanced Python automation,1628,Data Engineering Foundations,2,"skills matches=2; description matches=2; level match=Introductory, Advanced",0.95,AI-assisted,,,needs_human_review
+advanced Python automation,1784,Rust Programming,2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+advanced Python automation,1906,Software Defined Networking (SDN),2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+advanced Python automation,13371,Advanced Automation Frameworks and Continuous Integration,3,title matches=2; skills matches=3; description matches=3; level match=Advanced,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,7855,Python for Serverless Applications and Automation on AWS,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,9166,Juniper Networks Automation Using Python and PyEZ,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,13517,Advanced Selenium WebDriver and Test Automation,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,16391,Google IT Automation with Python,3,title matches=2; skills matches=2,0.95,AI-assisted,,,needs_human_review
+advanced Python automation,24360,Automation and Scripting with Python,3,title matches=2; skills matches=2,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,7325,Data Analysis with Pandas and Python,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,21775,Complete Data Analysis with Pandas : Hands-on Pandas Python,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,19341,Pandas Masterclass 2022: Advanced Data Analysis with Pandas,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,16693,Python for Data Science and AI,3,title matches=2; skills matches=4,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,18542,Pandas with Python for Data Science,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,19020,Python for Data Science and Data Analysis,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,205,Python for Data Science,3,title matches=2; skills matches=4; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,227,Analyzing Data with Python,3,title matches=3; skills matches=4; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,327,Introduction to Data Science with Python,3,title matches=3; skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,332,Python Basics for Data Science,3,title matches=2; skills matches=3; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,398,Applied Data Science with Python Specialization,3,title matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,474,Data Engineering Fundamentals,3,title matches=1; skills matches=3; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,6738,Foundations of Data Analysis with Pandas and Python,3,title matches=5; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,7064,Exploratory Data Analysis With Python and Pandas,3,title matches=5; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,6496,Data Analysis in Python: Using Pandas DataFrames,3,title matches=4; skills matches=4; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,3869,Mastering Data Analysis with Pandas,3,title matches=4; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+Python data analysis with pandas,45,Los bits y bytes de las redes informáticas,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+Python data analysis with pandas,50,The Bits and Bytes of Computer Networking,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+machine learning with Python,7463,Bayesian Machine Learning in Python: A/B Testing,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,18582,Fundamentals of Machine Learning with Python Implementation.,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,19263,Data Science A-Z : Machine Learning with Python & R,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,20500,Machine Learning with Python from Scratch,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,22946,Machine Learning & Deep Learning in Python & R,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,20125,Clustering & Classification With Machine Learning In Python,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,88,Statistical Learning with Python,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,100,Machine Learning with Python: A Practical Introduction,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,124,SQL for Data Science,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,154,Statistical Learning with R,3,title matches=2; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,205,Python for Data Science,3,title matches=1; skills matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,227,Analyzing Data with Python,3,title matches=2; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,653,Machine learning with Python for finance professionals,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,4980,Machine Learning for Accounting with Python,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,5784,Build a Machine Learning Web App with Streamlit and Python,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,8745,Machine Learning: Random Forest with Python from Scratch©,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,24243,Machine Learning: Theory and Hands-on Practice with Python,3,title matches=4; skills matches=3,0.95,AI-assisted,,,needs_human_review
+machine learning with Python,42,IBM DevOps and Software Engineering Professional Certificate,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,22593,Deep Learning with TensorFlow 2.0 [2022],3,title matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,19950,Deep Learning with TensorFlow,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,19448,TensorFlow 101: Introduction to Deep Learning,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,20495,TensorFlow and the Google Cloud ML Engine for Deep Learning,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,20981,Tensorflow and Keras For Neural Networks and Deep Learning,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,18391,Machine Learning & Tensorflow - Google Cloud Approach,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,396,AI Fundamentals for Non-Data Scientists,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,491,Deploying TinyML,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,583,Tiny Machine Learning (TinyML),3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,644,Deep Learning,3,title matches=2; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,659,Deep Learning with TensorFlow,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,955,Machine Learning at the Edge on Arm: A Practical Introduction,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,2293,Probabilistic Deep Learning with TensorFlow 2,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,16461,Deep Learning - Artificial Neural Networks with TensorFlow,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,16484,Deep Learning: Convolutional Neural Networks with TensorFlow,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,23442,Building Deep Learning Models with TensorFlow,3,title matches=4; skills matches=3,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,24272,"IBM Deep Learning with PyTorch, Keras and Tensorflow",3,title matches=4; skills matches=3,0.95,AI-assisted,,,needs_human_review
+deep learning with TensorFlow,40,Technical Support Fundamentals,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+data science with visualization,20732,What is Data Science?,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+data science with visualization,21062,The Data Science MicroDegree: Data Analysis & Visualization,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,22635,Careers in Data Science A-Z™,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+data science with visualization,18955,Data science with R: tidyverse,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,18831,Data Science:Hands-on Covid-19 Data Analysis & Visualization,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,20544,SQL for Tech and Data Science Interviews,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+data science with visualization,66,Applied Data Analysis and Visualisation for Business,3,title matches=1; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,108,High-Dimensional Data Analysis,3,title matches=1; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,181,CS50's Introduction to Programming with R,3,title matches=1; skills matches=2; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,186,Linear Algebra - Foundations to Frontiers,3,skills matches=1; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,205,Python for Data Science,3,title matches=2; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,214,Supply Chain Technology and Systems,2,skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,327,Introduction to Data Science with Python,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,351,Data Science: Visualization,3,title matches=3; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,402,Data Analytics and Visualization with Excel and R,3,title matches=3; skills matches=3; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,635,Applied Data Science with R,3,title matches=3; skills matches=3; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+data science with visualization,6566,Data Visualization with Tableau,3,title matches=3; skills matches=2; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+data science with visualization,128,Data Science: Capstone,3,title matches=2; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,23693,Practical Data Science on the AWS Cloud,3,title matches=1; skills matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,23427,Analyze Datasets and Train ML Models using AutoML,3,title matches=1; skills matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,23323,Executive Data Science,3,title matches=1; skills matches=3; subject matches=1; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,19418,Fortran For Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,21626,Elixir for Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,15401,Conducting Exploratory Data Analysis,3,title matches=3; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,15697,Use Tableau for your Data Science Workflow,3,title matches=2; skills matches=4; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,15735,"Fundamentals of AI, Machine Learning, and Python Programming",2,description matches=5; level match=Beginner,0.93,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,242,Case Studies in Functional Genomics,3,skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,332,Python Basics for Data Science,3,title matches=2; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,338,Excel for Beginners,3,title matches=2; skills matches=3; subject matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,348,Statistics and R,3,skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,7066,Exploratory Data Analysis for Machine Learning,3,title matches=4; skills matches=3; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,21709,Perform exploratory data analysis on retail data with Python,3,title matches=4; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,178,Excel for Everyone: Data Analysis Fundamentals,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,430,Data Analysis for Life Sciences,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,1240,Data Analysis for Management,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+exploratory data analysis for beginners,1599,Data Analysis for Genomics,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,19455,Web Development And Javascript Bootcamp,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,18691,JavaScript: Learn Front End Web Development,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,21294,Full JavaScript Masterclass Course: ES6 Modern Development,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+web development with JavaScript,21822,JavaScript Complete Beginners Course For Web Development,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,9588,JavaScript: Understanding the Weird Parts,2,title matches=1; subject matches=2,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,10386,JavaScript Tutorial,2,title matches=1; subject matches=2,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,78,Web Design for Everybody: Basics of Web Development & Coding Specialization,3,title matches=2; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,82,"HTML, CSS, and Javascript for Web Developers",3,title matches=2; subject matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,149,Developing Front End Apps with React,3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,194,Full Stack Application Development Project,3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,283,Back-end Application Development with Node.js and Express,3,title matches=2; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,305,CS50's Introduction to Computer Science,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,358,"Introduction to Web Development with HTML5, CSS3, and JavaScript.",3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,2656,"Introduction to Web Development with HTML, CSS, JavaScript",3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,3604,Web Application Development with JavaScript and MongoDB,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,24299,Web Application Development with JavaScript and MongoDB,3,title matches=4; skills matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,456,"Programming Foundations with JavaScript, HTML and CSS",3,title matches=2; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+web development with JavaScript,9446,"Complete Web Development with HTML, CSS and Javascript",3,title matches=4; subject matches=2,0.95,AI-assisted,,,needs_human_review
+React front-end development,22619,CSS - Basics to Adv for front end development [2022],3,title matches=3,0.95,AI-assisted,,,needs_human_review
+React front-end development,7966,Learn Elementor - WordPress Front-End Development Course,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+React front-end development,22534,React For The Rest Of Us,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+React front-end development,19907,Complete back end development with NodeJS with projects,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+React front-end development,23011,NestJS Zero to Hero - Modern TypeScript Back-end Development,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+React front-end development,9420,React for visual learners,2,title matches=1; subject matches=1,0.85,AI-assisted,,,needs_human_review
+React front-end development,149,Developing Front End Apps with React,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,194,Full Stack Application Development Project,3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,283,Back-end Application Development with Node.js and Express,3,title matches=2; skills matches=4; description matches=1,0.95,AI-assisted,,,needs_human_review
+React front-end development,496,Operating Systems and Security,2,description matches=4,0.77,AI-assisted,,,needs_human_review
+React front-end development,1477,Full Stack Application Development,3,title matches=1; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,1478,Full Stack Developer,3,skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,15996,Frontend Development with React,3,title matches=4; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,2884,Introduction to Front-End Development,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,6416,Front-End Development Capstone Project,3,title matches=3; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+React front-end development,6731,Developing Front-End Apps with React,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+React front-end development,3078,Intermediate Web and Front-End Development,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+React front-end development,28,Computer Security and Systems Management Specialization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+mobile app development with Flutter,21432,Mobile App Development with PhoneGap,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,19581,Mobile App Development with Flutter & Dart (iOS and Android),3,title matches=5,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,21107,React native Expo for multiplatform mobile app development,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,20073,"Mobile App Development for Beginners (Swift 3, iPhone iOS10)",3,title matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,24580,Full Stack Web and Multiplatform Mobile App Development,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,18975,Mobile App Testing: Key Instruments and Practices,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+mobile app development with Flutter,2800,Introduction to Mobile App Development,3,title matches=3; skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,3504,Getting started with Flutter Development,3,title matches=3; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,6909,"Flutter and Dart: Developing iOS, Android, and Mobile Apps",3,title matches=3; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,8519,"Mobile App Notifications, Databases, & Publishing",3,title matches=2; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,8520,Mobile App Development Capstone Project,3,title matches=3; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,10220,Implementing Page Navigation in a Flutter Application,3,title matches=2; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,24215,Developing Mobile Apps with Flutter,3,title matches=4; skills matches=4,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,15387,Working with Onscreen Data in a Flutter Application,3,title matches=3; skills matches=4; description matches=2,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,24204,Developing Mobile Apps with React Native,3,title matches=3; skills matches=4,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,2658,Introduction to iOS App Development with Swift 5,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+mobile app development with Flutter,43,Crash Course on Python,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+mobile app development with Flutter,46,Estrutura e Funcionamento das Redes de Computadores,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+Android app development with Kotlin,20821,Android App Development with Kotlin | Beginner to Advanced,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,19026,Android App Development with Kotlin - Learn Best Skill 2022+,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,20872,State of the Art Android App Development in Kotlin 2022,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,19521,Intermediate Android Development and Kotlin,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,21372,Modern Android App Development Bootcamp With Kotlin 2020,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,19966,Android P& Kotlin -Complete Android App Development Bootcamp,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,2366,Working with Data in Android,3,title matches=2; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,2580,Kotlin for Java Developers,3,title matches=1; skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,2800,Introduction to Mobile App Development,3,title matches=2; skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,5504,Android App Capstone,3,title matches=2; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,6349,Create the User Interface in Android Studio,3,title matches=1; skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,13482,Advanced Programming in Kotlin,3,title matches=1; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,3551,Get Started with Android App Development,3,title matches=4; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,2992,Introduction to Android Mobile Application Development,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,13398,Advanced App Development in Android Capstone,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,16670,Developing Android Apps with App Inventor,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,18785,Kotlin for Android Development : Develop an App with Kotlin,3,title matches=5,0.95,AI-assisted,,,needs_human_review
+Android app development with Kotlin,43,Crash Course on Python,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,23090,Learn Python & Ethical Hacking From Scratch,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,8042,Build Undetectable Malware Using C Language: Ethical Hacking,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,10862,The Complete Ethical Hacking Course 2.0: Python & Kali Linux,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,20130,Hacking the Bootcamp,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,7024,Ethical Hacking Fundamentals,3,title matches=2; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,17532,Ethical Hacking,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,322,CS50's Introduction to Cybersecurity,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,690,Introducción a la ciberseguridad,3,skills matches=4; description matches=2,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,1584,Cybersecurity Essentials,3,title matches=1; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,2582,Kali Linux,3,skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,2840,Introduction to IT Security,2,skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,4348,Technical Deep Dive with Incident Response Tools,2,description matches=4,0.77,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,7023,Ethical Hacking Foundations,3,title matches=2; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,10004,Intermediate Ethical Hacking Hands-on Training,3,title matches=3; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,361,Cybersecurity Basics: Tools and Cyberattacks,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,557,Cybersecurity Compliance and Framework,3,title matches=2; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,1337,Cybersecurity Risk and Strategy,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+cybersecurity and ethical hacking,1349,البدء باستخدام برنامج packet tracer,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+network security certification,20310,Flowgear Technical Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+network security certification,19714,Introduction to Docker and the DCA Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+network security certification,17178,Enhanced Network Security Approach on Google Cloud,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+network security certification,23736,Cybersecurity Fundamentals,2,title matches=1; skills matches=2,0.95,AI-assisted,,,needs_human_review
+network security certification,22088,Kubernetes On The Cloud & The CNCF CKA Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+network security certification,23652,CompTIA a+_ network,2,title matches=1; skills matches=2,0.95,AI-assisted,,,needs_human_review
+network security certification,37,Oracle Cloud Infrastructure Foundations,2,skills matches=2; description matches=3; certification match=Shareable Certificate,0.95,AI-assisted,,,needs_human_review
+network security certification,202,AWS Cloud Practitioner Essentials,2,description matches=3; certification match=Unknown,0.77,AI-assisted,,,needs_human_review
+network security certification,890,IT Support Case Studies,1,description matches=3,0.69,AI-assisted,,,needs_human_review
+network security certification,1361,Ethical Hacking Essentials (EHE),1,description matches=3,0.69,AI-assisted,,,needs_human_review
+network security certification,1397,Digital Forensics Essentials (DFE),1,description matches=3,0.69,AI-assisted,,,needs_human_review
+network security certification,1399,Network Defense Essentials (NDE),2,title matches=1; description matches=3,0.93,AI-assisted,,,needs_human_review
+network security certification,64,Fundamentals of Computer Network Security Specialization,3,title matches=2; subject matches=2; description matches=2; certification match=Shareable Certificate,0.95,AI-assisted,,,needs_human_review
+network security certification,638,Network Security,3,title matches=2; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+network security certification,2185,Networking and Security in iOS Applications,3,title matches=2; skills matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+network security certification,2188,Networking and Security Architecture with VMware NSX,3,title matches=2; skills matches=2; description matches=3; certification match=COURSE,0.95,AI-assisted,,,needs_human_review
+network security certification,2216,Network Security,3,title matches=2; skills matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+network security certification,2217,Network Security,3,title matches=2; skills matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,52,AWS Cloud Technical Essentials,3,title matches=2; skills matches=3; subject matches=2; description matches=3; certification match=Shareable Certificate,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,16508,AWS Fundamentals,3,title matches=1; skills matches=3,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,21875,Cloud Computing Concepts,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+cloud computing with AWS,18459,Cloud Computing with IBM Bluemix,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,20896,Cloud Computing and Amazon Web Services (AWS) Fundamentals,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,16915,AWS Fundamentals: Going Cloud-Native,3,title matches=2; skills matches=3,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,95,Introduction to Cloud Computing,3,title matches=2; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,202,AWS Cloud Practitioner Essentials,3,title matches=2; skills matches=3; description matches=4; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,215,AWS Cloud Technical Essentials,3,title matches=2; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,429,Cloud and Application Development Foundations,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,601,Cloud Native Foundations,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,683,Introduction to AWS Cloud Careers,3,title matches=2; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,10897,Getting Started with AWS CloudFormation,3,title matches=3; skills matches=3; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,1737,Starting your Career with AWS Cloud,3,title matches=3; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,6164,Configuring your IDE for absolute beginners with AWS Cloud9,3,title matches=3; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,8295,Orchestrating the Cloud with Kubernetes (AWS),3,title matches=3; skills matches=2; description matches=1,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,15095,Cloud Computing Essentials with Azure Management,3,title matches=3; skills matches=2; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+cloud computing with AWS,43,Crash Course on Python,2,certification match=Shareable Certificate,0.53,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,20310,Flowgear Technical Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,16398,Cloud Architecture with Google Cloud,3,title matches=3; skills matches=3; certification match=PROFESSIONAL CERTIFICATE,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,22088,Kubernetes On The Cloud & The CNCF CKA Certification,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,4335,Tencent Cloud Solutions Architect Associate,2,title matches=1; skills matches=1; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,451,Preparing for Google Cloud Certification: Cloud Architect Professional Certificate,3,title matches=3; subject matches=1; description matches=3; certification match=Shareable Certificate,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,19714,Introduction to Docker and the DCA Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,3729,Preparing for your Professional Cloud Architect Journey,3,title matches=1; skills matches=3; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,3732,Preparing for your Professional Data Engineer Journey,3,skills matches=3; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,3769,Preparing for Your Professional Cloud Security Engineer Journey,3,title matches=1; skills matches=3; description matches=4; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,6174,Connecter et protéger : réseaux et sécurité des réseaux,3,skills matches=2; description matches=4; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,16421,"Database, Big Data, and DevOps Services in GCP",2,skills matches=1; description matches=4; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,16519,Deploying SAP on Google Cloud,3,title matches=2; description matches=4; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,8385,Networking in Google Cloud: Network Architecture,3,title matches=3; skills matches=3; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,23765,Preparing for Google Cloud Certification: Cloud Network Engineer,3,title matches=3; skills matches=3,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,23766,Preparing for Google Cloud Certification: Cloud Developer,3,title matches=3; skills matches=3,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,23771,Preparing for Google Cloud Certification: Cloud Security Engineer,3,title matches=3; skills matches=3; certification match=Professional Certificate,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,23775,Preparing for Google Cloud Certification: Cloud Data Engineer,3,title matches=3; skills matches=3; certification match=Professional Certificate,0.95,AI-assisted,,,needs_human_review
+Google Cloud architecture certification,27,Entrepreneurial Finance,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+SQL database design for beginners,18850,SQL Database for Beginners,3,title matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,7761,MySQL Database Administration: Beginner SQL Database Design,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,7708,The Complete Database Design & Modeling Beginners Tutorial,3,title matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,7510,SQL & Database Design A-Z™: Learn MS SQL Server + PostgreSQL,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,21531,Basics of Database Design & Development,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+SQL database design for beginners,22792,Database Design,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+SQL database design for beginners,2273,Snowflake for Beginners: Make your First Snowsight Dashboard,3,title matches=2; skills matches=1; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,4755,Oracle SQL Practice Course,3,title matches=1; skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,4807,Oracle Database Foundations,3,title matches=1; skills matches=2; description matches=5; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,5834,Building Services with ASP.NET Web API,2,skills matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,7615,SQLServer for Beginners: Database Design & CRUD Operations,3,title matches=5; skills matches=2; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,7824,REST APIs with Flask and Python in 2024,3,skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,4352,SQL: A Practical Introduction for Querying Databases,3,title matches=3; skills matches=4; subject matches=1; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,979,Database Design and Basic SQL in PostgreSQL,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,2025,Computer Science for Databases using SQL,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,4674,Migrate to Cloud SQL for PostgreSQL using Database Migration Service,3,title matches=3; skills matches=3; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,6602,Databases and SQL for Data Science with Python,3,title matches=3; skills matches=2; subject matches=1; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+SQL database design for beginners,328,Rhetoric: The Art of Persuasive Writing and Public Speaking,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,19595,Up and Running With PostgreSQL 11,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,20713,Beginner's Guide to PostgreSQL,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,22321,The Complete Python/PostgreSQL Course 2.0,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,24570,Data Engineering on Google Cloud Platform 日本語版,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,8151,Data Engineering using AWS Data Analytics,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,19842,Database modeling with golang & postgresql,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,102,Introduction to SQL,3,skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,422,Data Engineering,3,title matches=2; skills matches=2; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,474,Data Engineering Fundamentals,3,title matches=2; skills matches=2; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,2726,Introduction to Relational Databases (RDBMS),3,title matches=1; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,4352,SQL: A Practical Introduction for Querying Databases,3,title matches=1; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,6519,Data Engineering Capstone Project,3,title matches=2; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,1038,AI Skills for Engineers: Data Engineering and Data Pipelines,3,title matches=2; skills matches=2; subject matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,217,Data Engineering Basics for Everyone,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,626,Python for Data Engineering Project,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,979,Database Design and Basic SQL in PostgreSQL,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,28,Computer Security and Systems Management Specialization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+PostgreSQL data engineering,31,Sistem Operasi dan Anda: Menjadi Pengguna yang Berdaya,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+digital marketing for beginners,22284,Artificial Intelligence in Digital Marketing + Live Class,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,19418,Fortran For Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,21626,Elixir for Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,17188,Marketing Digital,3,title matches=2; skills matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,23244,Introduction to Social Media Marketing,2,title matches=1; skills matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,23149,Digital Analytics for Marketing Professionals: Marketing Analytics in Practice,3,title matches=3; skills matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,3443,Google Ads for Beginners,3,title matches=2; skills matches=2; description matches=1; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,5145,Notion for Beginners: Intro to AI Marketing Template Mastery,3,title matches=3; skills matches=2; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,5630,Automated Report Generation with Generative AI,2,description matches=4; level match=Beginner,0.85,AI-assisted,,,needs_human_review
+digital marketing for beginners,6342,Create corporate Newsletters with Canva,2,skills matches=2; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,6768,Digital Marketing Trends,3,title matches=2; skills matches=1; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,7480,Sell a product or a service with Canva,2,skills matches=2; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,1220,Oxford Digital Marketing: Disruptive Strategy Programme,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,15830,Transformação Digital: Marketing na Era dos Dados,3,title matches=3; skills matches=3; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,63,Copywriting for Digital Marketing,3,title matches=3; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,23155,Digital Analytics for Marketing Professionals: Marketing Analytics in Theory,3,title matches=3; skills matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+digital marketing for beginners,59,Client Needs and Software Requirements,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+digital marketing for beginners,76,Game Design and Development with Unity 2020 Specialization,2,level match=Beginner Level,0.53,AI-assisted,,,needs_human_review
+social media marketing analytics,17188,Marketing Digital,3,title matches=1; skills matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,23348,Social Media Marketing,3,title matches=3; skills matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,23244,Introduction to Social Media Marketing,3,title matches=3; skills matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,20314,Meta Social Media Marketing,3,title matches=3; skills matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,17039,Marketing con Redes Sociales,3,title matches=2; skills matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,24054,"Concepts, Strategies, and Analytics in Performance Marketing and Digital Advertising",3,title matches=2; skills matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,63,Copywriting for Digital Marketing,3,title matches=1; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,107,Online Advertising & Social Media,3,title matches=2; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,488,Marketing digital y sus análisis basado en datos,3,title matches=1; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,612,Marketing digital y redes sociales,3,title matches=2; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,654,Fundamentos del marketing digital,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,742,Habilidades cuantitativas esenciales en economía y estadística,3,skills matches=4; description matches=1,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,2110,Measure and Optimize Social Media Marketing Campaigns,3,title matches=3; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,2710,Introduction to Social Media Analytics,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,3317,Hotel Digital Marketing and Social Media Strategy,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,1162,Social Media Marketing,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+social media marketing analytics,26,Strategies for Supply Chain Digitalization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+social media marketing analytics,30,(ISC)² Systems Security Certified Practitioner (SSCP),0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+business analytics for decision making,23352,Business Analytics,3,title matches=2; skills matches=4; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,24241,Analytics for Decision Making,3,title matches=4; skills matches=5; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,21352,MySQL - Statistics for Data Science & Business Analytics,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,23052,Statistics for Business Analytics and Data Science A-Z™,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,24195,Practical Guide to Navigating Professional Relationships,3,skills matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,5864,Business Analytics for Decision Making,3,title matches=5; skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,107,Online Advertising & Social Media,3,skills matches=4; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,151,Digital Marketing Analytics: Tools and Techniques,3,title matches=1; skills matches=5; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,241,Data Analytics for Business,3,title matches=3; skills matches=5; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,249,Foundations of Modern Finance II,3,skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,271,Real Estate Financial Analytics,3,title matches=1; skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,353,Supply Chain Analytics.,3,title matches=1; skills matches=2; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,1702,Business Analytics Fundamentals for Data Driven Decisions,3,title matches=4; skills matches=4; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,916,Sport Analytics: Data Driven Decision Making,3,title matches=3; skills matches=5; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,578,Analytics for Decision Making,3,title matches=4; skills matches=3; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,1035,Accounting for Decision-Making,3,title matches=3; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+business analytics for decision making,57,Real-World Product Management Specialization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+business analytics for decision making,74,Virtual Reality Specialization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+business strategy and management,14510,賽局與產業競爭策略 (Game Theory and Business Strategy),3,title matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,17268,Business Model Innovation,3,title matches=1; skills matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,23284,Strategic Management and Innovation,3,title matches=2; skills matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business strategy and management,12733,Forex - Top Equity Management Strategy,3,title matches=2; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business strategy and management,12885,Strategy layout and Backtesting,3,title matches=2; subject matches=1,0.95,AI-assisted,,,needs_human_review
+business strategy and management,213,Strategic Management,3,title matches=1; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+business strategy and management,24,The Leader as Coach,3,skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+business strategy and management,25,CRISPR: Gene-editing Applications,3,skills matches=4; description matches=2,0.95,AI-assisted,,,needs_human_review
+business strategy and management,26,Strategies for Supply Chain Digitalization,3,skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+business strategy and management,66,Applied Data Analysis and Visualisation for Business,3,title matches=2; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,69,Decision Making,3,skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,89,Financial Accounting and Analysis,3,title matches=1; skills matches=4; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,331,Sustainable Fashion: Brand and Business Strategy Program,3,title matches=3; skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+business strategy and management,209,Management in Engineering: Strategy and Leadership,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,904,Digital transformation as a business and innovation strategy,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,1299,Small Business: Growth and Management,3,title matches=3; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+business strategy and management,1513,Bachelor of Science in Business and Management,3,title matches=3; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+business strategy and management,145,Introduction to Human Resources (HR) leadership and HR management strategies,3,title matches=2; skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+finance for managers,12632,Essential Finance For Managers,3,title matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+finance for managers,12554,Business Accounts For Managers,3,title matches=2; subject matches=1,0.95,AI-assisted,,,needs_human_review
+finance for managers,13576,MBA Accounting and Finance for Managers(Paper MS04 of IGNOU),3,title matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+finance for managers,12672,Accounting Skills for Managers,3,title matches=2; subject matches=1,0.95,AI-assisted,,,needs_human_review
+finance for managers,23085,"Understanding Jira for users, managers and admins",2,title matches=2,0.93,AI-assisted,,,needs_human_review
+finance for managers,13418,Practical Finance,2,title matches=1; subject matches=1,0.85,AI-assisted,,,needs_human_review
+finance for managers,132,Public Sector Financial Reporting,2,skills matches=1; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+finance for managers,207,Corporate Finance,3,title matches=1; skills matches=1; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+finance for managers,239,Cost and Management Accounting,2,skills matches=1; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+finance for managers,254,Agile Project Management,2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+finance for managers,255,Blockchain and the Future of Finance,3,title matches=1; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+finance for managers,257,Economics for Business,2,title matches=1; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+finance for managers,653,Machine learning with Python for finance professionals,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+finance for managers,1222,Oxford Entrepreneurship: Venture Finance Programme,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+finance for managers,1287,Oxford Executive Finance Programme,3,title matches=2; skills matches=2; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+finance for managers,1665,FinTech for Finance and Business Leaders,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+finance for managers,4702,Reinforcement Learning in Finance,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+finance for managers,3569,Finance for Non-Financial Managers,3,title matches=3; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,13870,Advanced Accounting for Investment Banking,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,13390,Coaching Course:Investment Analysis for your clients,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,13384,ChalkTalk: Financial Accounting,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,12537,Financial Accounting For Beginners,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,23584,Finance for Technical Managers,3,skills matches=5,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,16906,Value Chain Management,2,skills matches=3,0.93,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,183,Trading - Fundamentals of Technical Analysis,3,title matches=1; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,203,Essential Career Skills for Investment Banking and Finance,3,title matches=2; skills matches=5; description matches=3,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,207,Corporate Finance,3,skills matches=5; description matches=3,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,218,Financial Market Analysis,3,title matches=2; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,232,Foundations of Corporate Finance,3,skills matches=4; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,249,Foundations of Modern Finance II,3,skills matches=5; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,89,Financial Accounting and Analysis,3,title matches=4; skills matches=4; description matches=3,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,2639,Investment Banking: Financial Analysis and Valuation,3,title matches=4; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,1034,Financial Analysis of Insurance Companies – Industry Overview and Analysis of Financial and Regulatory Reporting,3,title matches=3; skills matches=5; description matches=5,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,1247,Commercial Real Estate Analysis and Investment,3,title matches=3; skills matches=5; description matches=4,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,1257,Financial Modelling and Analysis,3,title matches=3; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+financial accounting and investment analysis,350,Financial Analysis and Management Accounting,3,title matches=4; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+project management certification,20310,Flowgear Technical Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+project management certification,13965,Apply finance concepts for smart project management,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+project management certification,19714,Introduction to Docker and the DCA Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+project management certification,23280,Product Management Certification,3,title matches=2; skills matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+project management certification,13276,Introduction to Project Management for Finance and Acct'g,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+project management certification,17595,Effective Communication for Project Stakeholders and Teams,2,title matches=1; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+project management certification,26,Strategies for Supply Chain Digitalization,2,skills matches=1; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+project management certification,138,Applied Scrum for Agile Project Management,3,title matches=2; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+project management certification,153,A Complete Guide to Game Design,2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+project management certification,222,MATLAB Essentials,2,skills matches=1; description matches=2; certification match=Unknown,0.85,AI-assisted,,,needs_human_review
+project management certification,254,Agile Project Management,3,title matches=2; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+project management certification,275,Agile Leadership Principles and Practices,3,skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+project management certification,1484,Fundamentals of Project Management,3,title matches=2; skills matches=3; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+project management certification,1561,"Project Management Professional (PMP) Exam Prep Training- Crystalizing Methods, Terminology and Techniques.",3,title matches=2; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+project management certification,10621,Guide™ to Project Management and PMI-PMP Certification Exam,3,title matches=3; skills matches=2; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+project management certification,150,Strategic Project Management,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+project management certification,33,IT Support Google Professional Certificate,2,certification match=Shareable Certificate,0.53,AI-assisted,,,needs_human_review
+project management certification,36,Palo Alto Networks Cybersecurity Professional Certificate,2,certification match=Shareable Certificate,0.53,AI-assisted,,,needs_human_review
+agile project management for beginners,20462,Jira Agile Project Management for Beginners-Bonus Confluence,3,title matches=5; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,22543,The Complete JIRA Agile Project Management Course,3,title matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,19653,Creating and Running an Agile Project in JIRA,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+agile project management for beginners,23343,Software Product Management,3,title matches=1; skills matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,22332,Google Agile Essentials,3,title matches=1; skills matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,19418,Fortran For Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,401,DevOps and Software Engineering,3,skills matches=2; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,2702,Introduction to Scrum Master Training,3,skills matches=3; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,3987,Trello for Beginners,3,title matches=2; skills matches=3; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,4216,Scrum Master Certification Practice,3,skills matches=3; description matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,4218,Scrum Master Certification Exam Preparation,3,skills matches=3; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,6282,Create User Stories in Jira,3,skills matches=3; description matches=5; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,138,Applied Scrum for Agile Project Management,3,title matches=4; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,254,Agile Project Management,3,title matches=3; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,1313,Agile Project Management,3,title matches=3; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,8272,PM4R Agile: 5 steps for hybrid management of projects,3,title matches=4; skills matches=3; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,13590,Agile Masterclass: Agile for Project Management,3,title matches=4; skills matches=3; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+agile project management for beginners,320,Data Science and Agile Systems for Product Management,3,title matches=3; skills matches=3; subject matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,12018,誰でもわかる Adobe Photoshop CS5,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,12142,Adobe Photoshop Essentials: Master Adobe Photoshop CS6,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,11904,An Easy Introduction to Adobe Photoshop,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,12234,Adobe Photoshop pentru Social Media,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,12064,Master Adobe Photoshop Lightroom CC - From Beginner to Advan,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,12015,Uso Básico de Adobe Photoshop,3,title matches=2; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,3417,Graphic Design,3,title matches=2; skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,3774,"User Interface Design: Principles, Prototyping, Practices",3,title matches=1; skills matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,3937,"UX Design: Research, Prototyping, Accessible Interactions",3,title matches=1; skills matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,4222,Low Poly Art For Video Games,3,skills matches=4; description matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,4304,Pixel Art for Video Games,3,skills matches=4; description matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,5348,Adobe Photoshop for Beginners: Generative AI Images,3,title matches=2; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,18309,3D Models with Adobe Photoshop: Design a Pickleball Paddle,3,title matches=4; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,10419,How to Create Realistic Reflections with Adobe Photoshop,3,title matches=3; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,17506,Adobe Graphic Designer,3,title matches=3; skills matches=4,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,11706,Master Graphic Design Using Photoshop with Rachael,3,title matches=4; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,11923,The Business Graphic Design with Photoshop & Illustrator,3,title matches=4; subject matches=2,0.95,AI-assisted,,,needs_human_review
+graphic design with Adobe Photoshop,1164,Graphic Design,3,title matches=2; skills matches=3; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,21642,"UI&UX Design , Animation And Material design In Javafx",3,title matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,21536,UI UX Design Hybrid from Figma to HTML CSS and JavaScript,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,11885,Mobile App Design in Photoshop from Scratch - UI & UX DESIGN,3,title matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,20779,UX Design- From Beginner to Professional UX Designer: 4-in-1,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+UI UX design portfolio,12100,Learn UI/UX and Mobile App Design in Photoshop from Scratch,3,title matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,8137,"iOS 12 & Swift 5 - App Design, UI/UX plus Development",3,title matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,72,Build Wireframes and Low-Fidelity Prototypes,3,title matches=1; skills matches=2; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,98,Design a User Experience for Social Good & Prepare for Jobs,3,title matches=1; skills matches=2; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,122,Introduction to Data Wise: A Collaborative Process to Improve Learning & Teaching,3,skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,149,Developing Front End Apps with React,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,283,Back-end Application Development with Node.js and Express,3,skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,299,Git and GitHub Basics,3,skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,2318,Principles of UX/UI Design,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,6710,Designing User Interfaces and Experiences (UI/UX),3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,8048,Product Design and UX/UI Fundamentals,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,10040,Interaction Design and UX/UI Principles,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,14454,UI/UX Design with Sketch: Travel Booking App,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+UI UX design portfolio,15207,Fundamentals of UI/UX Design,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,19904,Linear Algebra and Feature Selection in Python,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,23583,Expressway to Data Science: Essential Math,2,skills matches=3,0.93,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,23465,Linear Algebra from Elementary to Advanced,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,17308,Mathematics for Data Science,3,title matches=1; skills matches=3,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,8287,Complete Linear Algebra for Data Science & Machine Learning,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,23562,Mathematics for Engineers,3,title matches=2; skills matches=3,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,3,Matrix Algebra for Engineers,3,title matches=3; skills matches=3; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,1575,Mastering Calculus,3,title matches=1; skills matches=5; description matches=6,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,1635,Mastering Probability and Statistics,3,title matches=1; skills matches=2; description matches=6,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,1736,Mastering Linear Algebra,3,title matches=2; skills matches=5; description matches=6,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,2069,Numerical Methods for Engineers,3,title matches=2; skills matches=4; description matches=6,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,2446,Linear Algebra for Machine Learning and Data Science,3,title matches=4; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,2195,Mathematics for Machine Learning: Linear Algebra,3,title matches=3; skills matches=4; subject matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,195,Introduction to Linear Models and Matrix Algebra,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,785,Linear Algebra I: Vectors and Linear Equations,3,title matches=3; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,1001,Linear Algebra III: Determinants and Eigenvalues,3,title matches=3; skills matches=4; description matches=5,0.95,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,2467,Lesson | Telephone Language,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+calculus and linear algebra for engineers,4191,The Intel® AI Value,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+statistics and probability for data science,24599,Introduction to Probability and Data,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,8093,Probability for Statistics and Data Science,3,title matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,22944,Probability and Statistics for Business and Data Science,3,title matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,23633,Data Science Foundations: Statistical Inference,3,title matches=2; skills matches=3; subject matches=1,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,20732,What is Data Science?,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+statistics and probability for data science,388,Introduction to Probability and Data with R,3,title matches=3; skills matches=4; subject matches=1; description matches=5,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,94,Data Science: Probability,3,title matches=3; skills matches=5; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,110,Data Science: Inference and Modeling,3,title matches=3; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,128,Data Science: Capstone,3,title matches=2; skills matches=5; subject matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,243,"Statistics 1 Part 1: Introductory statistics, probability and estimation",3,title matches=3; skills matches=5; subject matches=2; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,335,Data Science: R Basics,3,title matches=2; skills matches=5; subject matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,363,Introduction to Probability,3,title matches=1; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,606,Probability and Statistics in Data Science using Python,3,title matches=5; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,1505,Python for Data Science and Machine Learning,3,title matches=4; skills matches=6; subject matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,1516,Statistics and Data Science (General Track),3,title matches=4; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,1517,Statistics and Data Science (Methods Track),3,title matches=4; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,1519,Statistics and Data Science (Social Sciences Track),3,title matches=4; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+statistics and probability for data science,1522,Statistics and Data Science (Time Series and Social Sciences Track),3,title matches=4; skills matches=6; subject matches=3; description matches=6,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,16629,Learn Spanish: Basic Spanish Vocabulary,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,19418,Fortran For Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,21626,Elixir for Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,8696,Webflow For Beginners: How To Use Webflow,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,21648,SoftwareAG webMethods Integration (OnPremise) for Beginners,2,title matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,19310,Clojure Fundamentals For Beginners,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+learn Spanish for beginners,248,Basic Spanish 2: One Step Further,3,title matches=1; skills matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,599,Basic Spanish 3: Getting there,3,title matches=1; skills matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,761,A travel by Spanish America: Spanish for beginners,3,title matches=3; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,1761,Learn Spanish: Basic Spanish Vocabulary,3,title matches=2; skills matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,103,Français élémentaire 1,1,description matches=3,0.69,AI-assisted,,,needs_human_review
+learn Spanish for beginners,120,C Programming: Getting Started,2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+learn Spanish for beginners,2195,Mathematics for Machine Learning: Linear Algebra,3,title matches=2; skills matches=2; subject matches=1; description matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,2253,Machine Learning Foundations for Product Managers,3,title matches=2; skills matches=2; subject matches=1; description matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,4702,Reinforcement Learning in Finance,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,4744,Microsoft Azure Machine Learning for Data Scientists,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,6633,Deep Learning and Reinforcement Learning,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+learn Spanish for beginners,23231,Machine Learning and Reinforcement Learning in Finance,3,title matches=2; skills matches=2; subject matches=1,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,23269,Learn English: Advanced Grammar and Punctuation,3,title matches=3; skills matches=2,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,23294,Learn English: Intermediate Grammar,3,title matches=2; skills matches=2,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,23329,Academic English: Writing,2,title matches=1; skills matches=2,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1733,English for Business Networking,3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,23470,Learn English: Beginning Grammar,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+English grammar and vocabulary,3989,Tricky English Grammar,3,title matches=2; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,115,Upper-Intermediate English: Business and Modern Life,3,title matches=2; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,248,Basic Spanish 2: One Step Further,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,268,Upper-Intermediate English: Business and Industry,3,title matches=2; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,510,Upper-Intermediate English,3,title matches=1; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,532,Basic Spanish,3,skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,599,Basic Spanish 3: Getting there,3,skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,362,English Grammar and Style,3,title matches=3; skills matches=2; description matches=2,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1947,English and Soft Skills For Tech Professionals,3,title matches=2; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1346,Analyze Network Traffic with TCPDump,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1351,Networking,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1412,Psicología Criminal,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+English grammar and vocabulary,1385,How to Visualize Research Data in Tableau,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+programming for complete beginners,22549,Programming for Complete Beginners in C#,3,title matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,22409,Full Stack Programming for Complete Beginners in Python,3,title matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,23095,Java Programming for Complete Beginners,3,title matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,19163,Visual Basic .NET Programming for Complete Beginners,3,title matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,20212,Java Programming For Complete Beginners Using Eclipse IDE,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,19066,Python Programming Complete Beginners Course Bootcamp 2022,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,332,Python Basics for Data Science,3,title matches=1; skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,552,Information Technology (IT) Support PC,3,title matches=1; skills matches=1; description matches=4,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,717,"Introduction to Containers, Kubernetes and OpenShift",3,skills matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,2608,JavaScript Programming Essentials,3,title matches=1; skills matches=1; description matches=4; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,2875,Introduction to Generative AI,2,skills matches=1; description matches=3; level match=Beginner,0.93,AI-assisted,,,needs_human_review
+programming for complete beginners,3528,Getting Started with Front-End and Web Development,2,description matches=4; level match=Beginner,0.85,AI-assisted,,,needs_human_review
+programming for complete beginners,5720,Biology Meets Programming: Bioinformatics for Beginners,3,title matches=3; skills matches=2; description matches=2; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,2742,Introduction to R Programming for Data Science,3,title matches=2; skills matches=2; subject matches=1; description matches=3; level match=Beginner,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,3726,Preparing for the SAS Programming Certification Exam,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,3936,Practicing for the SAS Programming Certification Exam,3,title matches=2; skills matches=2; subject matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,19032,JAVA Programming for Beginners - The Complete Course,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+programming for complete beginners,65,Introduction to Networking and Storage,2,level match=Beginner Level,0.53,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,13061,Stock Technical Analysis with Excel,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,12536,Stock Fundamental Analysis with Excel,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,14408,Beginner to Pro - Financial Analysis in Excel 2017,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,12742,Investment Portfolio Analysis with Excel,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,14276,Excel Crash Course: Master Excel for Financial Analysis,2,title matches=2,0.93,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,464,Excel Basics for Data Analysis,3,title matches=3; subject matches=2; description matches=5; level match=Beginner Level,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,66,Applied Data Analysis and Visualisation for Business,3,title matches=2; skills matches=4; description matches=6,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,86,Using Python for Research,3,subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,271,Real Estate Financial Analytics,3,skills matches=4; description matches=6,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,306,Data Visualization and Building Dashboards with Excel and Cognos,3,title matches=3; skills matches=3; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,309,Analyzing Data with Excel,3,title matches=3; skills matches=3; subject matches=2; description matches=6,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,338,Excel for Beginners,3,title matches=1; skills matches=4; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,2926,Introduction to Data Analysis Using Excel,3,title matches=5; skills matches=4; description matches=6,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,388,Introduction to Probability and Data with R,3,title matches=4; skills matches=3; subject matches=2; description matches=4; level match=Beginner Level,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,649,Data Processing and Analysis with Excel,3,title matches=4; skills matches=3; subject matches=2; description matches=5,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,933,Introduction to Transforming with Data Analytics and the Digital Organization,3,title matches=4; skills matches=3; subject matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,1496,Data Analysis Basics with Excel and R,3,title matches=4; skills matches=3; subject matches=2; description matches=4,0.95,AI-assisted,,,needs_human_review
+intro to data analysis with Excel,2925,Introduction to Data Analysis using Microsoft Excel,3,title matches=5; skills matches=3; description matches=5,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,21363,Machine Learning Deep Learning model deployment,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,19009,A to Z (NLP) Machine Learning Model building and Deployment.,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,20874,Testing and Monitoring Machine Learning Model Deployments,3,title matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,21600,Machine Learning From Basic to Advanced,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,22500,Machine Learning- From Basics to Advanced,3,title matches=3,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,24644,Advanced Machine Learning with TensorFlow on Google Cloud Platform,3,title matches=3; level match=Advanced,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,662,MLOps for Scaling TinyML,3,skills matches=3; description matches=5; level match=Advanced,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,1572,Applied Tiny Machine Learning (TinyML) for Scale,3,"title matches=2; skills matches=2; description matches=4; level match=Intermediate, Advanced",0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,1604,Large Language Model Operations (LLMOps),3,"title matches=1; skills matches=2; description matches=4; level match=Introductory, Advanced, Intermediate",0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,2223,Production Machine Learning Systems,3,title matches=2; skills matches=3; description matches=4; level match=Advanced,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,2559,Launching Machine Learning: Delivering Operational Success with Gold Standard ML Leadership,3,title matches=2; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,2875,Introduction to Generative AI,3,skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,3643,Machine Learning Models in Science,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,3780,Predictive Modeling and Machine Learning with MATLAB,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,8777,MLOps in R: Deploying machine learning models using vetiver,3,title matches=3; skills matches=4; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,1071,Modelos predictivos con Machine Learning,3,title matches=3; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,6278,Create Machine Learning Models in Microsoft Azure,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced machine learning model deployment,8090,Prerequisites and Advanced Machine Learning for NLP,3,title matches=3; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,7515,Securing Google Cloud Compute with Prisma Cloud,3,title matches=1; skills matches=3; description matches=1; level match=Advanced,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,23736,Cybersecurity Fundamentals,2,title matches=1; skills matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,23762,Security in Google Cloud,3,title matches=2; skills matches=3,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,10890,Getting Started with Cloud KMS,3,title matches=1; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,15582,VPC Networks - Controlling Access,2,skills matches=3; description matches=1,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,5005,Put It All Together: Prepare for a Cloud Security Analyst Job,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,1477,Full Stack Application Development,3,"skills matches=3; subject matches=1; description matches=3; level match=Introductory, Intermediate, Advanced",0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,1567,IT Project Manager,2,"skills matches=2; description matches=3; level match=Introductory, Advanced, Intermediate",0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,2215,Network Principles in Practice: Cloud Networking,3,title matches=1; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,2217,Network Security,3,title matches=1; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,2362,Natural Language Processing in Microsoft Azure,2,skills matches=2; description matches=2,0.93,AI-assisted,,,needs_human_review
+advanced cloud security engineering,3167,Industrial IoT Markets and Security,3,title matches=1; skills matches=3; description matches=4,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,2722,Introduction to Security Principles in Cloud Computing,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,3385,Hands-On Labs in Google Cloud for Security Engineers,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,3769,Preparing for Your Professional Cloud Security Engineer Journey,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,3971,Trust and Security with Google Cloud,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,4091,Security Best Practices in Google Cloud,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+advanced cloud security engineering,4466,Mitigating Security Vulnerabilities on Google Cloud,3,title matches=2; skills matches=3; description matches=2,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,20310,Flowgear Technical Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,19714,Introduction to Docker and the DCA Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,18418,AWS RDS for DBAs,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,20954,Developing with S3: AWS with Python and Boto3 Series,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,22163,PySpark & AWS: Master Big Data With PySpark and AWS,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,21733,Complete guide to AWS Step Functions,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,13237,"AWS Visualization, Security, and Exam Preparation",3,title matches=2; skills matches=1; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,13270,AWS Tutorial: AWS Solutions Architect & SysOps Administrator,3,title matches=1; skills matches=1; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,13928,Architecting in AWS,2,title matches=1; description matches=3; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,15881,Transfer Pricing: Basic concepts and compliances,2,description matches=3; certification match=Unknown,0.77,AI-assisted,,,needs_human_review
+AWS certification preparation,11,Architecting with Google Compute Engine Specialization,2,description matches=2; certification match=Shareable Certificate,0.69,AI-assisted,,,needs_human_review
+AWS certification preparation,202,AWS Cloud Practitioner Essentials,2,title matches=1; skills matches=1; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,5298,AWS Database Specialty Certification,3,title matches=2; skills matches=1; description matches=1; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,4218,Scrum Master Certification Exam Preparation,3,title matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,4400,Talend Data Integration Certification Preparation training,3,title matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,7281,Snowflake - SnowPro Core Certification Preparation,3,title matches=2; description matches=2; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,10722,Google Ads Search Certification Preparation,2,title matches=2; description matches=1; certification match=Unknown,0.95,AI-assisted,,,needs_human_review
+AWS certification preparation,19,Algorithms Specialization,2,certification match=Shareable Certificate,0.53,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,6449,Cybersecurity Assessment: CompTIA Security+ & CYSA+,3,title matches=2; skills matches=3; description matches=3,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,889,Cybersecurity Analyst Assessment: Security+ & CySA+ Practice,3,title matches=2; skills matches=2; description matches=1,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,23652,CompTIA a+_ network,2,title matches=1; skills matches=1,0.85,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,23651,CompTIA a+_ cyber,2,title matches=1; skills matches=1,0.85,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,23657,Preparation for CompTIA A+ Certification,1,title matches=1,0.69,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,6114,CompTIA Security+ 701,3,title matches=2; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,890,IT Support Case Studies,2,skills matches=1; description matches=3,0.85,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,1495,Cybersecurity Analyst,3,title matches=1; skills matches=2; description matches=3,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,2852,Introduction to Hardware and Operating Systems,1,description matches=3,0.69,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,3923,Practice Exam for CompTIA ITF+ Certification,3,title matches=2; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,3930,Practice Exams for CompTIA A+ Certification: Core 1 & Core 2,3,title matches=2; skills matches=1; description matches=3,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,3927,Practice Exam for ISC2 Certified in Cybersecurity (CC),3,title matches=2; skills matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,4091,Security Best Practices in Google Cloud,3,title matches=2; skills matches=1; description matches=2,0.95,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,34,Dasar-Dasar Dukungan Teknis,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,39,IBM Technical Support Professional Certificate,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,47,Seluk Beluk Jaringan Komputer,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,44,Networking in Google Cloud: Defining and Implementing Networks,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
+CompTIA Security+ practice,23,Natural Language Processing Specialization,0,No strong topical match found.,0.45,AI-assisted,,,needs_human_review
