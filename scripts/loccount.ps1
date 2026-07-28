@@ -1,9 +1,12 @@
 # scripts/loccount.ps1
-# Walk the current git index and bucket tracked files by language/extension.
+# Walk the current git index and bucket tracked files by language.
+# Auto-detects binary files by sniffing the first 8 KB for a NUL byte.
 
-$ErrorActionPreference = 'SilentlyContinue'
+$ErrorActionPreference = 'Stop'
 
-# map extension (lowercase, no leading dot) -> bucket label
+$repoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
+if (-not $repoRoot) { $repoRoot = $PSScriptRoot }
+
 $buckets = [ordered]@{
     'dart'         = 'Dart'
     'py'           = 'Python'
@@ -34,31 +37,61 @@ $buckets = [ordered]@{
     'txt'          = 'Text'
     'gitignore'    = 'Text'
     'gitkeep'      = 'Text'
+    'code-workspace' = 'Workspace'
 }
 
-$repoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
-if (-not $repoRoot) { $repoRoot = $PSScriptRoot }
-
-$rows = git -C $repoRoot ls-files |
-    Where-Object { -not (Test-Path -Path $_ -PathType Container) } |
-    ForEach-Object {
-        $path = $_
-        $ext = [System.IO.Path]::GetExtension($path).TrimStart('.').ToLower()
-        if (-not $ext) { $bucket = 'Other text' }
-        elseif ($buckets.Contains($ext)) { $bucket = $buckets[$ext] }
-        else { $bucket = 'Other' }
-
-        $lineCount = 0
-        if ($bucket -notmatch 'binary') {
-            $lineCount = (Get-Content -LiteralPath $path | Measure-Object -Line).Lines
+function Test-IsBinary {
+    param([string]$Path)
+    try {
+        $stream = [System.IO.File]::OpenRead($Path)
+        try {
+            $buf = New-Object byte[] 8192
+            $read = $stream.Read($buf, 0, $buf.Length)
+            for ($i = 0; $i -lt $read; $i++) {
+                if ($buf[$i] -eq 0) { return $true }
+            }
+            return $false
+        } finally {
+            $stream.Dispose()
         }
-        [pscustomobject]@{
-            Bucket = $bucket
-            Ext    = $ext
-            Path   = $path
-            Lines  = $lineCount
-        }
+    } catch {
+        return $true
     }
+}
+
+$gitRoot = $repoRoot
+Push-Location $gitRoot
+try {
+    $rows = git ls-files |
+        Where-Object { -not (Test-Path -LiteralPath $_ -PathType Container) } |
+        ForEach-Object {
+            $path = $_
+            $ext = [System.IO.Path]::GetExtension($path).TrimStart('.').ToLower()
+            if (-not $ext) { $bucket = 'Other text' }
+            elseif ($buckets.Contains($ext)) { $bucket = $buckets[$ext] }
+            else { $bucket = 'Other' }
+
+            $isBinary = Test-IsBinary -Path $path
+            $lineCount = 0
+            if (-not $isBinary) {
+                $lineCount = (Get-Content -LiteralPath $path -ReadCount 0 -TotalCount 1 -ErrorAction SilentlyContinue)
+                if ($null -eq $lineCount) { $lineCount = 0 }
+                # Cheap: count newlines in raw bytes
+                $bytes = [System.IO.File]::ReadAllBytes($path)
+                $lineCount = 0
+                foreach ($b in $bytes) { if ($b -eq 10) { $lineCount++ } }
+                # Account for trailing partial line
+                if ($bytes.Length -gt 0 -and $bytes[$bytes.Length - 1] -ne 10) { $lineCount++ }
+            }
+            [pscustomobject]@{
+                Bucket = $bucket
+                Path   = $path
+                Lines  = $lineCount
+            }
+        }
+} finally {
+    Pop-Location
+}
 
 Write-Host '=== Files by language bucket (tracked only) ==='
 $rows | Group-Object Bucket |
