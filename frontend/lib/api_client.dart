@@ -346,7 +346,7 @@ class ApiClient {
     });
     final raw = data['subscription'];
     if (raw is! Map) {
-      throw ApiException(500, 'Server did not return a subscription');
+      throw const ApiException(500, 'Server did not return a subscription');
     }
     return SubscriptionInfo.fromJson(raw.cast<String, dynamic>());
   }

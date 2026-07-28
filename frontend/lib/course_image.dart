@@ -171,7 +171,7 @@ Future<void> openCourseUrl(BuildContext context, String url) async {
   final scheme = uri.scheme.toLowerCase();
   if (scheme != 'http' && scheme != 'https') {
     messenger.showSnackBar(
-      SnackBar(content: Text('Only http(s) links are supported.')),
+      const SnackBar(content: Text('Only http(s) links are supported.')),
     );
     return;
   }
