@@ -20,6 +20,33 @@ import 'screens/shell_screen.dart';
 import 'screens/splash_screen.dart';
 import 'theme.dart';
 
+/// Returns a [Widget] that rebuilds the same providers used by the root
+/// [MultiProvider] above the supplied [child]. Named-route screens pushed
+/// from `MaterialApp.routes` live above the root provider scope, so they
+/// cannot resolve [ApiClient] / [AuthProvider] / etc. unless we wrap them.
+///
+/// Captures the live [ApiClient] / [AuthProvider] / [SharedPreferences] from
+/// the outer context and re-exposes them (plus [Provider] for the
+/// [ApiClient] itself, which is required by [showBillingSheet]).
+Widget wrapWithProviders(BuildContext context, Widget child) {
+  final api = context.read<ApiClient>();
+  final auth = context.read<AuthProvider>();
+  final prefs = context.read<SharedPreferences>();
+  return MultiProvider(
+    providers: [
+      Provider<ApiClient>.value(value: api),
+      ChangeNotifierProvider<AuthProvider>.value(value: auth),
+      ChangeNotifierProvider<CourseProvider>(create: (_) => CourseProvider(api)),
+      ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider(api)),
+      ChangeNotifierProvider<EnrollmentProvider>(
+          create: (_) => EnrollmentProvider(prefs)),
+      ChangeNotifierProvider<ThemeProvider>(
+          create: (_) => ThemeProvider(prefs)),
+    ],
+    child: child,
+  );
+}
+
 /// Top-level widget that wires the four providers and exposes the route map.
 class EduCompassApp extends StatelessWidget {
   final ApiClient api;
@@ -37,6 +64,7 @@ class EduCompassApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
+        Provider<ApiClient>.value(value: api),
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => CourseProvider(api)),
         ChangeNotifierProvider(create: (_) => UserProvider(api)),
@@ -63,11 +91,11 @@ class EduCompassApp extends StatelessWidget {
             AppRoutes.profile: (_) => const ProfileScreen(),
             AppRoutes.courseDetails: (ctx) {
               final id = ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
-              return CourseDetailsScreen(courseId: id);
+              return wrapWithProviders(ctx, CourseDetailsScreen(courseId: id));
             },
             AppRoutes.learningPathDetail: (ctx) {
               final id = ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
-              return LearningPathDetailScreen(pathId: id);
+              return wrapWithProviders(ctx, LearningPathDetailScreen(pathId: id));
             },
           },
         ),

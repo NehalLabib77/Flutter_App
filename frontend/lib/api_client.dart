@@ -123,21 +123,29 @@ class ApiClient {
     required String fullName,
     required String email,
     required String password,
+    required String phone,
+    required String otpReference,
   }) {
     return _post('/auth/register', {
       'full_name': fullName,
       'email': email,
       'password': password,
+      'phone': phone,
+      'otp_reference': otpReference,
     }, auth: false);
   }
 
   Future<Map<String, dynamic>> login({
     required String email,
     required String password,
+    required String phone,
+    required String otpReference,
   }) {
     return _post('/auth/login', {
       'email': email,
       'password': password,
+      'phone': phone,
+      'otp_reference': otpReference,
     }, auth: false);
   }
 
@@ -327,6 +335,47 @@ class ApiClient {
     );
   }
 
+  // --- Auth OTP ------------------------------------------------------------
+
+  /// Request a one-time code for the login or register flow.
+  ///
+  /// `purpose` is either `"login"` or `"register"`. For login we also need
+  /// the user's email so the server can confirm the phone-on-file matches
+  /// before issuing a code (otherwise we would leak which emails are
+  /// registered).
+  Future<AuthOtpRequest> requestAuthOtp({
+    required String phone,
+    required String purpose,
+    String? email,
+  }) async {
+    final data = await _post('/auth/otp/request', {
+      'phone': phone,
+      'purpose': purpose,
+      if (email != null && email.isNotEmpty) 'email': email,
+    }, auth: false);
+    return AuthOtpRequest(
+      reference: (data['reference'] ?? '').toString(),
+      hint: (data['hint'] ?? '').toString(),
+    );
+  }
+
+  /// Verify a one-time code for the login or register flow.
+  Future<AuthOtpVerify> verifyAuthOtp({
+    required String phone,
+    required String code,
+    required String purpose,
+  }) async {
+    final data = await _post('/auth/otp/verify', {
+      'phone': phone,
+      'code': code,
+      'purpose': purpose,
+    }, auth: false);
+    return AuthOtpVerify(
+      verified: data['verified'] == true,
+      reference: (data['reference'] ?? '').toString(),
+    );
+  }
+
   Future<SubscriptionInfo?> getSubscription() async {
     final data = await _get('/billing/subscription');
     final raw = data['subscription'];
@@ -374,6 +423,22 @@ class BillingOtpVerify {
   final bool verified;
   final String reference;
   const BillingOtpVerify({required this.verified, required this.reference});
+}
+
+
+/// Server response wrapper for `/auth/otp/request`.
+class AuthOtpRequest {
+  final String reference;
+  final String hint;
+  const AuthOtpRequest({required this.reference, required this.hint});
+}
+
+
+/// Server response wrapper for `/auth/otp/verify`.
+class AuthOtpVerify {
+  final bool verified;
+  final String reference;
+  const AuthOtpVerify({required this.verified, required this.reference});
 }
 
 

@@ -51,17 +51,26 @@ class AuthProvider extends ChangeNotifier {
     required String fullName,
     required String email,
     required String password,
+    required String phone,
+    required String otpReference,
   }) async {
     await _api.register(
       fullName: fullName,
       email: email,
       password: password,
+      phone: phone,
+      otpReference: otpReference,
     );
     // The backend returns only the user on /auth/register (no token), so we
     // try to log in immediately to obtain access/refresh tokens. If that
     // fails for any reason we surface it so the screen can fall back.
     try {
-      final data = await _api.login(email: email, password: password);
+      final data = await _api.login(
+        email: email,
+        password: password,
+        phone: phone,
+        otpReference: otpReference,
+      );
       await _afterAuth(data);
       return true;
     } on ApiException {
@@ -72,9 +81,15 @@ class AuthProvider extends ChangeNotifier {
   Future<AppUser> login({
     required String email,
     required String password,
+    required String phone,
+    required String otpReference,
   }) async {
-    final data = await _api.login(email: email, password: password);
-    await _afterAuth(data);
+    await _afterAuth(await _api.login(
+      email: email,
+      password: password,
+      phone: phone,
+      otpReference: otpReference,
+    ));
     return _user!;
   }
 

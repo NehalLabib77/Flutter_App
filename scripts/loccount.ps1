@@ -1,94 +1,46 @@
 # scripts/loccount.ps1
-# Walk the current git index and bucket tracked files by language.
-# Auto-detects binary files by sniffing the first 8 KB for a NUL byte.
+# Walk the git index, bucket tracked files by language extension, and report
+# line counts for text files. Binary files are excluded from line counts.
 
 $ErrorActionPreference = 'Stop'
 
 $repoRoot = (git -C $PSScriptRoot rev-parse --show-toplevel 2>$null)
 if (-not $repoRoot) { $repoRoot = $PSScriptRoot }
-
-$buckets = [ordered]@{
-    'dart'         = 'Dart'
-    'py'           = 'Python'
-    'json'         = 'JSON'
-    'geojson'      = 'JSON'
-    'yaml'         = 'YAML'
-    'yml'          = 'YAML'
-    'md'           = 'Markdown'
-    'csv'          = 'CSV'
-    'tsv'          = 'CSV'
-    'xls'          = 'CSV (binary)'
-    'xlsx'         = 'CSV (binary)'
-    'xml'          = 'XML'
-    'kts'          = 'Kotlin Gradle'
-    'gradle'       = 'Groovy Gradle'
-    'properties'   = 'Properties'
-    'html'         = 'Web'
-    'css'          = 'Web'
-    'ipynb'        = 'Jupyter'
-    'joblib'       = 'ML artifact (binary)'
-    'pkl'          = 'ML artifact (binary)'
-    'png'          = 'Image (binary)'
-    'jpg'          = 'Image (binary)'
-    'jpeg'         = 'Image (binary)'
-    'webp'         = 'Image (binary)'
-    'gif'          = 'Image (binary)'
-    'svg'          = 'Image (text)'
-    'txt'          = 'Text'
-    'gitignore'    = 'Text'
-    'gitkeep'      = 'Text'
-    'code-workspace' = 'Workspace'
-}
-
-function Test-IsBinary {
-    param([string]$Path)
-    try {
-        $stream = [System.IO.File]::OpenRead($Path)
-        try {
-            $buf = New-Object byte[] 8192
-            $read = $stream.Read($buf, 0, $buf.Length)
-            for ($i = 0; $i -lt $read; $i++) {
-                if ($buf[$i] -eq 0) { return $true }
-            }
-            return $false
-        } finally {
-            $stream.Dispose()
-        }
-    } catch {
-        return $true
-    }
-}
-
-$gitRoot = $repoRoot
-Push-Location $gitRoot
+Push-Location $repoRoot
 try {
-    $rows = git ls-files |
-        Where-Object { -not (Test-Path -LiteralPath $_ -PathType Container) } |
-        ForEach-Object {
-            $path = $_
-            $ext = [System.IO.Path]::GetExtension($path).TrimStart('.').ToLower()
-            if (-not $ext) { $bucket = 'Other text' }
-            elseif ($buckets.Contains($ext)) { $bucket = $buckets[$ext] }
-            else { $bucket = 'Other' }
+    $buckets = [ordered]@{
+        'dart'         = 'Dart'
+        'py'           = 'Python'
+        'json'         = 'JSON'
+        'geojson'      = 'JSON'
+        'yaml'         = 'YAML'
+        'yml'          = 'YAML'
+        'md'           = 'Markdown'
+        'csv'          = 'CSV'
+        'tsv'          = 'CSV'
+        'xml'          = 'XML'
+        'kts'          = 'Kotlin Gradle'
+        'gradle'       = 'Groovy Gradle'
+        'properties'   = 'Properties'
+        'html'         = 'Web'
+        'css'          = 'Web'
+        'ipynb'        = 'Jupyter'
+    }
+    $binaryExts = @('pkl', 'joblib', 'xls', 'xlsx', 'png', 'jpg', 'jpeg', 'webp', 'gif', 'ico', 'db', 'wal', 'shm')
 
-            $isBinary = Test-IsBinary -Path $path
-            $lineCount = 0
-            if (-not $isBinary) {
-                $lineCount = (Get-Content -LiteralPath $path -ReadCount 0 -TotalCount 1 -ErrorAction SilentlyContinue)
-                if ($null -eq $lineCount) { $lineCount = 0 }
-                # Cheap: count newlines in raw bytes
-                $bytes = [System.IO.File]::ReadAllBytes($path)
-                $lineCount = 0
-                foreach ($b in $bytes) { if ($b -eq 10) { $lineCount++ } }
-                # Account for trailing partial line
-                if ($bytes.Length -gt 0 -and $bytes[$bytes.Length - 1] -ne 10) { $lineCount++ }
-            }
-            [pscustomobject]@{
-                Bucket = $bucket
-                Path   = $path
-                Lines  = $lineCount
-            }
+    $rows = foreach ($path in (git ls-files)) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) { continue }
+        $ext = [System.IO.Path]::GetExtension($path).TrimStart('.').ToLower()
+        $bucket = if ($buckets.Contains($ext)) { $buckets[$ext] } elseif (-not $ext) { 'Other text' } else { 'Other' }
+        $isBinary = $binaryExts -contains $ext
+        $lineCount = 0
+        if (-not $isBinary) {
+            $lc = (Get-Content -LiteralPath $path -ErrorAction SilentlyContinue | Measure-Object -Line).Lines
+            if ($null -eq $lc) { $lc = 0 }
+            $lineCount = $lc
         }
+        [pscustomobject]@{ Bucket = $bucket; Path = $path; Lines = $lineCount }
+    }
 } finally {
     Pop-Location
 }

@@ -31,6 +31,7 @@ from .database_models import (
     User,
     UserInterest,
 )
+from .auth_otp import get_auth_otp_store
 from .extensions import db
 
 
@@ -123,12 +124,84 @@ def health():
 # Auth
 # ---------------------------------------------------------------------------
 
+@bp.post("/auth/otp/request")
+def auth_otp_request():
+    """Issue a one-time code for the auth (login or register) flow.
+
+    Body: ``{"phone": "+8801...", "purpose": "login" | "register"}``
+    """
+    data = body()
+    phone = (data.get("phone") or "").strip()
+    purpose = (data.get("purpose") or "").strip().casefold()
+    if purpose not in ("login", "register"):
+        return json_error("Field 'purpose' must be 'login' or 'register'.",
+                          code="INVALID_PURPOSE")
+    if not phone:
+        return json_error("Field 'phone' is required.",
+                          code="MISSING_PHONE")
+    # For login we additionally require that the phone is on file for some
+    # user so we don't leak which emails are registered.
+    if purpose == "login":
+        email = (data.get("email") or "").strip().casefold()
+        user = User.query.filter_by(email=email).first() if email else None
+        if user is None or not user.phone_number:
+            return json_error(
+                "No account with that email has a phone number on file. "
+                "Add a phone number first.",
+                status=404, code="PHONE_NOT_ON_FILE")
+        if user.phone_number != _normalise_phone_local(phone):
+            return json_error(
+                "Phone does not match the one on file for this account.",
+                status=400, code="PHONE_MISMATCH")
+    store = get_auth_otp_store()
+    try:
+        result = store.request(phone=phone, purpose=purpose)
+    except ValueError as exc:
+        return json_error(str(exc), code="INVALID_PHONE")
+    return json_ok({"reference": result.reference,
+                    "hint": result.hint,
+                    "ttl_seconds": 300}, message="Code sent.")
+
+
+@bp.post("/auth/otp/verify")
+def auth_otp_verify():
+    """Verify a one-time code and (optionally) bind it to a new account.
+
+    Body: ``{"phone": "+8801...", "code": "123456", "purpose": "..."}``
+    """
+    data = body()
+    phone = (data.get("phone") or "").strip()
+    code = (data.get("code") or "").strip()
+    purpose = (data.get("purpose") or "").strip().casefold()
+    if purpose not in ("login", "register"):
+        return json_error("Field 'purpose' must be 'login' or 'register'.",
+                          code="INVALID_PURPOSE")
+    if not phone or not code:
+        return json_error("Phone and code are required.",
+                          code="MISSING_FIELDS")
+    store = get_auth_otp_store()
+    result = store.verify(phone=phone, code=code, purpose=purpose)
+    if not result.success:
+        code_name = (result.failure_reason or "invalid").upper()
+        return json_error(f"Invalid or expired code ({code_name}).",
+                          status=401, code="OTP_REJECTED")
+    return json_ok({"verified": True,
+                    "reference": result.reference}, message="Phone verified.")
+
+
+def _normalise_phone_local(phone: str) -> str:
+    import re as _re
+    return _re.sub(r"\s+", "", phone or "").strip()
+
+
 @bp.post("/auth/register")
 def register():
     data = body()
     email = (data.get("email") or "").strip().casefold()
     password = data.get("password") or ""
     full_name = (data.get("full_name") or "").strip()
+    phone = (data.get("phone") or "").strip()
+    otp_reference = (data.get("otp_reference") or "").strip()
 
     if "@" not in email:
         return json_error("A valid email is required.", code="INVALID_EMAIL")
@@ -137,14 +210,31 @@ def register():
                           code="WEAK_PASSWORD")
     if not full_name:
         return json_error("Full name is required.", code="MISSING_NAME")
+    if not phone:
+        return json_error("A verified phone number is required.",
+                          code="MISSING_PHONE")
+    if not otp_reference:
+        return json_error("A verified OTP reference is required.",
+                          code="MISSING_OTP_REFERENCE")
     if User.query.filter_by(email=email).first():
         return json_error("Email already registered.",
                           status=409, code="EMAIL_TAKEN")
 
-    user = User(email=email, full_name=full_name)
+    store = get_auth_otp_store()
+    pending_ref = store.peek_reference(phone=phone, purpose="register")
+    if not pending_ref or pending_ref != otp_reference:
+        return json_error(
+            "Phone verification has expired or was not completed. "
+            "Send a new code and try again.",
+            status=400, code="OTP_NOT_VERIFIED")
+
+    user = User(email=email, full_name=full_name,
+                phone_number=phone, phone_verified=True)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
+    # Consume the OTP slot so the same code can't be reused.
+    store.verify(phone=phone, code="*consume*", purpose="register")
     return json_ok(user.to_dict(), message="Account created.", status=201)
 
 
@@ -153,13 +243,38 @@ def login():
     data = body()
     email = (data.get("email") or "").strip().casefold()
     password = data.get("password") or ""
+    phone = (data.get("phone") or "").strip()
+    otp_reference = (data.get("otp_reference") or "").strip()
     if not email or not password:
         return json_error("Email and password are required.",
                           code="MISSING_CREDENTIALS")
+    if not phone:
+        return json_error("A verified phone number is required.",
+                          code="MISSING_PHONE")
+    if not otp_reference:
+        return json_error("A verified OTP reference is required.",
+                          code="MISSING_OTP_REFERENCE")
     user = User.query.filter_by(email=email).first()
     if user is None or not user.check_password(password):
         return json_error("Invalid email or password.",
                           status=401, code="INVALID_CREDENTIALS")
+    if not user.phone_number:
+        return json_error(
+            "This account has no phone number on file. Update your profile "
+            "and verify a phone number before signing in.",
+            status=400, code="PHONE_NOT_ON_FILE")
+    if user.phone_number != _normalise_phone_local(phone):
+        return json_error(
+            "Phone does not match the one on file for this account.",
+            status=400, code="PHONE_MISMATCH")
+    store = get_auth_otp_store()
+    pending_ref = store.peek_reference(phone=phone, purpose="login")
+    if not pending_ref or pending_ref != otp_reference:
+        return json_error(
+            "Phone verification has expired or was not completed. "
+            "Send a new code and try again.",
+            status=400, code="OTP_NOT_VERIFIED")
+    store.verify(phone=phone, code="*consume*", purpose="login")
     return json_ok({
         "user": user.to_dict(),
         "access_token": create_access_token(identity=str(user.id)),
