@@ -17,10 +17,20 @@ BACKEND_ROOT = Path(__file__).resolve().parent
 if str(BACKEND_ROOT) not in sys.path:
     sys.path.insert(0, str(BACKEND_ROOT))
 
-from app import create_app  # noqa: E402
+from app import app as flask_app  # noqa: E402  (imported for side effects; sets up routes + loads model)
 
+# `app` must be the symbol Gunicorn imports. Reuse the module-level
+# instance created when ``app/__init__.py`` was first imported so the
+# recommendation model is loaded exactly **once** per worker.
+app = flask_app
+# ``create_app`` is exposed for the unit-test suite and ``python run.py``
+# direct usage; both flows import the same factory.
+__all__ = ["app", "create_app"]  # noqa: F401
 
-app = create_app()
+try:
+    from app import create_app  # noqa: F401,E402  -- available for direct scripts/tests
+except ImportError:  # pragma: no cover
+    pass
 
 
 if __name__ == "__main__":
