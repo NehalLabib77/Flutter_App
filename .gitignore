@@ -180,3 +180,10 @@ node_modules/
 /models/v2/char_matrix.joblib
 /notebooks/models/similarity.pkl
 /ml/artifacts/models/v2/char_matrix.joblib
+
+# Local databases and caches
+/.puku/
+backend/instance/
+*.db
+*.db-wal
+*.db-shm
