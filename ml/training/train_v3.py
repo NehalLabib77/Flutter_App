@@ -2,10 +2,14 @@
 
 Output artefacts (written to ``ml/artifacts/models/v3/``):
 
-* ``courses.joblib``           – slim courses frame (API + ranking columns)
+* ``courses.parquet``         – slim courses frame (API + ranking columns)
 * ``tfidf_vectorizer.joblib`` – fitted :class:`TfidfVectorizer`
 * ``model_config.json``       – field weights / rerank weights
 * ``model_metadata.json``     – human-readable model card
+
+Note: the courses frame is persisted as **Parquet**, not joblib, so the
+deployment environment's pandas version (currently 2.2.3 on Render) can
+read it regardless of the pandas version used at training time.
 
 The full TF-IDF matrix is **not** saved. The deployment loader builds it
 once at startup with ``vectorizer.transform(deployment_text)`` so we only
@@ -206,12 +210,15 @@ def main() -> int:
           file=sys.stderr)
 
     # ---- write artefacts ------------------------------------------------
-    courses_path = out_dir / "courses.joblib"
+    courses_path = out_dir / "courses.parquet"
     vec_path = out_dir / "tfidf_vectorizer.joblib"
     config_path = out_dir / "model_config.json"
     meta_path = out_dir / "model_metadata.json"
 
-    joblib.dump(slim, courses_path, compress=3)
+    # Parquet preserves Arrow types and is decoupled from the pandas
+    # version on the reader side (unlike ``joblib.dump(df)``, which
+    # embeds the writer's pandas ``StringDtype`` pickle layout).
+    slim.to_parquet(courses_path, engine="pyarrow", index=False)
     joblib.dump(vectorizer, vec_path, compress=3)
 
     config = {

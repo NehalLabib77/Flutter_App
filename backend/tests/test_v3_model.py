@@ -11,6 +11,7 @@ from pathlib import Path
 
 import joblib
 import numpy as np
+import pandas as pd
 import pytest
 
 from app.model_loader import (
@@ -36,14 +37,15 @@ def adapter() -> RecommendationModelAdapter:
 
 
 def test_v3_bundle_files_exist():
-    assert (V3_DIR / "courses.joblib").exists(), "courses.joblib missing"
+    assert (V3_DIR / "courses.parquet").exists(), "courses.parquet missing"
     assert (V3_DIR / "tfidf_vectorizer.joblib").exists(), \
         "tfidf_vectorizer.joblib missing"
     assert (V3_DIR / "model_config.json").exists(), "model_config.json missing"
 
 
 def test_no_obsolete_artifacts_in_v3():
-    banned = {"char_matrix.joblib", "word_matrix.joblib",
+    banned = {"courses.joblib",
+              "char_matrix.joblib", "word_matrix.joblib",
               "similarity.pkl", "char_vectorizer.joblib"}
     present = {p.name for p in V3_DIR.iterdir()}
     assert banned.isdisjoint(present), \
@@ -58,7 +60,7 @@ def test_v3_artifact_under_100mb():
 
 
 def test_courses_df_has_deployment_text():
-    df = joblib.load(V3_DIR / "courses.joblib")
+    df = pd.read_parquet(V3_DIR / "courses.parquet", engine="pyarrow")
     assert "deployment_text" in df.columns
     assert "course_id" in df.columns
     assert len(df) > 0
@@ -192,7 +194,8 @@ def test_courses_missing_deployment_text_raises_clear_error(tmp_path):
     """Courses file without ``deployment_text`` must be rejected."""
     import pandas as pd
     df_no_text = pd.DataFrame({"course_id": ["1"], "course_name": ["x"]})
-    joblib.dump(df_no_text, tmp_path / "courses.joblib")
+    df_no_text.to_parquet(tmp_path / "courses.parquet",
+                          engine="pyarrow", index=False)
     joblib.dump(object(), tmp_path / "tfidf_vectorizer.joblib")
     with pytest.raises(ModelLoadError) as exc:
         load_adapter(model_dir=tmp_path)

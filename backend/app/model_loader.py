@@ -2,8 +2,10 @@
 
 Loads the v3 bundle shipped under ``ml/artifacts/models/v3/``:
 
-* ``courses.joblib``           – slim courses frame with a
-  ``deployment_text`` column
+* ``courses.parquet``         – slim courses frame with a
+  ``deployment_text`` column (stored as Parquet so the reader's pandas
+  version does not need to match the writer's — see the inline note in
+  ``load_adapter`` below).
 * ``tfidf_vectorizer.joblib``  – fitted :class:`TfidfVectorizer`
 * ``model_config.json``        – optional field/rerank weights
 
@@ -449,7 +451,7 @@ def load_adapter(
     if not mdir.is_dir():
         raise ModelLoadError(f"model path is not a directory: {mdir}")
 
-    courses_path = mdir / "courses.joblib"
+    courses_path = mdir / "courses.parquet"
     vectorizer_path = mdir / "tfidf_vectorizer.joblib"
 
     missing_paths = [
@@ -463,21 +465,27 @@ def load_adapter(
 
     log.info("loading v3 model from %s", mdir)
 
+    # Courses frame is stored as Parquet (not joblib) so the deployment
+    # environment's pandas version can read it regardless of the writer's
+    # pandas version. Parquet relies on the Arrow schema, not on pandas
+    # internal ``StringDtype`` pickle layout.
     try:
-        courses_df = joblib.load(courses_path)
+        courses_df = pd.read_parquet(courses_path, engine="pyarrow")
     except Exception as exc:
         raise ModelLoadError(
-            f"failed to load courses.joblib: {exc}"
+            f"failed to load courses.parquet: {exc}. "
+            f"Re-run ml/training/train_v3.py to regenerate the bundle."
         ) from exc
 
     if "deployment_text" not in courses_df.columns:
         raise ModelLoadError(
-            "courses.joblib is missing required 'deployment_text' column; "
+            "courses.parquet is missing required 'deployment_text' column; "
             "re-run ml/training/train_v3.py to regenerate the v3 bundle."
         )
     if "course_id" not in courses_df.columns:
         raise ModelLoadError(
-            "courses.joblib is missing required 'course_id' column."
+            "courses.parquet is missing required 'course_id' column; "
+            "re-run ml/training/train_v3.py to regenerate the v3 bundle."
         )
 
     try:
