@@ -1,0 +1,36 @@
+{
+  "selected_model_version": "v3_word_tfidf_lite",
+  "source_preprocessor": "tfidf_lite_v3",
+  "field_weights": {
+    "course_name": 3.0,
+    "skills": 3.0,
+    "subject": 2.0,
+    "description": 1.5,
+    "metadata": 0.5
+  },
+  "rerank_weights": {
+    "similarity_weight": 0.85,
+    "popularity_weight": 0.1,
+    "quality_weight": 0.05
+  },
+  "number_of_courses": 24646,
+  "number_of_features": 30000,
+  "vectorizer": {
+    "stop_words": "english",
+    "ngram_range": [
+      1,
+      2
+    ],
+    "max_features": 30000,
+    "min_df": 2,
+    "max_df": 0.95,
+    "sublinear_tf": true,
+    "dtype": "float32"
+  },
+  "required_packages": {
+    "pandas": "3.0.5",
+    "numpy": "2.4.6",
+    "scikit_learn": "1.6.1",
+    "joblib": "1.5.3"
+  }
+}

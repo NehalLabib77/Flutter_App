@@ -1,21 +1,33 @@
-"""Standalone loader for the pre-trained TF-IDF course recommender.
+"""Lightweight loader for the EduCompass v3 course recommender.
 
-Loads the v2 bundle in ``E:/Flutter_app/ml/artifacts/models/v2/`` (plus the
-shared metadata in ``model_metadata.json``) and exposes a small
-``RecommendationModelAdapter`` that the Flask routes consume.
+Loads the v3 bundle shipped under ``ml/artifacts/models/v3/``:
 
-Public surface required by ``model_service.py``:
+* ``courses.joblib``           – slim courses frame with a
+  ``deployment_text`` column
+* ``tfidf_vectorizer.joblib``  – fitted :class:`TfidfVectorizer`
+* ``model_config.json``        – optional field/rerank weights
+
+The deployment sparse matrix is **not** persisted on disk — it is built
+once at startup from the ``deployment_text`` column. This keeps the
+shipping artefact at ~30 MB and the in-process sparse CSR at ~20 MB,
+which lets the service fit comfortably inside Render Free's 512 MB cap.
+
+Public surface required by ``model_service.py`` / ``routes.py``::
 
     BundleMeta, CourseRow, ModelLoadError,
     RecommendationModelAdapter, load_adapter
-"""
 
+The dataclass keeps ``word_matrix`` / ``char_matrix`` and
+``word_vectorizer`` / ``char_vectorizer`` as **aliases** that point to
+the same sparse matrix / fitted vectorizer objects, so any legacy
+downstream code that still reads those names keeps working.
+"""
 from __future__ import annotations
 
 import json
+import logging
 import math
 import os
-import re
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable, Optional
@@ -23,26 +35,58 @@ from typing import Any, Iterable, Optional
 import joblib
 import numpy as np
 import pandas as pd
+from scipy.sparse import issparse
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity, linear_kernel
 
+log = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Paths
+# ---------------------------------------------------------------------------
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
-_DEFAULT_MODEL_DIR = Path(
-    os.getenv(
-        "MODEL_DIR",
-        str(_REPO_ROOT / "ml" / "artifacts" / "models" / "v2"),
-    )
-).resolve()
-
-_DEFAULT_META_PATH = (
+DEFAULT_MODEL_DIR = (
+    _REPO_ROOT / "ml" / "artifacts" / "models" / "v3"
+)
+DEFAULT_META_PATH = (
     _REPO_ROOT / "ml" / "artifacts" / "models" / "model_metadata.json"
 )
 
 
+def _resolve_model_dir() -> Path:
+    """Pick the model directory based on the ``MODEL_DIR`` env var.
+
+    Falls back to the repo-relative default. The result is always an
+    absolute path so logs and downstream ``Path`` operations work the
+    same on Windows and POSIX.
+    """
+    override = os.getenv("MODEL_DIR")
+    candidate = Path(override).expanduser() if override else DEFAULT_MODEL_DIR
+    return candidate.resolve() if not candidate.is_absolute() else candidate
+
+
+# ---------------------------------------------------------------------------
+# Errors
+# ---------------------------------------------------------------------------
+
+
 class ModelLoadError(Exception):
-    """Raised when the v2 bundle cannot be assembled."""
+    """Raised when the v3 bundle cannot be assembled."""
+
+
+# ---------------------------------------------------------------------------
+# Course row schema (mirrors legacy behaviour)
+# ---------------------------------------------------------------------------
+
+_COURSE_FIELDS: tuple[str, ...] = (
+    "course_id", "course_name", "description", "skills", "subject", "level",
+    "organization", "provider", "rating", "reviews_count", "students_enrolled",
+    "lectures_count", "duration", "instructor", "price", "language",
+    "image_url", "url", "certificate_type", "course_type", "is_free",
+    "has_image", "has_course_url", "popularity_score", "data_quality_score",
+)
 
 
 def _safe_text(value: Any) -> str:
@@ -53,29 +97,8 @@ def _safe_text(value: Any) -> str:
     return str(value)
 
 
-# Columns from the v2 combined_courses_app.csv schema
-_COURSE_FIELDS: tuple[str, ...] = (
-    "course_id", "course_name", "description", "skills", "subject", "level",
-    "organization", "provider", "rating", "reviews_count", "students_enrolled",
-    "lectures_count", "duration", "instructor", "price", "language",
-    "image_url", "url", "certificate_type", "course_type", "is_free",
-    "has_image", "has_course_url", "popularity_score", "data_quality_score",
-)
-
-
 def _parse_skills(value: Any) -> list[str]:
-    """Normalise the messy ``skills`` column into a clean list of strings.
-
-    The combined dataset stores skills in three different formats:
-
-    * a comma-separated string — ``"Python, ML, Statistics"``
-    * a Python list literal — ``"['Python', 'ML']"``
-    * a JSON-ish list — ``'["Python", "ML"]'``
-    * an actual list (rare; happens after pandas re-load)
-
-    This helper returns a list of trimmed, non-empty strings and never raises,
-    so the API contract is stable even if a row has dirty data.
-    """
+    """Normalise the messy ``skills`` column into a clean list of strings."""
     if value is None:
         return []
     if isinstance(value, (list, tuple)):
@@ -89,15 +112,22 @@ def _parse_skills(value: Any) -> list[str]:
     if text.startswith("[") and text.endswith("]"):
         inner = text[1:-1].strip()
         if inner:
-            parts = re.split(r",\s*", inner)
+            parts = re_split_comma(inner)
             return [
                 p.strip().strip("'\"")
                 for p in parts
                 if p.strip().strip("'\"")
             ]
         return []
-    parts = re.split(r",\s*", text)
+    parts = re_split_comma(text)
     return [p.strip() for p in parts if p.strip()]
+
+
+def re_split_comma(text: str) -> list[str]:
+    """``", "`` / ``","`` split. ``re`` lives here so the import is local
+    and stays cheap for callers that don't hit skills."""
+    import re
+    return re.split(r",\s*", text)
 
 
 def course_row_to_dict(row: pd.Series) -> dict:
@@ -108,9 +138,7 @@ def course_row_to_dict(row: pd.Series) -> dict:
             out[f] = None
             continue
         v = row[f]
-        if v is None:
-            out[f] = None
-        elif isinstance(v, float) and (math.isnan(v) or pd.isna(v)):
+        if v is None or (isinstance(v, float) and (math.isnan(v) or pd.isna(v))):
             out[f] = None
         elif isinstance(v, (np.integer,)):
             out[f] = int(v)
@@ -121,10 +149,19 @@ def course_row_to_dict(row: pd.Series) -> dict:
             out[f] = bool(v)
         else:
             out[f] = v
-    out["id"] = str(out.get("course_id") or row.name)
+    # The v3 bundle stores course_id as int64 — JSON consumers always want
+    # a string here. Coerce so downstream `==` assertions and stringly
+    # typed callers stay happy.
+    out["course_id"] = str(out.get("course_id") or row.name)
+    out["id"] = out["course_id"]
     out["name"] = out.get("course_name") or ""
     out["skills"] = _parse_skills(out.get("skills"))
     return out
+
+
+# ---------------------------------------------------------------------------
+# Adapter
+# ---------------------------------------------------------------------------
 
 
 @dataclass
@@ -136,7 +173,7 @@ class CourseRow:
 
 @dataclass
 class BundleMeta:
-    model_version: str = "v2"
+    model_version: str = "v3"
     source: str = ""
     field_vectorizers: dict[str, TfidfVectorizer] = field(default_factory=dict)
     field_weights: dict[str, float] = field(default_factory=dict)
@@ -153,18 +190,29 @@ class RecommendationModelAdapter:
     row_index: dict[str, int]
     rows: list[CourseRow]
     tfidf_vectorizer: TfidfVectorizer
-    tfidf_matrix: Any  # sparse
+    tfidf_matrix: Any  # scipy.sparse.csr_matrix (float32)
+    # Legacy aliases. Routes may reference either name; both point to the
+    # same object to avoid duplicating the sparse matrix in memory.
     word_vectorizer: TfidfVectorizer
-    word_matrix: Any  # sparse
+    word_matrix: Any
     char_vectorizer: TfidfVectorizer
-    char_matrix: Any  # sparse
+    char_matrix: Any
     meta: BundleMeta
 
-    # -- direct lookups --------------------------------------------------
+    # -- introspection --------------------------------------------------
 
     @property
     def number_of_courses(self) -> int:
         return len(self.rows)
+
+    def sparse_memory_mb(self) -> float:
+        """Estimate resident memory of the sparse matrix in MB."""
+        m = self.tfidf_matrix
+        if not issparse(m):
+            return float(m.nbytes) / 1024 / 1024
+        return float(m.data.nbytes + m.indices.nbytes + m.indptr.nbytes) / 1024 / 1024
+
+    # -- direct lookups -------------------------------------------------
 
     def get_course(self, course_id: str) -> Optional[dict]:
         idx = self.row_index.get(str(course_id))
@@ -181,30 +229,31 @@ class RecommendationModelAdapter:
             for i in range(offset, end)
         ]
 
-    # -- search ----------------------------------------------------------
+    # -- search ---------------------------------------------------------
 
-    def _autocomplete_vocab(self, prefix: str, n: int) -> list[str]:
+    def suggest(self, prefix: str, n: int = 8) -> list[str]:
         """Naive prefix scan over course name + skills for live autocomplete."""
+        import re
         prefix = prefix.lower().strip()
         if not prefix:
             return []
         seen: set[str] = set()
         out: list[str] = []
         for row in self.rows:
-            for source in (row.payload.get("course_name"), row.payload.get("skills")):
-                if isinstance(source, (list, tuple)):
-                    source = " ".join(str(s) for s in source)
-                tokens = re.split(r"[^a-z0-9]+", (source or "").lower())
-                for t in tokens:
-                    if t.startswith(prefix) and t not in seen and len(t) > 2:
-                        seen.add(t)
-                        out.append(t)
-                        if len(out) >= n:
-                            return out
+            name = row.payload.get("course_name") or ""
+            skills = row.payload.get("skills") or []
+            if isinstance(skills, (list, tuple)):
+                skills_str = " ".join(str(s) for s in skills)
+            else:
+                skills_str = str(skills)
+            tokens = re.split(r"[^a-z0-9]+", (name + " " + skills_str).lower())
+            for t in tokens:
+                if t.startswith(prefix) and t not in seen and len(t) > 2:
+                    seen.add(t)
+                    out.append(t)
+                    if len(out) >= n:
+                        return out
         return out
-
-    def suggest(self, prefix: str, n: int = 8) -> list[str]:
-        return self._autocomplete_vocab(prefix, n)
 
     def search_courses(
         self,
@@ -215,32 +264,37 @@ class RecommendationModelAdapter:
         level: Optional[str] = None,
         provider: Optional[str] = None,
         is_free: Optional[bool] = None,
-    ) -> list[dict]:
+    ) -> tuple[list[dict], int]:
+        """Sparse TF-IDF search returning (rows, total_matches)."""
         q = (query or "").strip().lower()
         if not q:
-            results = self.list_courses(limit=limit, offset=offset)
+            results = [course_row_to_dict(self.courses_df.iloc[i])
+                       for i in range(len(self.courses_df))]
+            total = len(results)
         else:
-            q_vec = self.tfidf_vectorizer.transform([q])
-            sims = linear_kernel(q_vec, self.tfidf_matrix).ravel()
+            try:
+                q_vec = self.tfidf_vectorizer.transform([q])
+                sims = _row_similarities(q_vec, self.tfidf_matrix)
+            except Exception as exc:
+                raise ModelLoadError(
+                    f"failed to transform query against vectorizer: {exc}"
+                ) from exc
             order = np.argsort(-sims)
-            ids: list[str] = []
+            df = self.courses_df.copy()
+            df["__match_score"] = sims
+            results = []
             for i in order:
                 if sims[i] <= 0:
                     break
-                ids.append(self.rows[int(i)].course_id)
-            df = self.courses_df.copy()
-            df["__match_score"] = sims
-            df = df.set_index("course_id").loc[ids].reset_index()
-            results = [course_row_to_dict(df.iloc[i]) for i in range(len(df))]
-        results = self._apply_filters(
+                results.append(course_row_to_dict(df.iloc[int(i)]))
+            total = len(results)
+        filtered = self._apply_filters(
             results, subject=subject, level=level,
             provider=provider, is_free=is_free,
         )
-        return results[offset:offset + limit]
+        return filtered[offset:offset + limit], len(filtered)
 
-    def _apply_filters(
-        self, results: list[dict], *, subject, level, provider, is_free,
-    ) -> list[dict]:
+    def _apply_filters(self, results, *, subject, level, provider, is_free):
         def keep(d: dict) -> bool:
             if subject and str(d.get("subject") or "").lower() != subject.lower():
                 return False
@@ -253,7 +307,7 @@ class RecommendationModelAdapter:
             return True
         return [d for d in results if keep(d)]
 
-    # -- popularity ------------------------------------------------------
+    # -- popularity -----------------------------------------------------
 
     def popular(self, limit: int = 12) -> list[dict]:
         df = self.courses_df.copy()
@@ -273,14 +327,13 @@ class RecommendationModelAdapter:
         df = df.sort_values("__score", ascending=False).head(limit)
         return [course_row_to_dict(df.iloc[i]) for i in range(len(df))]
 
-    # -- recommendation --------------------------------------------------
+    # -- recommendation -------------------------------------------------
 
     def recommend_similar(self, course_id: str, limit: int = 6) -> list[dict]:
         idx = self.row_index.get(str(course_id))
         if idx is None:
             return []
-        target = self.tfidf_matrix[idx]
-        sims = linear_kernel(target, self.tfidf_matrix).ravel()
+        sims = _row_similarities(self.tfidf_matrix[idx], self.tfidf_matrix)
         order = np.argsort(-sims)
         out: list[dict] = []
         for i in order:
@@ -292,7 +345,24 @@ class RecommendationModelAdapter:
         return out
 
     def recommend_query(self, query: str, limit: int = 10) -> list[dict]:
-        return self.search_courses(query, limit=limit)
+        """Sparse-query recommendation. Linear-kernel safe, no dense build."""
+        q = (query or "").strip()
+        if not q:
+            return self.popular(limit=limit)
+        q_vec = self.tfidf_vectorizer.transform([q])
+        sims = _row_similarities(q_vec, self.tfidf_matrix)
+        # top-k via argpartition; preserves score order inside the top-k.
+        k = min(limit, len(sims))
+        top_idx = np.argpartition(-sims, kth=k - 1)[:k]
+        top_idx = top_idx[np.argsort(-sims[top_idx])]
+        out: list[dict] = []
+        for i in top_idx:
+            if sims[i] <= 0:
+                continue
+            out.append(course_row_to_dict(self.courses_df.iloc[int(i)]))
+            if len(out) >= limit:
+                break
+        return out
 
     def recommend_personalized(
         self,
@@ -302,8 +372,9 @@ class RecommendationModelAdapter:
         limit: int = 10,
     ) -> list[dict]:
         parts: list[str] = [s for s in (interests or []) if s]
-        # seed from favorite / history rows
-        seed_ids = list(dict.fromkeys(list(favorites_ids or []) + list(history_ids or [])))
+        seed_ids = list(dict.fromkeys(
+            list(favorites_ids or []) + list(history_ids or [])
+        ))
         for cid in seed_ids:
             idx = self.row_index.get(str(cid))
             if idx is None:
@@ -314,7 +385,7 @@ class RecommendationModelAdapter:
         q = " ".join(parts)
         return self.recommend_query(q, limit=limit)
 
-    # -- filter listings -------------------------------------------------
+    # -- filter listings -----------------------------------------------
 
     @property
     def filter_lists(self) -> dict[str, list[str]]:
@@ -337,54 +408,139 @@ class RecommendationModelAdapter:
         }
 
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _row_similarities(q_vec, matrix) -> np.ndarray:
+    """Compute sparse-safe row-similarity scores as a 1-D float32 array."""
+    from sklearn.metrics.pairwise import linear_kernel
+    sims = linear_kernel(q_vec, matrix).ravel()
+    return np.asarray(sims, dtype=np.float32)
+
+
+# ---------------------------------------------------------------------------
+# Loader
+# ---------------------------------------------------------------------------
+
+
 def load_adapter(
     model_dir: str | Path | None = None,
     meta_path: str | Path | None = None,
-) -> Optional[RecommendationModelAdapter]:
-    """Load the v2 bundle, returning ``None`` on any structural error."""
-    mdir = Path(model_dir) if model_dir else _DEFAULT_MODEL_DIR
-    mfile = Path(meta_path) if meta_path else _DEFAULT_META_PATH
-    try:
-        courses_df = joblib.load(mdir / "courses.joblib")
-        tfidf_vec = joblib.load(mdir / "tfidf_vectorizer.joblib")
-        tfidf_mat = joblib.load(mdir / "tfidf_matrix.joblib")
-        # Optional per-field vectorizers (only present in v2+).
-        field_vectorizers = {}
-        fv_path = mdir / "field_vectorizers.joblib"
-        if fv_path.exists():
-            try:
-                loaded = joblib.load(fv_path)
-                if isinstance(loaded, dict):
-                    field_vectorizers = loaded
-            except Exception:
-                field_vectorizers = {}
-    except Exception as exc:
-        raise ModelLoadError(f"failed to load joblib from {mdir}: {exc}") from exc
+) -> RecommendationModelAdapter:
+    """Load the v3 bundle.
 
-    meta = BundleMeta(model_version="v2", source=str(mdir))
-    meta.number_of_features = len(getattr(tfidf_vec, "vocabulary_", {}) or {})
+    The full TF-IDF matrix is rebuilt from ``deployment_text`` at startup
+    instead of being persisted, so the shipping artefact stays small.
+    """
+    mdir = Path(model_dir).expanduser().resolve() if model_dir else _resolve_model_dir()
+    mfile: Optional[Path] = (
+        Path(meta_path).expanduser().resolve() if meta_path
+        else (mdir.parent / "model_metadata.json")
+    )
+
+    if not mdir.exists():
+        raise ModelLoadError(
+            f"model directory does not exist: {mdir}. "
+            f"Set the MODEL_DIR env var or ship the v3 bundle under "
+            f"{DEFAULT_MODEL_DIR}."
+        )
+    if not mdir.is_dir():
+        raise ModelLoadError(f"model path is not a directory: {mdir}")
+
+    courses_path = mdir / "courses.joblib"
+    vectorizer_path = mdir / "tfidf_vectorizer.joblib"
+
+    missing_paths = [
+        p for p in (courses_path, vectorizer_path) if not p.exists()
+    ]
+    if missing_paths:
+        raise ModelLoadError(
+            "required model files missing under "
+            f"{mdir}: {', '.join(p.name for p in missing_paths)}"
+        )
+
+    log.info("loading v3 model from %s", mdir)
+
+    try:
+        courses_df = joblib.load(courses_path)
+    except Exception as exc:
+        raise ModelLoadError(
+            f"failed to load courses.joblib: {exc}"
+        ) from exc
+
+    if "deployment_text" not in courses_df.columns:
+        raise ModelLoadError(
+            "courses.joblib is missing required 'deployment_text' column; "
+            "re-run ml/training/train_v3.py to regenerate the v3 bundle."
+        )
+    if "course_id" not in courses_df.columns:
+        raise ModelLoadError(
+            "courses.joblib is missing required 'course_id' column."
+        )
+
+    try:
+        vectorizer: TfidfVectorizer = joblib.load(vectorizer_path)
+    except Exception as exc:
+        raise ModelLoadError(
+            f"failed to load tfidf_vectorizer.joblib: {exc}"
+        ) from exc
+
+    # Build the sparse deployment matrix in-place. ``astype(np.float32)``
+    # mirrors the vectorizer's ``dtype`` to keep memory predictable.
+    try:
+        texts = courses_df["deployment_text"].astype(str).tolist()
+        tfidf_matrix = vectorizer.transform(texts).astype(np.float32, copy=False)
+        tfidf_matrix = tfidf_matrix.tocsr()
+    except Exception as exc:
+        raise ModelLoadError(
+            f"failed to transform deployment_text: {exc}. "
+            f"Check that the vectorizer was fit on the same text corpus."
+        ) from exc
+
+    if not issparse(tfidf_matrix):
+        raise ModelLoadError(
+            "TF-IDF matrix is not sparse; refusing to load dense matrix "
+            "to keep the service under 512 MB."
+        )
+    if tfidf_matrix.dtype != np.float32:
+        tfidf_matrix = tfidf_matrix.astype(np.float32)
+
+    # Optional config / metadata.
     config_path = mdir / "model_config.json"
+    field_weights: dict[str, float] = {}
     if config_path.exists():
         try:
             cfg = json.loads(config_path.read_text(encoding="utf-8"))
             fw = cfg.get("field_weights") or {}
             if isinstance(fw, dict):
-                meta.field_weights = {str(k): float(v) for k, v in fw.items()}
-        except Exception:
-            pass
-    if mfile.exists():
+                field_weights = {str(k): float(v) for k, v in fw.items()}
+        except Exception:  # noqa: BLE001
+            log.warning("could not parse %s; field_weights empty",
+                        config_path, exc_info=True)
+
+    meta = BundleMeta(
+        model_version="v3",
+        source=str(mdir),
+        field_weights=field_weights,
+        number_of_features=len(getattr(vectorizer, "vocabulary_", {}) or {}),
+    )
+
+    # Legacy metadata file (optional).
+    if mfile is not None and mfile.exists():
         try:
             raw = json.loads(mfile.read_text(encoding="utf-8"))
-            section = raw.get("v2", raw.get("default", raw))
+            section = raw.get("v3", raw.get("default", raw))
             fw = section.get("field_weights") or {}
-            if isinstance(fw, dict) and not meta.field_weights:
-                meta.field_weights = {
-                    str(k): float(v) for k, v in fw.items()
-                }
-            meta.model_version = str(section.get("model_version", "v2"))
-        except Exception:
-            pass  # non-fatal
+            if isinstance(fw, dict) and not field_weights:
+                field_weights = {str(k): float(v) for k, v in fw.items()}
+                meta.field_weights = field_weights
+            meta.model_version = str(section.get("model_version", "v3"))
+        except Exception:  # noqa: BLE001
+            log.debug("legacy metadata at %s could not be parsed", mfile)
 
+    # Course rows.
     rows: list[CourseRow] = []
     index: dict[str, int] = {}
     for i, (_, row) in enumerate(courses_df.iterrows()):
@@ -396,17 +552,45 @@ def load_adapter(
             _safe_text(row.get("skills")),
             _safe_text(row.get("subject")),
         )))
-        rows.append(CourseRow(course_id=cid, payload=course_row_to_dict(row), text=text))
+        rows.append(CourseRow(course_id=cid,
+                              payload=course_row_to_dict(row), text=text))
+
+    # Sparse matrix memory footprint.
+    sparse_bytes = (
+        tfidf_matrix.data.nbytes
+        + tfidf_matrix.indices.nbytes
+        + tfidf_matrix.indptr.nbytes
+    )
+    sparse_mb = sparse_bytes / 1024 / 1024
+
+    log.info(
+        "v3 model ready: courses=%d vocab=%d matrix=%s dtype=%s sparse_mem=%.1f MB",
+        len(rows),
+        meta.number_of_features,
+        tfidf_matrix.shape,
+        tfidf_matrix.dtype,
+        sparse_mb,
+    )
 
     return RecommendationModelAdapter(
         courses_df=courses_df,
         row_index=index,
         rows=rows,
-        tfidf_vectorizer=tfidf_vec,
-        tfidf_matrix=tfidf_mat,
-        word_vectorizer=tfidf_vec,  # alias: routes.py may reference either
-        word_matrix=tfidf_mat,
-        char_vectorizer=tfidf_vec,
-        char_matrix=tfidf_mat,
+        tfidf_vectorizer=vectorizer,
+        tfidf_matrix=tfidf_matrix,
+        word_vectorizer=vectorizer,        # legacy alias
+        word_matrix=tfidf_matrix,          # legacy alias
+        char_vectorizer=vectorizer,        # legacy alias
+        char_matrix=tfidf_matrix,          # legacy alias
         meta=meta,
     )
+
+
+__all__ = [
+    "BundleMeta",
+    "CourseRow",
+    "ModelLoadError",
+    "RecommendationModelAdapter",
+    "load_adapter",
+    "DEFAULT_MODEL_DIR",
+]

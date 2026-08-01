@@ -6,9 +6,7 @@ services:
 
     buildCommand: |
       pip install --upgrade pip &&
-      pip install -r backend/requirements.txt &&
-      mkdir -p backend/models &&
-      cp -r ml/artifacts/models/. backend/models/
+      pip install -r backend/requirements.txt
 
     startCommand: gunicorn --chdir backend --bind 0.0.0.0:$PORT --workers 1 --timeout 120 "run:app"
 
@@ -33,6 +31,10 @@ services:
 
       - key: AUTO_CREATE_DB
         value: "true"
+
+      # Point the loader at the lightweight v3 bundle.
+      - key: MODEL_DIR
+        value: /opt/render/project/src/ml/artifacts/models/v3
 
       - key: DATABASE_URL
         fromDatabase:
