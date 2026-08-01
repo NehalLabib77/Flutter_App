@@ -1,18 +1,16 @@
-"""Lightweight loader for the EduCompass v3 course recommender.
+"""Lightweight loader for the EduCompass v4 course recommender.
 
-Loads the v3 bundle shipped under ``ml/artifacts/models/v3/``:
+Loads the v4 bundle shipped under ``ml/artifacts/models/v4/``:
 
-* ``courses.parquet``         – slim courses frame with a
-  ``deployment_text`` column (stored as Parquet so the reader's pandas
-  version does not need to match the writer's — see the inline note in
-  ``load_adapter`` below).
-* ``tfidf_vectorizer.joblib``  – fitted :class:`TfidfVectorizer`
-* ``model_config.json``        – optional field/rerank weights
+* ``courses.parquet``         – slim courses frame (no ``deployment_text``)
+* ``tfidf_vectorizer.joblib`` – fitted :class:`TfidfVectorizer`
+* ``tfidf_matrix.npz``        – pre-computed CSR float32 TF-IDF matrix
+* ``model_config.json``       – optional field/rerank weights
 
-The deployment sparse matrix is **not** persisted on disk — it is built
-once at startup from the ``deployment_text`` column. This keeps the
-shipping artefact at ~30 MB and the in-process sparse CSR at ~20 MB,
-which lets the service fit comfortably inside Render Free's 512 MB cap.
+The deployment sparse matrix is **precomputed at training time** and
+loaded from disk with ``scipy.sparse.load_npz``. The loader never calls
+``vectorizer.transform`` over the corpus during startup, which keeps
+the cold-start peak RSS well below Render Free's 512 MiB cap.
 
 Public surface required by ``model_service.py`` / ``routes.py``::
 
@@ -38,6 +36,7 @@ import joblib
 import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
+from scipy.sparse import load_npz
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 log = logging.getLogger(__name__)
@@ -50,7 +49,7 @@ log = logging.getLogger(__name__)
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 
 DEFAULT_MODEL_DIR = (
-    _REPO_ROOT / "ml" / "artifacts" / "models" / "v3"
+    _REPO_ROOT / "ml" / "artifacts" / "models" / "v4"
 )
 DEFAULT_META_PATH = (
     _REPO_ROOT / "ml" / "artifacts" / "models" / "model_metadata.json"
@@ -75,7 +74,7 @@ def _resolve_model_dir() -> Path:
 
 
 class ModelLoadError(Exception):
-    """Raised when the v3 bundle cannot be assembled."""
+    """Raised when the v4 bundle cannot be assembled."""
 
 
 # ---------------------------------------------------------------------------
@@ -175,7 +174,7 @@ class CourseRow:
 
 @dataclass
 class BundleMeta:
-    model_version: str = "v3"
+    model_version: str = "v4"
     source: str = ""
     field_vectorizers: dict[str, TfidfVectorizer] = field(default_factory=dict)
     field_weights: dict[str, float] = field(default_factory=dict)
@@ -431,11 +430,7 @@ def load_adapter(
     model_dir: str | Path | None = None,
     meta_path: str | Path | None = None,
 ) -> RecommendationModelAdapter:
-    """Load the v3 bundle.
-
-    The full TF-IDF matrix is rebuilt from ``deployment_text`` at startup
-    instead of being persisted, so the shipping artefact stays small.
-    """
+    """Load the v4 bundle (matrix is pre-built; never transformed at startup)."""
     mdir = Path(model_dir).expanduser().resolve() if model_dir else _resolve_model_dir()
     mfile: Optional[Path] = (
         Path(meta_path).expanduser().resolve() if meta_path
@@ -445,7 +440,7 @@ def load_adapter(
     if not mdir.exists():
         raise ModelLoadError(
             f"model directory does not exist: {mdir}. "
-            f"Set the MODEL_DIR env var or ship the v3 bundle under "
+            f"Set the MODEL_DIR env var or ship the v4 bundle under "
             f"{DEFAULT_MODEL_DIR}."
         )
     if not mdir.is_dir():
@@ -453,9 +448,10 @@ def load_adapter(
 
     courses_path = mdir / "courses.parquet"
     vectorizer_path = mdir / "tfidf_vectorizer.joblib"
+    matrix_path = mdir / "tfidf_matrix.npz"
 
     missing_paths = [
-        p for p in (courses_path, vectorizer_path) if not p.exists()
+        p for p in (courses_path, vectorizer_path, matrix_path) if not p.exists()
     ]
     if missing_paths:
         raise ModelLoadError(
@@ -463,29 +459,48 @@ def load_adapter(
             f"{mdir}: {', '.join(p.name for p in missing_paths)}"
         )
 
-    log.info("loading v3 model from %s", mdir)
+    log.info("loading v4 model from %s", mdir)
 
-    # Courses frame is stored as Parquet (not joblib) so the deployment
-    # environment's pandas version can read it regardless of the writer's
-    # pandas version. Parquet relies on the Arrow schema, not on pandas
-    # internal ``StringDtype`` pickle layout.
+    # Parquet; Arrow schema is stable across pandas versions.
     try:
         courses_df = pd.read_parquet(courses_path, engine="pyarrow")
     except Exception as exc:
         raise ModelLoadError(
             f"failed to load courses.parquet: {exc}. "
-            f"Re-run ml/training/train_v3.py to regenerate the bundle."
+            f"Re-run ml/training/train_v4.py to regenerate the bundle."
         ) from exc
 
-    if "deployment_text" not in courses_df.columns:
-        raise ModelLoadError(
-            "courses.parquet is missing required 'deployment_text' column; "
-            "re-run ml/training/train_v3.py to regenerate the v3 bundle."
-        )
     if "course_id" not in courses_df.columns:
         raise ModelLoadError(
             "courses.parquet is missing required 'course_id' column; "
-            "re-run ml/training/train_v3.py to regenerate the v3 bundle."
+            "re-run ml/training/train_v4.py to regenerate the v4 bundle."
+        )
+
+    # Pre-built CSR matrix from disk. ``load_npz`` reads straight into
+    # float32 (matches the dtype we wrote).
+    try:
+        tfidf_matrix = load_npz(matrix_path)
+    except Exception as exc:
+        raise ModelLoadError(
+            f"failed to load tfidf_matrix.npz: {exc}. "
+            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+        ) from exc
+
+    if not issparse(tfidf_matrix):
+        raise ModelLoadError(
+            "tfidf_matrix.npz did not load as a sparse matrix; refusing "
+            "to densify to keep the service under 512 MB."
+        )
+    if tfidf_matrix.format != "csr":
+        tfidf_matrix = tfidf_matrix.tocsr()
+    if tfidf_matrix.dtype != np.float32:
+        tfidf_matrix = tfidf_matrix.astype(np.float32)
+
+    if tfidf_matrix.shape[0] != len(courses_df):
+        raise ModelLoadError(
+            f"matrix row count ({tfidf_matrix.shape[0]}) does not match "
+            f"courses.parquet row count ({len(courses_df)}). "
+            f"Re-run ml/training/train_v4.py to regenerate the bundle."
         )
 
     try:
@@ -494,26 +509,6 @@ def load_adapter(
         raise ModelLoadError(
             f"failed to load tfidf_vectorizer.joblib: {exc}"
         ) from exc
-
-    # Build the sparse deployment matrix in-place. ``astype(np.float32)``
-    # mirrors the vectorizer's ``dtype`` to keep memory predictable.
-    try:
-        texts = courses_df["deployment_text"].astype(str).tolist()
-        tfidf_matrix = vectorizer.transform(texts).astype(np.float32, copy=False)
-        tfidf_matrix = tfidf_matrix.tocsr()
-    except Exception as exc:
-        raise ModelLoadError(
-            f"failed to transform deployment_text: {exc}. "
-            f"Check that the vectorizer was fit on the same text corpus."
-        ) from exc
-
-    if not issparse(tfidf_matrix):
-        raise ModelLoadError(
-            "TF-IDF matrix is not sparse; refusing to load dense matrix "
-            "to keep the service under 512 MB."
-        )
-    if tfidf_matrix.dtype != np.float32:
-        tfidf_matrix = tfidf_matrix.astype(np.float32)
 
     # Optional config / metadata.
     config_path = mdir / "model_config.json"
@@ -529,7 +524,7 @@ def load_adapter(
                         config_path, exc_info=True)
 
     meta = BundleMeta(
-        model_version="v3",
+        model_version="v4",
         source=str(mdir),
         field_weights=field_weights,
         number_of_features=len(getattr(vectorizer, "vocabulary_", {}) or {}),
@@ -539,12 +534,12 @@ def load_adapter(
     if mfile is not None and mfile.exists():
         try:
             raw = json.loads(mfile.read_text(encoding="utf-8"))
-            section = raw.get("v3", raw.get("default", raw))
+            section = raw.get("v4", raw.get("default", raw))
             fw = section.get("field_weights") or {}
             if isinstance(fw, dict) and not field_weights:
                 field_weights = {str(k): float(v) for k, v in fw.items()}
                 meta.field_weights = field_weights
-            meta.model_version = str(section.get("model_version", "v3"))
+            meta.model_version = str(section.get("model_version", "v4"))
         except Exception:  # noqa: BLE001
             log.debug("legacy metadata at %s could not be parsed", mfile)
 
@@ -563,21 +558,26 @@ def load_adapter(
         rows.append(CourseRow(course_id=cid,
                               payload=course_row_to_dict(row), text=text))
 
-    # Sparse matrix memory footprint.
+    # Diagnostic memory figures.
     sparse_bytes = (
         tfidf_matrix.data.nbytes
         + tfidf_matrix.indices.nbytes
         + tfidf_matrix.indptr.nbytes
     )
     sparse_mb = sparse_bytes / 1024 / 1024
+    df_bytes = int(courses_df.memory_usage(deep=True).sum())
+    df_mb = df_bytes / 1024 / 1024
 
     log.info(
-        "v3 model ready: courses=%d vocab=%d matrix=%s dtype=%s sparse_mem=%.1f MB",
+        "v4 model ready: courses=%d vocab=%d matrix=%s dtype=%s "
+        "nnz=%d sparse_mem=%.1f MB df_mem=%.1f MB",
         len(rows),
         meta.number_of_features,
         tfidf_matrix.shape,
         tfidf_matrix.dtype,
+        tfidf_matrix.nnz,
         sparse_mb,
+        df_mb,
     )
 
     return RecommendationModelAdapter(
@@ -586,10 +586,10 @@ def load_adapter(
         rows=rows,
         tfidf_vectorizer=vectorizer,
         tfidf_matrix=tfidf_matrix,
-        word_vectorizer=vectorizer,        # legacy alias
-        word_matrix=tfidf_matrix,          # legacy alias
-        char_vectorizer=vectorizer,        # legacy alias
-        char_matrix=tfidf_matrix,          # legacy alias
+        word_vectorizer=vectorizer,        # legacy alias (same object)
+        word_matrix=tfidf_matrix,          # legacy alias (same object)
+        char_vectorizer=vectorizer,        # legacy alias (same object)
+        char_matrix=tfidf_matrix,          # legacy alias (same object)
         meta=meta,
     )
 
