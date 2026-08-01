@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,8 +27,18 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity, linear_kernel
 
 
-_DEFAULT_MODEL_DIR = Path(r"E:/Flutter_app/ml/artifacts/models/v2")
-_DEFAULT_META_PATH = Path(r"E:/Flutter_app/ml/artifacts/models/model_metadata.json")
+_REPO_ROOT = Path(__file__).resolve().parents[2]
+
+_DEFAULT_MODEL_DIR = Path(
+    os.getenv(
+        "MODEL_DIR",
+        str(_REPO_ROOT / "ml" / "artifacts" / "models" / "v2"),
+    )
+).resolve()
+
+_DEFAULT_META_PATH = (
+    _REPO_ROOT / "ml" / "artifacts" / "models" / "model_metadata.json"
+)
 
 
 class ModelLoadError(Exception):
