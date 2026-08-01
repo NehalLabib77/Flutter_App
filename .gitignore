@@ -154,3 +154,8 @@ node_modules/
 /ml/artifacts/models/v2/char_matrix.joblib
 /ml/artifacts/models/v2/char_vectorizer.joblib
 /ml/artifacts/models/v2/word_matrix.joblib
+
+# Oversized generated ML artifacts
+/models/v2/char_matrix.joblib
+/notebooks/models/similarity.pkl
+/ml/artifacts/models/v2/char_matrix.joblib
