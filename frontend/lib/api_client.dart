@@ -312,29 +312,6 @@ class ApiClient {
     });
   }
 
-
-  // --- Billing --------------------------------------------------------------
-
-  Future<BillingOtpRequest> requestBillingOtp(String phone) async {
-    final data = await _post('/billing/otp/request', {'phone': phone},
-        auth: false);
-    return BillingOtpRequest(
-      reference: (data['reference'] ?? '').toString(),
-      hint: (data['hint'] ?? '').toString(),
-    );
-  }
-
-  Future<BillingOtpVerify> verifyBillingOtp(String phone, String code) async {
-    final data = await _post('/billing/otp/verify', {
-      'phone': phone,
-      'code': code,
-    }, auth: false);
-    return BillingOtpVerify(
-      verified: data['verified'] == true,
-      reference: (data['reference'] ?? '').toString(),
-    );
-  }
-
   // --- Auth OTP ------------------------------------------------------------
 
   /// Request a one-time code for the login or register flow.
@@ -356,6 +333,7 @@ class ApiClient {
     return AuthOtpRequest(
       reference: (data['reference'] ?? '').toString(),
       hint: (data['hint'] ?? '').toString(),
+      devCode: (data['dev_code'] ?? '').toString(),
     );
   }
 
@@ -376,30 +354,6 @@ class ApiClient {
     );
   }
 
-  Future<SubscriptionInfo?> getSubscription() async {
-    final data = await _get('/billing/subscription');
-    final raw = data['subscription'];
-    if (raw is! Map) return null;
-    return SubscriptionInfo.fromJson(raw.cast<String, dynamic>());
-  }
-
-  Future<SubscriptionInfo> activateSubscription({
-    required String plan,
-    required String phone,
-    required String providerReference,
-  }) async {
-    final data = await _post('/billing/subscription/activate', {
-      'plan': plan,
-      'phone': phone,
-      'provider_reference': providerReference,
-    });
-    final raw = data['subscription'];
-    if (raw is! Map) {
-      throw const ApiException(500, 'Server did not return a subscription');
-    }
-    return SubscriptionInfo.fromJson(raw.cast<String, dynamic>());
-  }
-
   List<Course> _mapCourses(dynamic raw) {
     if (raw is! List) return const [];
     return raw
@@ -410,27 +364,18 @@ class ApiClient {
 }
 
 
-/// Server response wrapper for `/billing/otp/request`.
-class BillingOtpRequest {
-  final String reference;
-  final String hint;
-  const BillingOtpRequest({required this.reference, required this.hint});
-}
-
-
-/// Server response wrapper for `/billing/otp/verify`.
-class BillingOtpVerify {
-  final bool verified;
-  final String reference;
-  const BillingOtpVerify({required this.verified, required this.reference});
-}
-
-
 /// Server response wrapper for `/auth/otp/request`.
 class AuthOtpRequest {
   final String reference;
   final String hint;
-  const AuthOtpRequest({required this.reference, required this.hint});
+  /// Dev-only — populated by the mock OTP store so the client can display the
+  /// code without an SMS gateway. Empty string when a real provider is wired.
+  final String devCode;
+  const AuthOtpRequest({
+    required this.reference,
+    required this.hint,
+    this.devCode = '',
+  });
 }
 
 
@@ -439,48 +384,4 @@ class AuthOtpVerify {
   final bool verified;
   final String reference;
   const AuthOtpVerify({required this.verified, required this.reference});
-}
-
-
-/// Server response wrapper for `/billing/subscription` and the activate call.
-class SubscriptionInfo {
-  final String provider;
-  final String planCode;
-  final String status;
-  final String? providerReference;
-  final String? subscriberIdMasked;
-  final DateTime? startedAt;
-  final DateTime? expiresAt;
-  final bool isPremium;
-
-  const SubscriptionInfo({
-    required this.provider,
-    required this.planCode,
-    required this.status,
-    this.providerReference,
-    this.subscriberIdMasked,
-    this.startedAt,
-    this.expiresAt,
-    required this.isPremium,
-  });
-
-  factory SubscriptionInfo.fromJson(Map<String, dynamic> json) {
-    DateTime? parse(Object? v) {
-      if (v is String && v.isNotEmpty) {
-        return DateTime.tryParse(v)?.toLocal();
-      }
-      return null;
-    }
-
-    return SubscriptionInfo(
-      provider: (json['provider'] ?? '').toString(),
-      planCode: (json['plan_code'] ?? '').toString(),
-      status: (json['status'] ?? '').toString(),
-      providerReference: json['provider_reference']?.toString(),
-      subscriberIdMasked: json['subscriber_id_masked']?.toString(),
-      startedAt: parse(json['started_at']),
-      expiresAt: parse(json['expires_at']),
-      isPremium: json['is_premium'] == true,
-    );
-  }
 }

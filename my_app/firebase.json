@@ -1,0 +1,28 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "educompass-b925e",
+          "appId": "1:35965766853:android:227d52462c8d3bb0e334ac",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "educompass-b925e",
+          "configurations": {
+            "android": "1:35965766853:android:227d52462c8d3bb0e334ac",
+            "ios": "1:35965766853:ios:d53b28d9ffd27cc1e334ac",
+            "macos": "1:35965766853:ios:d53b28d9ffd27cc1e334ac",
+            "web": "1:35965766853:web:45fefcde50fb5f38e334ac",
+            "windows": "1:35965766853:web:a7484ed53183a2bbe334ac"
+          }
+        }
+      }
+    }
+  }
+}

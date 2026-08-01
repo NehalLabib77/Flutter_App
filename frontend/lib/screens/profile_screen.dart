@@ -1,4 +1,4 @@
-/// User profile: identity, interests, theme, subscription, logout.
+/// User profile: identity, interests, theme, and logout.
 library;
 
 import 'package:flutter/material.dart';
@@ -130,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 const SizedBox(height: 16),
                 const _ThemeCard(),
                 const SizedBox(height: 16),
-                const _SubscriptionCard(),
+                const _InfoCard(),
                 const SizedBox(height: 24),
                 OutlinedButton.icon(
                   onPressed: _logout,
@@ -340,8 +340,8 @@ class _ThemeCard extends StatelessWidget {
   }
 }
 
-class _SubscriptionCard extends StatelessWidget {
-  const _SubscriptionCard();
+class _InfoCard extends StatelessWidget {
+  const _InfoCard();
 
   @override
   Widget build(BuildContext context) {
@@ -352,13 +352,13 @@ class _SubscriptionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Subscription',
+            Text('All courses',
                 style: theme.textTheme.titleMedium
                     ?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
             Text(
-              'All courses are free to enroll. Tap "Enroll" on any course to '
-              'add it to your learning list.',
+              'Browse the catalog, save favourites, and tap "Enroll" on any '
+              'course to add it to your learning list.',
               style: theme.textTheme.bodySmall,
             ),
           ],

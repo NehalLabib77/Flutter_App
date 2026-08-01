@@ -27,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _requestingOtp = false;
   String? _otpReference;
   String? _otpHint;
+  String _otpDevCode = '';
 
   @override
   void dispose() {
@@ -50,8 +51,16 @@ class _LoginScreenState extends State<LoginScreen> {
       setState(() {
         _otpReference = result.reference;
         _otpHint = result.hint;
+        _otpDevCode = result.devCode;
+        if (result.devCode.isNotEmpty) {
+          _otpCtrl.text = result.devCode;
+        }
       });
-      _toast('OTP sent. Check the server console in dev mode.');
+      _toast(
+        result.devCode.isNotEmpty
+            ? 'Code received: ${result.devCode}'
+            : 'OTP sent. Check the server console in dev mode.',
+      );
     } on ApiException catch (e) {
       _toast('OTP request failed: ${e.message}');
     } catch (e) {
@@ -211,7 +220,9 @@ class _LoginScreenState extends State<LoginScreen> {
                           decoration: InputDecoration(
                             labelText: 'Enter the 6-digit code',
                             helperText: otpReady
-                                ? 'Paste the code from the server console.'
+                                ? (_otpDevCode.isNotEmpty
+                                    ? 'Dev mode — auto-filled below.'
+                                    : 'Paste the code from the server console.')
                                 : 'Tap "Send OTP code" above first.',
                           ),
                           keyboardType: TextInputType.number,
@@ -229,6 +240,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           textInputAction: TextInputAction.done,
                           onFieldSubmitted: otpReady ? (_) => _submit() : null,
                         ),
+                        if (otpReady && _otpDevCode.isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              'Dev code: $_otpDevCode',
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 16),
                         FilledButton(
                           onPressed: (!otpReady || _submitting)

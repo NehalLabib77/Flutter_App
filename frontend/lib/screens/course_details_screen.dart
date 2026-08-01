@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
-import '../billing_sheet.dart';
 import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
@@ -86,19 +85,11 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       );
       return;
     }
-    final user = context.read<AuthProvider>().user;
-    final paid = await showBillingSheet(
-      context,
-      course: c,
-      userEmail: user?.email ?? 'guest@example.com',
-    );
-    if (!paid || !mounted) return;
     await enrolled.enroll(c.id);
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Subscription active — " ${c.name} " is now in '
-            'your learning list.'),
+        content: Text('"${c.name}" added to your learning list.'),
       ),
     );
     // Seed progress so the new course shows 0% in the slider.

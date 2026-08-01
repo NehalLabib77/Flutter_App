@@ -1,14 +1,12 @@
 """In-memory phone-OTP store used by the auth (login + register) flow.
 
-Mirrors the shape of :mod:`backend.app.billing_service` (the bKash OTP path)
-but is keyed to a single phone number and a single purpose (`"login"` or
-`"register"`). It is intentionally simple: a dict protected by a lock, codes
-that expire after ``ttl_seconds``, and a fixed-length numeric code.
+The store is keyed to a single phone number and a single purpose (`"login"`
+or `"register"`). It is intentionally simple: a dict protected by a lock,
+codes that expire after ``ttl_seconds``, and a fixed-length numeric code.
 
 The store logs the generated code to the server console so the dev-mode mock
 can be exercised end-to-end without any external SMS provider. A real Twilio /
-bdapps / Firebase integration can replace this module without touching the
-REST surface.
+Firebase integration can replace this module without touching the REST surface.
 """
 
 from __future__ import annotations
@@ -25,8 +23,7 @@ log = logging.getLogger(__name__)
 
 AuthPurpose = Literal["login", "register"]
 
-# E.164-ish — at least 8 digits, optional leading `+`. Mirrors the billing
-# validator so the same phone field is accepted in both screens.
+# E.164-ish — at least 8 digits, optional leading `+`.
 _PHONE_RE = re.compile(r"^\+?[0-9]{8,15}$")
 
 
@@ -52,6 +49,9 @@ class OtpEntry:
 class RequestResult:
     reference: str
     hint: str = ""
+    # Populated only when dev-mode surfaces the code in the API response so
+    # the Flutter client can display it without needing a real SMS gateway.
+    dev_code: str = ""
 
 
 @dataclass
@@ -104,7 +104,8 @@ class AuthOtpStore:
         print(f"[auth:otp] {purpose} code for {phone}: {code}")
         return RequestResult(
             reference=reference,
-            hint="Dev only — code is printed in the server console.",
+            hint="Dev only — code is shown on this device and in the server console.",
+            dev_code=code,
         )
 
     def verify(self, phone: str, code: str,

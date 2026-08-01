@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 
@@ -19,21 +20,18 @@ from flask_jwt_extended import (
     jwt_required,
 )
 
-from datetime import datetime, timedelta, timezone
-
 from .database_models import (
-    BillingEvent,
     CourseProgress,
+    Enrollment,
     Favorite,
     History,
     LearningPathProgress,
-    Subscription,
     User,
     UserInterest,
 )
 from .auth_otp import get_auth_otp_store
 from .extensions import db
-
+from . import firebase_client
 
 log = logging.getLogger(__name__)
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -160,7 +158,11 @@ def auth_otp_request():
         return json_error(str(exc), code="INVALID_PHONE")
     return json_ok({"reference": result.reference,
                     "hint": result.hint,
-                    "ttl_seconds": 300}, message="Code sent.")
+                    "ttl_seconds": 300,
+                    # dev_code is only populated in dev/mock mode — wired straight
+                    # into the OTP store. Real SMS gateways would *not* include
+                    # this so we never accidentally leak a real code to clients.
+                    "dev_code": result.dev_code}, message="Code sent.")
 
 
 @bp.post("/auth/otp/verify")
@@ -200,8 +202,18 @@ def register():
     email = (data.get("email") or "").strip().casefold()
     password = data.get("password") or ""
     full_name = (data.get("full_name") or "").strip()
-    phone = (data.get("phone") or "").strip()
-    otp_reference = (data.get("otp_reference") or "").strip()
+    # Phone + OTP are accepted but ignored — legacy clients may still send
+    # them. New clients should not.
+    legacy_phone = (data.get("phone") or "").strip()
+    legacy_otp = (data.get("otp_reference") or "").strip()
+    if legacy_phone or legacy_otp:
+        # Drain any pending OTP slot so the legacy flow can't accidentally
+        # succeed for accounts that didn't ask for it.
+        try:
+            get_auth_otp_store().verify(
+                phone=legacy_phone, code="*consume*", purpose="register")
+        except Exception:  # noqa: BLE001
+            pass
 
     if "@" not in email:
         return json_error("A valid email is required.", code="INVALID_EMAIL")
@@ -210,31 +222,75 @@ def register():
                           code="WEAK_PASSWORD")
     if not full_name:
         return json_error("Full name is required.", code="MISSING_NAME")
-    if not phone:
-        return json_error("A verified phone number is required.",
-                          code="MISSING_PHONE")
-    if not otp_reference:
-        return json_error("A verified OTP reference is required.",
-                          code="MISSING_OTP_REFERENCE")
     if User.query.filter_by(email=email).first():
         return json_error("Email already registered.",
                           status=409, code="EMAIL_TAKEN")
 
-    store = get_auth_otp_store()
-    pending_ref = store.peek_reference(phone=phone, purpose="register")
-    if not pending_ref or pending_ref != otp_reference:
+    # Firebase Auth is the source of truth for identity. If the SDK /
+    # creds aren't configured, we *fail* rather than silently create a
+    # dangling SQL account — otherwise the user would exist in SQL but
+    # never in Firebase, which is exactly the bug this change is meant
+    # to fix.
+    if not firebase_client.is_configured():
+        hint = firebase_client.configuration_hint()
+        log.error("Firebase credentials missing — refusing registration. %s",
+                  hint)
         return json_error(
-            "Phone verification has expired or was not completed. "
-            "Send a new code and try again.",
-            status=400, code="OTP_NOT_VERIFIED")
+            f"Authentication backend is not configured. {hint}",
+            status=503, code="AUTH_BACKEND_UNAVAILABLE",
+        )
 
-    user = User(email=email, full_name=full_name,
-                phone_number=phone, phone_verified=True)
-    user.set_password(password)
+    # 1. Create the Firebase Auth user. Maps Firebase's typed errors to
+    #    the same error codes the old SQL path used.
+    try:
+        uid = firebase_client.create_auth_user(
+            email=email, password=password, display_name=full_name,
+        )
+    except Exception as exc:  # noqa: BLE001 — map Admin SDK errors
+        try:
+            from firebase_admin import auth as fb_auth
+            if isinstance(exc, fb_auth.EmailAlreadyExistsError):
+                return json_error("Email already registered.",
+                                  status=409, code="EMAIL_TAKEN")
+            if isinstance(exc, fb_auth.InvalidPasswordError):
+                return json_error("Password must be at least 8 characters.",
+                                  code="WEAK_PASSWORD")
+            if isinstance(exc, fb_auth.InvalidEmailError):
+                return json_error("A valid email is required.",
+                                  code="INVALID_EMAIL")
+        except ImportError:
+            pass
+        log.exception("Firebase create_user failed for %s", email)
+        return json_error("Could not create account.",
+                          status=502, code="AUTH_PROVIDER_ERROR")
+
+    # 2. Mirror the profile into Firestore (best-effort — failure here
+    #    is logged but does not block the SQL row, so the user can
+    #    still log in and re-sync later).
+    try:
+        firebase_client.upsert_user_profile(
+            uid, email=email, full_name=full_name,
+            extra={"created_via": "flask-backend"},
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("Firestore profile write failed for uid=%s", uid)
+
+    # 3. Create the SQL mirror row. password_hash is set to a
+    #    meaningless sentinel — login goes through Firebase.
+    from werkzeug.security import generate_password_hash
+    user = User(
+        email=email,
+        full_name=full_name,
+        phone_number=None,
+        phone_verified=False,
+        firebase_uid=uid,
+    )
+    user.password_hash = generate_password_hash(
+        # 32-byte random value so the hash exists but is unusable.
+        os.urandom(32).hex()
+    )
     db.session.add(user)
     db.session.commit()
-    # Consume the OTP slot so the same code can't be reused.
-    store.verify(phone=phone, code="*consume*", purpose="register")
     return json_ok(user.to_dict(), message="Account created.", status=201)
 
 
@@ -243,38 +299,73 @@ def login():
     data = body()
     email = (data.get("email") or "").strip().casefold()
     password = data.get("password") or ""
-    phone = (data.get("phone") or "").strip()
-    otp_reference = (data.get("otp_reference") or "").strip()
+    # Phone + OTP are accepted but ignored. Old clients may still POST them;
+    # we don't want them to affect the outcome.
+    legacy_phone = (data.get("phone") or "").strip()
+    legacy_otp = (data.get("otp_reference") or "").strip()
+    if legacy_phone or legacy_otp:
+        try:
+            get_auth_otp_store().verify(
+                phone=legacy_phone, code="*consume*", purpose="login")
+        except Exception:  # noqa: BLE001
+            pass
+
     if not email or not password:
         return json_error("Email and password are required.",
                           code="MISSING_CREDENTIALS")
-    if not phone:
-        return json_error("A verified phone number is required.",
-                          code="MISSING_PHONE")
-    if not otp_reference:
-        return json_error("A verified OTP reference is required.",
-                          code="MISSING_OTP_REFERENCE")
-    user = User.query.filter_by(email=email).first()
-    if user is None or not user.check_password(password):
-        return json_error("Invalid email or password.",
-                          status=401, code="INVALID_CREDENTIALS")
-    if not user.phone_number:
+
+    if not firebase_client.is_configured():
+        hint = firebase_client.configuration_hint()
         return json_error(
-            "This account has no phone number on file. Update your profile "
-            "and verify a phone number before signing in.",
-            status=400, code="PHONE_NOT_ON_FILE")
-    if user.phone_number != _normalise_phone_local(phone):
+            f"Authentication backend is not configured. {hint}",
+            status=503, code="AUTH_BACKEND_UNAVAILABLE",
+        )
+
+    # 1. Verify the password against Firebase Auth. This is the single
+    #    source of truth — the SQL hash is never consulted.
+    try:
+        uid = firebase_client.verify_password(email=email, password=password)
+    except firebase_client.PasswordVerificationError as exc:
+        status_map = {
+            "INVALID_CREDENTIALS": 401,
+            "USER_DISABLED": 403,
+            "TOO_MANY_ATTEMPTS": 429,
+            "NETWORK_ERROR": 502,
+            "SERVER_MISCONFIGURED": 500,
+        }
         return json_error(
-            "Phone does not match the one on file for this account.",
-            status=400, code="PHONE_MISMATCH")
-    store = get_auth_otp_store()
-    pending_ref = store.peek_reference(phone=phone, purpose="login")
-    if not pending_ref or pending_ref != otp_reference:
-        return json_error(
-            "Phone verification has expired or was not completed. "
-            "Send a new code and try again.",
-            status=400, code="OTP_NOT_VERIFIED")
-    store.verify(phone=phone, code="*consume*", purpose="login")
+            exc.message,
+            status=status_map.get(exc.code, 401),
+            code=exc.code if exc.code != "INVALID_CREDENTIALS"
+                 else "INVALID_CREDENTIALS",
+        )
+
+    # 2. Find the SQL mirror by firebase_uid. Fall back to email so
+    #    legacy accounts created before the Firebase cutover still
+    #    work.
+    user = User.query.filter_by(firebase_uid=uid).first()
+    if user is None:
+        user = User.query.filter_by(email=email).first()
+        if user is not None and user.firebase_uid is None:
+            user.firebase_uid = uid
+            db.session.commit()
+    if user is None:
+        # Firebase says the account exists, but it doesn't in SQL.
+        # Provision the mirror row on the fly so existing favourites
+        # / progress / history endpoints keep working.
+        from werkzeug.security import generate_password_hash
+        fb_user = firebase_client.get_auth_user_by_email(email)
+        user = User(
+            email=email,
+            full_name=(fb_user.display_name if fb_user else "") or email,
+            phone_number=None,
+            phone_verified=False,
+            firebase_uid=uid,
+        )
+        user.password_hash = generate_password_hash(os.urandom(32).hex())
+        db.session.add(user)
+        db.session.commit()
+
     return json_ok({
         "user": user.to_dict(),
         "access_token": create_access_token(identity=str(user.id)),
@@ -577,7 +668,88 @@ def progress_update(course_id):
 
 
 # ---------------------------------------------------------------------------
-# Learning paths
+# Enrollments (paid + free courses the user has signed up for)
+# ---------------------------------------------------------------------------   
+#
+# These endpoints mirror the Firebase ``users/{uid}/enrollments/{id}``
+# docs so a server-side render (or a second device) can see the same
+# list. The client is still expected to write to Firestore first; these
+# routes are the SQL fallback / cross-device sync target.
+#
+# Schema matches ``Enrollment.to_dict()``:
+#     {course_id, payment_method, transaction_id, payment_status,
+#      enrolled_at}
+
+
+@bp.get("/me/enrollments")
+@jwt_required()
+def enrollments_list():
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.",
+                          status=404, code="USER_NOT_FOUND")
+    rows = sorted(user.enrollments, key=lambda e: e.enrolled_at,
+                  reverse=True)
+    return json_ok({
+        "enrollments": [e.to_dict() for e in rows],
+    })
+
+
+@bp.post("/me/enrollments")
+@jwt_required()
+def enrollments_add():
+    """Upsert an enrollment. Idempotent on (user_id, course_id)."""
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.",
+                          status=404, code="USER_NOT_FOUND")
+    data = body()
+    course_id = str(data.get("course_id") or "").strip()
+    if not course_id:
+        return json_error("Field 'course_id' is required.",
+                          code="MISSING_COURSE")
+    payment_method = str(data.get("payment_method") or "").strip()
+    transaction_id = str(data.get("transaction_id") or "").strip()
+    payment_status = (str(data.get("payment_status") or "completed")
+                      .strip() or "completed")
+
+    row = Enrollment.query.filter_by(
+        user_id=user.id, course_id=course_id
+    ).first()
+    if row is None:
+        row = Enrollment(
+            user_id=user.id,
+            course_id=course_id,
+            payment_method=payment_method,
+            transaction_id=transaction_id,
+            payment_status=payment_status,
+        )
+        db.session.add(row)
+    else:
+        # Refresh the mutable fields so a re-enroll with a new txn id
+        # (e.g. retry after a failed payment) updates the record.
+        row.payment_method = payment_method
+        row.transaction_id = transaction_id
+        row.payment_status = payment_status
+    db.session.commit()
+    return json_ok(row.to_dict(), message="Enrolled.", status=201)
+
+
+@bp.delete("/me/enrollments/<course_id>")
+@jwt_required()
+def enrollments_remove(course_id):
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.",
+                          status=404, code="USER_NOT_FOUND")
+    Enrollment.query.filter_by(
+        user_id=user.id, course_id=str(course_id)
+    ).delete()
+    db.session.commit()
+    return json_ok(message="Removed.")
+
+
+# ---------------------------------------------------------------------------   
 # ---------------------------------------------------------------------------
 
 _PATHS_CACHE: list | None = None
@@ -691,111 +863,6 @@ def learning_path_progress_update(path_id):
         row.completed = completed
     db.session.commit()
     return json_ok(message="Step updated.")
-
-
-# ---------------------------------------------------------------------------
-# Billing
-# ---------------------------------------------------------------------------
-
-@bp.post("/billing/otp/request")
-def billing_otp_request():
-    phone = (body().get("phone") or "").strip()
-    if not phone:
-        return json_error("Field 'phone' is required.",
-                          code="MISSING_PHONE")
-    provider = current_app.extensions["billing_provider"]
-    try:
-        result = provider.request_otp(phone_number=phone)
-    except ValueError as exc:
-        return json_error(str(exc), code="INVALID_PHONE")
-    return json_ok({"reference": result.reference,
-                    "hint": result.hint}, message="OTP requested.")
-
-
-@bp.post("/billing/otp/verify")
-def billing_otp_verify():
-    data = body()
-    phone = (data.get("phone") or "").strip()
-    code = (data.get("code") or "").strip()
-    if not phone or not code:
-        return json_error("Phone and code are required.",
-                          code="MISSING_FIELDS")
-    provider = current_app.extensions["billing_provider"]
-    try:
-        result = provider.verify_otp(phone_number=phone, code=code)
-    except ValueError as exc:
-        return json_error(str(exc), code="INVALID_CODE")
-    if not result.success:
-        return json_error("Invalid or expired code.",
-                          status=401, code="OTP_REJECTED")
-    return json_ok({"verified": True,
-                    "reference": result.reference}, message="Phone verified.")
-
-
-@bp.get("/billing/subscription")
-@jwt_required()
-def billing_subscription():
-    user = current_user()
-    if user is None:
-        return json_error("Account not found.",
-                          status=404, code="USER_NOT_FOUND")
-    sub = Subscription.query.filter_by(user_id=user.id).first()
-    return json_ok({"subscription": sub.to_dict() if sub else None})
-
-
-@bp.post("/billing/subscription/activate")
-@jwt_required()
-def billing_subscription_activate():
-    user = current_user()
-    if user is None:
-        return json_error("Account not found.",
-                          status=404, code="USER_NOT_FOUND")
-    data = body()
-    plan = (data.get("plan") or "monthly").strip().casefold()
-    if plan not in {"monthly", "yearly"}:
-        return json_error("Plan must be 'monthly' or 'yearly'.",
-                          code="INVALID_PLAN")
-    phone = (data.get("phone") or user.phone_number or "").strip()
-    reference = (data.get("provider_reference") or "").strip()
-    if not re.fullmatch(r"\+?[0-9]{8,15}", phone):
-        return json_error("A verified phone number is required.",
-                          code="PHONE_REQUIRED")
-    if not reference:
-        return json_error("An OTP verification reference is required.",
-                          code="REFERENCE_REQUIRED")
-    provider_obj = current_app.extensions.get("billing_provider")
-    provider_name = getattr(provider_obj, "name", "bdapps")
-    user.phone_number = phone
-    user.phone_verified = True
-    started_at = datetime.now(timezone.utc)
-    expires_at = started_at + (timedelta(days=365)
-                                if plan == "yearly"
-                                else timedelta(days=30))
-    sub = Subscription.query.filter_by(user_id=user.id).first()
-    if sub is None:
-        sub = Subscription(user_id=user.id, plan_code=plan,
-                           status="active",
-                           provider=provider_name,
-                           provider_reference=reference,
-                           subscriber_id_masked=_mask_phone(phone),
-                           started_at=started_at,
-                           expires_at=expires_at)
-        db.session.add(sub)
-    else:
-        sub.plan_code = plan
-        sub.status = "active"
-        sub.provider = provider_name
-        sub.provider_reference = reference
-        sub.subscriber_id_masked = _mask_phone(phone)
-        sub.started_at = started_at
-        sub.expires_at = expires_at
-    db.session.add(BillingEvent(
-        user_id=user.id, event_type="subscription.activate",
-        provider=provider_name, provider_reference=reference,
-        status="ok",
-        safe_metadata_json=json.dumps({"plan": plan})))
-    db.session.commit()
-    return json_ok(sub.to_dict(), message="Subscription activated.")
 
 
 __all__ = ["bp"]

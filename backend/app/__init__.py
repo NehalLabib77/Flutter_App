@@ -9,10 +9,10 @@ import os
 
 from dotenv import load_dotenv
 
-from .billing_service import get_billing_provider
 from .config import get_config
 from .database_models import db
 from .extensions import cors, jwt
+from .migrations import apply_lightweight_migrations
 from .model_service import load_recommender
 from .routes import bp as api_bp
 
@@ -39,26 +39,46 @@ def create_app(skip_model_load: bool = False):
 
     if app.config["AUTO_CREATE_DB"]:
         from .database_models import (  # noqa: F401 — register tables
-            BillingEvent,
             CourseProgress,
+            Enrollment,
             Favorite,
             History,
             LearningPathProgress,
             Notification,
-            Subscription,
             User,
             UserInterest,
         )
 
         with app.app_context():
             db.create_all()
+            # SQLite-only additive migrations (e.g. add firebase_uid to
+            # an existing users table). Safe no-ops when the columns
+            # are already present.
+            apply_lightweight_migrations(db)
 
     if not skip_model_load:
         app.extensions["educompass_model"] = load_recommender()
 
-    app.extensions["billing_provider"] = get_billing_provider(app.config)
-
     app.register_blueprint(api_bp)
+
+    # Friendly homepage so `curl http://127.0.0.1:5000/` (and the browser
+    # smoke test) returns something useful instead of a 404. The real
+    # API lives under `/api/v1/*` — this is purely a discoverability aid.
+    @app.route("/", methods=["GET"])
+    def home():
+        return {
+            "message": "EduCompass backend is running",
+            "status": "success",
+            "endpoints": {
+                "health": "/api/v1/health",
+                "popular": "/api/v1/courses/popular",
+                "top_rated": "/api/v1/courses/top-rated",
+                "recommend": "/api/v1/recommendations/query",
+                "filters": "/api/v1/filters",
+                "learning_paths": "/api/v1/learning-paths",
+            },
+        }, 200
+
     return app
 
 

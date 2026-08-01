@@ -44,23 +44,6 @@ class Config:
         "*",
     )
 
-    BILLING_PROVIDER = _str(os.environ.get("BILLING_PROVIDER"), "mock")
-    BILLING_OTP_TTL_SECONDS = int(os.environ.get("BILLING_OTP_TTL_SECONDS", "300"))
-    BILLING_OTP_RESEND_SECONDS = int(
-        os.environ.get("BILLING_OTP_RESEND_SECONDS", "30")
-    )
-    BILLING_OTP_MAX_ATTEMPTS = int(
-        os.environ.get("BILLING_OTP_MAX_ATTEMPTS", "5")
-    )
-
-    BDAPPS_BASE_URL = _str(
-        os.environ.get("BDAPPS_BASE_URL"), "https://api.example.com"
-    )
-    BDAPPS_API_KEY = _str(os.environ.get("BDAPPS_API_KEY"), "")
-    BDAPPS_CLIENT_ID = _str(os.environ.get("BDAPPS_CLIENT_ID"), "")
-    BDAPPS_OTP_PATH = _str(os.environ.get("BDAPPS_OTP_PATH"), "/otp")
-    BDAPPS_VERIFY_PATH = _str(os.environ.get("BDAPPS_VERIFY_PATH"), "/otp/verify")
-
     LEARNING_PATHS_FILE = _str(
         os.environ.get("LEARNING_PATHS_FILE"),
         str(Path(__file__).resolve().parent / "data" / "learning_paths.json"),

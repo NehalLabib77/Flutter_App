@@ -2,7 +2,7 @@
 
 Course records are NOT stored here — they live in the loaded TF-IDF bundle.
 This module only persists user accounts, favourites, history, progress,
-billing, and notifications.
+and notifications.
 """
 
 from __future__ import annotations
@@ -16,7 +16,6 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
-    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -35,6 +34,15 @@ class User(db.Model):
     id = Column(Integer, primary_key=True)
     full_name = Column(String(120), nullable=False)
     email = Column(String(180), unique=True, nullable=False, index=True)
+    # Firebase Auth UID — the source of truth for identity. The SQL
+    # row is a thin mirror so existing favourites / progress / history
+    # endpoints keep working with the same JWT identity (`User.id`).
+    firebase_uid = Column(String(128), unique=True, nullable=True,
+                          index=True)
+    # Local password hash kept for backward compatibility. Existing
+    # users created before Firebase cutover still need to be able to
+    # authenticate. New users register through Firebase and the hash
+    # is set to a random sentinel value.
     password_hash = Column(String(255), nullable=False)
     phone_number = Column(String(32), nullable=True, index=True)
     phone_verified = Column(Boolean, nullable=False, default=False)
@@ -53,8 +61,8 @@ class User(db.Model):
                             cascade="all, delete-orphan")
     learning_progress = relationship("LearningPathProgress", backref="user",
                                      cascade="all, delete-orphan")
-    subscription = relationship("Subscription", backref="user",
-                               cascade="all, delete-orphan", uselist=False)
+    enrollments = relationship("Enrollment", backref="user",
+                               cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -67,6 +75,7 @@ class User(db.Model):
             "id": self.id,
             "full_name": self.full_name,
             "email": self.email,
+            "firebase_uid": self.firebase_uid,
             "phone_number": self.phone_number,
             "phone_verified": self.phone_verified,
             "avatar_key": self.avatar_key,
@@ -150,52 +159,6 @@ class LearningPathProgress(db.Model):
     )
 
 
-class Subscription(db.Model):
-    __tablename__ = "subscriptions"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
-                     nullable=False, unique=True)
-    provider = Column(String(64), nullable=False, default="mock")
-    plan_code = Column(String(64), nullable=False, default="free")
-    status = Column(String(32), nullable=False, default="inactive")
-    provider_reference = Column(String(128), nullable=True)
-    subscriber_id_masked = Column(String(64), nullable=True)
-    started_at = Column(DateTime, nullable=True)
-    expires_at = Column(DateTime, nullable=True)
-    updated_at = Column(DateTime, nullable=False,
-                        default=_utcnow, onupdate=_utcnow)
-
-    def is_premium(self) -> bool:
-        return self.status == "active" and self.plan_code == "premium"
-
-    def to_dict(self) -> dict:
-        return {
-            "provider": self.provider,
-            "plan_code": self.plan_code,
-            "status": self.status,
-            "provider_reference": self.provider_reference,
-            "subscriber_id_masked": self.subscriber_id_masked,
-            "started_at": self.started_at.isoformat() if self.started_at else None,
-            "expires_at": self.expires_at.isoformat() if self.expires_at else None,
-            "is_premium": self.is_premium(),
-        }
-
-
-class BillingEvent(db.Model):
-    __tablename__ = "billing_events"
-
-    id = Column(Integer, primary_key=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"),
-                     nullable=True, index=True)
-    event_type = Column(String(64), nullable=False)
-    provider = Column(String(64), nullable=False, default="mock")
-    provider_reference = Column(String(128), nullable=True)
-    status = Column(String(32), nullable=False, default="ok")
-    safe_metadata_json = Column(Text, nullable=True)
-    created_at = Column(DateTime, nullable=False, default=_utcnow)
-
-
 class Notification(db.Model):
     __tablename__ = "notifications"
 
@@ -210,6 +173,46 @@ class Notification(db.Model):
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
 
+class Enrollment(db.Model):
+    """A paid (or free) course the user has enrolled in.
+
+    Mirrors the Firestore ``users/{uid}/enrollments/{courseId}`` doc
+    schema so the Flutter client can keep both stores in sync:
+
+        course_id         str
+        payment_method    str   (e.g. "bKash", "Nagad", "Card", "free")
+        transaction_id    str   (gateway txn id; "free" for no-payment rows)
+        payment_status    str   (default "completed")
+        enrolled_at       ISO-8601 UTC timestamp
+
+    Unique on ``(user_id, course_id)`` so a re-enroll just upserts.
+    """
+
+    __tablename__ = "enrollments"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=False, index=True)
+    payment_method = Column(String(32), nullable=False, default="")
+    transaction_id = Column(String(64), nullable=False, default="")
+    payment_status = Column(String(32), nullable=False, default="completed")
+    enrolled_at = Column(DateTime, nullable=False, default=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("user_id", "course_id", name="uq_user_enrollment"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "course_id": self.course_id,
+            "payment_method": self.payment_method,
+            "transaction_id": self.transaction_id,
+            "payment_status": self.payment_status,
+            "enrolled_at": self.enrolled_at.isoformat() if self.enrolled_at else None,
+        }
+
+
 __all__ = [
     "User",
     "UserInterest",
@@ -217,7 +220,6 @@ __all__ = [
     "History",
     "CourseProgress",
     "LearningPathProgress",
-    "Subscription",
-    "BillingEvent",
     "Notification",
+    "Enrollment",
 ]

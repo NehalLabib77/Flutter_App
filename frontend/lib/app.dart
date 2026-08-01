@@ -26,8 +26,7 @@ import 'theme.dart';
 /// cannot resolve [ApiClient] / [AuthProvider] / etc. unless we wrap them.
 ///
 /// Captures the live [ApiClient] / [AuthProvider] / [SharedPreferences] from
-/// the outer context and re-exposes them (plus [Provider] for the
-/// [ApiClient] itself, which is required by [showBillingSheet]).
+/// the outer context and re-exposes them.
 Widget wrapWithProviders(BuildContext context, Widget child) {
   final api = context.read<ApiClient>();
   final auth = context.read<AuthProvider>();
@@ -39,7 +38,7 @@ Widget wrapWithProviders(BuildContext context, Widget child) {
       ChangeNotifierProvider<CourseProvider>(create: (_) => CourseProvider(api)),
       ChangeNotifierProvider<UserProvider>(create: (_) => UserProvider(api)),
       ChangeNotifierProvider<EnrollmentProvider>(
-          create: (_) => EnrollmentProvider(prefs)),
+          create: (_) => EnrollmentProvider(prefs, api)),
       ChangeNotifierProvider<ThemeProvider>(
           create: (_) => ThemeProvider(prefs)),
     ],
@@ -68,7 +67,7 @@ class EduCompassApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => CourseProvider(api)),
         ChangeNotifierProvider(create: (_) => UserProvider(api)),
-        ChangeNotifierProvider(create: (_) => EnrollmentProvider(prefs)),
+        ChangeNotifierProvider(create: (_) => EnrollmentProvider(prefs, api)),
         ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
       ],
       child: Consumer<ThemeProvider>(
