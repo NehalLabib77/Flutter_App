@@ -75,12 +75,17 @@ class EduCompassApp extends StatelessWidget {
           home: const _EnrollmentRemoteSync(child: AuthWrapper()),
           routes: {
             AppRoutes.courseDetails: (ctx) {
-              final id = ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
+              final id =
+                  ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
               return wrapWithProviders(ctx, CourseDetailsScreen(courseId: id));
             },
             AppRoutes.learningPathDetail: (ctx) {
-              final id = ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
-              return wrapWithProviders(ctx, LearningPathDetailScreen(pathId: id));
+              final id =
+                  ModalRoute.of(ctx)?.settings.arguments as String? ?? '';
+              return wrapWithProviders(
+                ctx,
+                LearningPathDetailScreen(pathId: id),
+              );
             },
           },
         ),

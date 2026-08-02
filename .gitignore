@@ -1,3 +1,11 @@
+# ---- Archive (deprecated code parked for reference) ----
+# Anything under _archive/ is kept on disk for archaeology but is not
+# part of the shipping app, not referenced by the canonical Flutter
+# client, not built by CI, and not loaded by the backend.
+_archive/
+/_archive
+_archive/**
+
 # ---- Python (backend) ----
 __pycache__/
 *.pyc

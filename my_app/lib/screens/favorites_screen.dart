@@ -1,16 +1,17 @@
-/// Favorites list — Flask-backend /me/favorites.
-///
-/// Auth-required: the AuthWrapper already hides the Favorites tab for guests,
-/// but this screen still defends itself so a deep link through
-/// `requireLogin` keeps working.
-library;
+// Favorites list — Flask-backend /me/favorites.
+//
+// Auth-required: the AuthWrapper already hides the Favorites tab for guests,
+// but this screen still defends itself so a deep link through
+// `requireLogin` keeps working.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../widgets/design.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});
@@ -36,10 +37,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   }
 
   void _open(Course c) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.courseDetails,
-      arguments: c.id,
-    );
+    Navigator.of(context).pushNamed(AppRoutes.courseDetails, arguments: c.id);
   }
 
   Future<void> _removeFavorite(Course c) async {
@@ -51,9 +49,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Could not update favorites: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Could not update favorites: $e')));
     }
   }
 
@@ -64,6 +62,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     final user = context.watch<UserProvider>();
     return Scaffold(
       appBar: AppBar(title: const Text('Favorites')),
@@ -72,9 +71,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         child: user.favorites.isEmpty
             ? _empty(theme, user.loadingFavorites)
             : ListView.separated(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(Spacing.md),
                 itemCount: user.favorites.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 6),
+                separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
                 itemBuilder: (_, i) {
                   final c = user.favorites[i];
                   return Dismissible(
@@ -82,35 +81,35 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                     direction: DismissDirection.endToStart,
                     background: Container(
                       alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: 24),
-                      color: theme.colorScheme.errorContainer,
-                      child: Icon(Icons.delete_rounded,
-                          color: theme.colorScheme.onErrorContainer),
+                      padding: const EdgeInsets.only(right: Spacing.lg),
+                      decoration: BoxDecoration(
+                        color: scheme.errorContainer,
+                        borderRadius: BorderRadius.circular(Radii.lg),
+                      ),
+                      child: Icon(
+                        Icons.delete_rounded,
+                        color: scheme.onErrorContainer,
+                      ),
                     ),
                     onDismissed: (_) => _removeFavorite(c),
-                    child: Card(
-                      child: ListTile(
-                        onTap: () => _open(c),
-                        leading: CircleAvatar(
-                          backgroundColor:
-                              theme.colorScheme.primaryContainer,
-                          child: Icon(Icons.menu_book_rounded,
-                              color: theme.colorScheme.onPrimaryContainer),
+                    child: CourseRowCard(
+                      title: c.name,
+                      provider: c.provider,
+                      level: c.level,
+                      subject: c.subject,
+                      skills: c.skills,
+                      rating: c.rating,
+                      isFree: c.isFree,
+                      thumbnail: CourseThumbnail(course: c, size: 64),
+                      trailing: IconButton(
+                        tooltip: 'Remove from favorites',
+                        icon: Icon(
+                          Icons.favorite_rounded,
+                          color: scheme.primary,
                         ),
-                        title: Text(c.name,
-                            maxLines: 2, overflow: TextOverflow.ellipsis),
-                        subtitle: Text(
-                          [c.provider, c.subject]
-                              .where((s) => (s ?? '').isNotEmpty)
-                              .join(' • '),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.heart_broken_rounded),
-                          onPressed: () => _removeFavorite(c),
-                        ),
+                        onPressed: () => _removeFavorite(c),
                       ),
+                      onTap: () => _open(c),
                     ),
                   );
                 },
@@ -123,26 +122,21 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
+    // ListView lets the RefreshIndicator pull down on an empty screen.
     return ListView(
-      // ListView lets the RefreshIndicator pull down on an empty screen.
       children: [
-        const SizedBox(height: 120),
-        Icon(Icons.favorite_border_rounded,
-            size: 56, color: theme.colorScheme.primary),
-        const SizedBox(height: 16),
-        Text(
-          'No favorites yet',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Tap the heart on any course to save it for later.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+        const SizedBox(height: 80),
+        EmptyState(
+          icon: Icons.favorite_border_rounded,
+          message: 'No favorites yet',
+          action: Padding(
+            padding: const EdgeInsets.only(top: Spacing.sm),
+            child: Text(
+              'Tap the heart on any course to save it for later.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
         ),

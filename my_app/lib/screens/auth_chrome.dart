@@ -38,11 +38,7 @@ class AuthScaffold extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const AuthScaffold({
-    super.key,
-    required this.title,
-    required this.child,
-  });
+  const AuthScaffold({super.key, required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -56,10 +52,7 @@ class AuthScaffold extends StatelessWidget {
           decoration: const BoxDecoration(
             color: _AuthPalette.accent,
             border: Border(
-              bottom: BorderSide(
-                color: Color(0x9915305A),
-                width: 1,
-              ),
+              bottom: BorderSide(color: Color(0x9915305A), width: 1),
             ),
           ),
           child: SafeArea(
@@ -104,9 +97,7 @@ class AuthScaffold extends StatelessWidget {
       body: Stack(
         children: [
           // Diagonal band that runs from top-right to bottom-left.
-          Positioned.fill(
-            child: CustomPaint(painter: _DiagonalBandPainter()),
-          ),
+          Positioned.fill(child: CustomPaint(painter: _DiagonalBandPainter())),
           // Background compass mark — oversized and very faint.
           Positioned(
             right: -120,
@@ -206,11 +197,7 @@ class AuthHeading extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(
-              width: 28,
-              height: 2,
-              color: _AuthPalette.accent,
-            ),
+            Container(width: 28, height: 2, color: _AuthPalette.accent),
             const SizedBox(width: 10),
             Text(
               kicker.toUpperCase(),
@@ -323,9 +310,7 @@ class _InsetFieldState extends State<InsetField> {
             Icon(
               widget.icon,
               size: 16,
-              color: _focused
-                  ? _AuthPalette.accentDeep
-                  : _AuthPalette.inkSoft,
+              color: _focused ? _AuthPalette.accentDeep : _AuthPalette.inkSoft,
             ),
             const SizedBox(width: 8),
             Text(
@@ -334,8 +319,8 @@ class _InsetFieldState extends State<InsetField> {
                 color: hasError
                     ? _AuthPalette.danger
                     : (_focused
-                        ? _AuthPalette.accentDeep
-                        : _AuthPalette.inkSoft),
+                          ? _AuthPalette.accentDeep
+                          : _AuthPalette.inkSoft),
                 fontWeight: FontWeight.w600,
                 fontSize: 11,
                 letterSpacing: 1.4,
@@ -400,9 +385,7 @@ class _InsetFieldState extends State<InsetField> {
         Text(
           hasError ? errorText : (widget.helper ?? ''),
           style: TextStyle(
-            color: hasError
-                ? _AuthPalette.danger
-                : _AuthPalette.inkSoft,
+            color: hasError ? _AuthPalette.danger : _AuthPalette.inkSoft,
             fontSize: 11.5,
             height: 1.3,
           ),
@@ -451,10 +434,7 @@ class AuthPrimaryButton extends StatelessWidget {
               gradient: const LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [
-                  _AuthPalette.accent,
-                  _AuthPalette.accentDeep,
-                ],
+                colors: [_AuthPalette.accent, _AuthPalette.accentDeep],
               ),
               borderRadius: BorderRadius.circular(10),
               boxShadow: const [
@@ -543,10 +523,7 @@ class AuthFootnoteLink extends StatelessWidget {
         children: [
           Text(
             prefix,
-            style: const TextStyle(
-              color: _AuthPalette.inkSoft,
-              fontSize: 13,
-            ),
+            style: const TextStyle(color: _AuthPalette.inkSoft, fontSize: 13),
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -556,10 +533,7 @@ class AuthFootnoteLink extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
               decoration: const BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(
-                    color: _AuthPalette.accent,
-                    width: 1.4,
-                  ),
+                  bottom: BorderSide(color: _AuthPalette.accent, width: 1.4),
                 ),
               ),
               child: Text(

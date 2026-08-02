@@ -18,8 +18,8 @@ class EnrollmentService {
   static const String enrollmentsCollection = 'enrollments';
 
   EnrollmentService({FirebaseFirestore? firestore, FirebaseAuth? auth})
-      : _db = firestore,
-        _auth = auth;
+    : _db = firestore,
+      _auth = auth;
 
   // Lazy resolvers — touching `FirebaseFirestore.instance` /
   // `FirebaseAuth.instance` during construction throws `[core/no-app]`

@@ -50,24 +50,24 @@ class AuthProvider extends ChangeNotifier {
   /// Returns true when registration + immediate sign-in both succeed.
   /// Returns false when the account was created but the auto-login call
   /// failed (the caller should send the user back to the login screen).
+  /// Throws [ApiException] when the registration call itself failed —
+  /// the screen surfaces the server-side message instead of misleadingly
+  /// sending the user back to the login screen.
   Future<bool> register({
     required String fullName,
     required String email,
     required String password,
   }) async {
-    await _api.register(
-      fullName: fullName,
-      email: email,
-      password: password,
-    );
+    // Registration must succeed before we even attempt auto-login; an
+    // ApiException here is a real failure (e.g. email already taken,
+    // Firebase not configured on the backend, network unreachable) and
+    // should bubble up to the screen.
+    await _api.register(fullName: fullName, email: email, password: password);
     // The backend returns only the user on /auth/register (no token), so we
     // try to log in immediately to obtain access/refresh tokens. If that
     // fails for any reason we surface it so the screen can fall back.
     try {
-      final data = await _api.login(
-        email: email,
-        password: password,
-      );
+      final data = await _api.login(email: email, password: password);
       await _afterAuth(data);
       return true;
     } on ApiException {
@@ -79,14 +79,26 @@ class AuthProvider extends ChangeNotifier {
     required String email,
     required String password,
   }) async {
-    await _afterAuth(await _api.login(
-      email: email,
-      password: password,
-    ));
+    await _afterAuth(await _api.login(email: email, password: password));
     return _user!;
   }
 
   Future<void> logout() async {
+    _token = null;
+    _user = null;
+    _api.setToken(null);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    notifyListeners();
+  }
+
+  /// Permanently delete the caller's account on the backend, then
+  /// clear the local JWT so [AuthWrapper] drops the user back to the
+  /// login screen. Throws [ApiException] if the backend rejects the
+  /// request — in that case the local session stays intact and the
+  /// caller can surface the error.
+  Future<void> deleteAccount() async {
+    await _api.deleteAccount();
     _token = null;
     _user = null;
     _api.setToken(null);
@@ -137,17 +149,26 @@ class CourseProvider extends ChangeNotifier {
   List<Course> _topRated = const [];
   bool _loadingPopular = false;
   bool _loadingTopRated = false;
+  String? _popularError;
+  String? _topRatedError;
 
   List<Course> get popular => _popular;
   List<Course> get topRated => _topRated;
   bool get loadingPopular => _loadingPopular;
   bool get loadingTopRated => _loadingTopRated;
+  String? get popularError => _popularError;
+  String? get topRatedError => _topRatedError;
 
   Future<void> loadPopular() async {
     _loadingPopular = true;
+    _popularError = null;
     notifyListeners();
     try {
       _popular = await _api.popularCourses();
+    } on ApiException catch (e) {
+      _popularError = e.message;
+    } catch (e) {
+      _popularError = _api.describeNetworkError(e);
     } finally {
       _loadingPopular = false;
       notifyListeners();
@@ -156,9 +177,14 @@ class CourseProvider extends ChangeNotifier {
 
   Future<void> loadTopRated() async {
     _loadingTopRated = true;
+    _topRatedError = null;
     notifyListeners();
     try {
       _topRated = await _api.topRatedCourses();
+    } on ApiException catch (e) {
+      _topRatedError = e.message;
+    } catch (e) {
+      _topRatedError = _api.describeNetworkError(e);
     } finally {
       _loadingTopRated = false;
       notifyListeners();
@@ -231,8 +257,7 @@ class UserProvider extends ChangeNotifier {
     _completed[courseId] = done;
     notifyListeners();
     try {
-      await _api.updateCourseProgress(courseId, clamped,
-          completed: done);
+      await _api.updateCourseProgress(courseId, clamped, completed: done);
     } catch (_) {
       // Network failure is non-fatal; keep local state and retry later.
     }
@@ -260,21 +285,21 @@ class UserProvider extends ChangeNotifier {
 
   Future<Course> courseDetail(String courseId) => _api.courseDetail(courseId);
 
-  Future<List<Course>> similarCourses(String courseId,
-          {int limit = 6}) =>
+  Future<List<Course>> similarCourses(String courseId, {int limit = 6}) =>
       _api.similarCourses(courseId, limit: limit);
 
   Future<List<LearningPath>> learningPaths() => _api.learningPaths();
 
-  Future<LearningPath> learningPath(String pathId) =>
-      _api.learningPath(pathId);
+  Future<LearningPath> learningPath(String pathId) => _api.learningPath(pathId);
 
   Future<Map<String, dynamic>> learningPathProgress(String pathId) =>
       _api.learningPathProgress(pathId);
 
-  Future<void> updateLearningPathProgress(String pathId, String stepId,
-          {required bool completed}) =>
-      _api.updateLearningPathProgress(pathId, stepId, completed: completed);
+  Future<void> updateLearningPathProgress(
+    String pathId,
+    String stepId, {
+    required bool completed,
+  }) => _api.updateLearningPathProgress(pathId, stepId, completed: completed);
 }
 
 /// Tracks the user's enrollments (local + persisted via SharedPreferences).
@@ -305,7 +330,7 @@ class EnrollmentProvider extends ChangeNotifier {
   bool get syncingFromRemote => _syncingFromRemote;
 
   EnrollmentProvider(this._prefs, this._api)
-      : _ids = (_prefs.getStringList(_key) ?? const []).toSet();
+    : _ids = (_prefs.getStringList(_key) ?? const []).toSet();
 
   Set<String> get ids => _ids;
   bool isEnrolled(String courseId) => _ids.contains(courseId);
@@ -407,10 +432,11 @@ class EnrollmentProvider extends ChangeNotifier {
           // Fire-and-forget — the SharedPreferences write is durable and
           // a failure should not block the in-memory merge that already
           // updated listeners.
-          unawaited(_prefs.setStringList(_key, _ids.toList()).then(
-                (_) => true,
-                onError: (_) => true,
-              ));
+          unawaited(
+            _prefs
+                .setStringList(_key, _ids.toList())
+                .then((_) => true, onError: (_) => true),
+          );
         }
         _syncingFromRemote = false;
         if (changed) notifyListeners();
@@ -445,8 +471,7 @@ class ThemeProvider extends ChangeNotifier {
   final SharedPreferences _prefs;
   ThemeMode _mode;
 
-  ThemeProvider(this._prefs)
-      : _mode = _decode(_prefs.getString(_key));
+  ThemeProvider(this._prefs) : _mode = _decode(_prefs.getString(_key));
 
   ThemeMode get mode => _mode;
 

@@ -99,7 +99,9 @@ class _CustomTextFieldState extends State<CustomTextField> {
                     ? () => setState(() => _obscured = !_obscured)
                     : null,
                 icon: Icon(
-                  _obscured ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                  _obscured
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
                 ),
               )
             : null,

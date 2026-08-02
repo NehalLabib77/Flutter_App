@@ -14,10 +14,7 @@ import 'shell_screen.dart';
 class AuthWrapper extends StatelessWidget {
   final AuthProvider? authProvider;
 
-  const AuthWrapper({
-    super.key,
-    this.authProvider,
-  });
+  const AuthWrapper({super.key, this.authProvider});
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +41,7 @@ class _AuthContent extends StatelessWidget {
       builder: (context, auth, child) {
         if (auth.isBootstrapping) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 

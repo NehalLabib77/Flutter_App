@@ -222,9 +222,27 @@ def register():
                           code="WEAK_PASSWORD")
     if not full_name:
         return json_error("Full name is required.", code="MISSING_NAME")
+    # The SQL row is a thin mirror — Firebase Auth is the source of
+    # truth. If a SQL row exists for this email but the Firebase user
+    # is gone (e.g. someone deleted it directly in the Firebase
+    # console), drop the orphan so re-registration can succeed.
+    # Otherwise surface the usual "already registered" 409.
     if User.query.filter_by(email=email).first():
-        return json_error("Email already registered.",
-                          status=409, code="EMAIL_TAKEN")
+        if firebase_client.is_configured():
+            fb_user = firebase_client.get_auth_user_by_email(email)
+            if fb_user is None:
+                log.warning(
+                    "Stale SQL user for %s (no Firebase record) — "
+                    "deleting orphan before re-registration.", email,
+                )
+                User.query.filter_by(email=email).delete()
+                db.session.commit()
+            else:
+                return json_error("Email already registered.",
+                                  status=409, code="EMAIL_TAKEN")
+        else:
+            return json_error("Email already registered.",
+                              status=409, code="EMAIL_TAKEN")
 
     # Firebase Auth is the source of truth for identity. If the SDK /
     # creds aren't configured, we *fail* rather than silently create a
@@ -292,6 +310,79 @@ def register():
     db.session.add(user)
     db.session.commit()
     return json_ok(user.to_dict(), message="Account created.", status=201)
+
+
+@bp.delete("/auth/account")
+@jwt_required()
+def delete_account():
+    """Permanently delete the caller's account.
+
+    Removes the user from Firebase Auth (source of truth) and the SQL
+    mirror row in one transaction so the two stores can't drift out
+    of sync — which is the bug that left users stuck unable to
+    re-register after a manual Firebase deletion.
+
+    Returns ``204`` on success. Cascade on the SQL relationships
+    cleans up favourites / history / progress / enrollments.
+    """
+
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.",
+                          status=404, code="USER_NOT_FOUND")
+
+    uid = user.firebase_uid
+
+    # 1. Delete from Firebase Auth first. If this fails we abort
+    #    before touching SQL so we don't end up with the inverse
+    #    drift (SQL gone, Firebase user still alive).
+    auth = firebase_client.auth_client()
+    if auth is not None and uid:
+        try:
+            auth.delete_user(uid)
+        except Exception as exc:  # noqa: BLE001
+            try:
+                from firebase_admin import auth as fb_auth
+                # UserNotFoundError is fine — the SQL row may have
+                # outlived a manual Firebase deletion, which is
+                # exactly when this endpoint is most useful.
+                if not isinstance(exc, fb_auth.UserNotFoundError):
+                    log.exception(
+                        "Firebase delete_user failed for uid=%s", uid,
+                    )
+                    return json_error(
+                        "Could not delete account from authentication "
+                        "provider.",
+                        status=502, code="AUTH_PROVIDER_ERROR",
+                    )
+            except ImportError:
+                log.exception(
+                    "Firebase delete_user failed for uid=%s", uid,
+                )
+                return json_error(
+                    "Could not delete account from authentication provider.",
+                    status=502, code="AUTH_PROVIDER_ERROR",
+                )
+
+    # 2. Delete the SQL mirror row. Cascade on the relationships
+    #    in ``database_models.User`` cleans up favourites,
+    #    history, progress, enrollments, etc.
+    db.session.delete(user)
+    db.session.commit()
+
+    # 3. Best-effort Firestore profile cleanup. Failures here are
+    #    logged but not surfaced — the user's identity is already
+    #    gone from Firebase Auth, which is what matters.
+    if uid:
+        try:
+            db_fs = firebase_client.firestore_client()
+            if db_fs is not None:
+                db_fs.collection("users").document(uid).delete()
+        except Exception:  # noqa: BLE001
+            log.exception("Firestore profile delete failed for uid=%s", uid)
+
+    log.info("Account deleted: uid=%s email=%s", uid, user.email)
+    return json_ok(None, message="Account deleted.", status=200)
 
 
 @bp.post("/auth/login")

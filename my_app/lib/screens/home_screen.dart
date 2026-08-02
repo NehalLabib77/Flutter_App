@@ -1,5 +1,16 @@
-/// Home: greeting + Popular and Top Rated course lists from the Flask backend.
-library;
+// Home screen — first tab of the bottom-nav shell.
+//
+// Layout, top-to-bottom:
+//   1. AppBar (title + optional "Sign in" for guests).
+//   2. HeroBanner greeting that adapts to signed-in vs guest.
+//   3. SearchBar (routes to search / browse screen).
+//   4. SectionHeader + horizontal rail of CourseRowCard for "Popular right now".
+//   5. SectionHeader + horizontal rail of CourseRowCard for "Top rated".
+//
+// All data flows through [CourseProvider] (popular + top rated lists).
+// Pull-to-refresh re-runs both providers in parallel. Tapping a card
+// pushes the course-details route. No business logic is touched here —
+// this screen only lays out widgets from the shared design vocabulary.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +19,8 @@ import '../app_state.dart';
 import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../theme.dart';
+import '../widgets/design.dart';
 import 'login_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -21,40 +34,90 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final courses = context.read<CourseProvider>();
-      if (courses.popular.isEmpty) courses.loadPopular();
-      if (courses.topRated.isEmpty) courses.loadTopRated();
+    // Kick off both providers in parallel — they're independently cached.
+    Future.microtask(() {
+      if (!mounted) return;
+      final c = context.read<CourseProvider>();
+      c.loadPopular();
+      c.loadTopRated();
     });
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Hot-reload-safe fallback: if either list is empty (e.g. after a
+    // hot reload that wiped provider state but never re-ran initState),
+    // re-issue the fetches so the rails are not stuck on the empty /
+    // retry placeholder.
+    final c = context.read<CourseProvider>();
+    if (c.popular.isEmpty && !c.loadingPopular) {
+      c.loadPopular();
+    }
+    if (c.topRated.isEmpty && !c.loadingTopRated) {
+      c.loadTopRated();
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final auth = context.watch<AuthProvider>();
     final courses = context.watch<CourseProvider>();
     final user = auth.user;
+
     // Use the part of the email before '@' as a fallback display name.
     final displayName = (user?.fullName ?? '').trim().isNotEmpty
         ? user!.fullName.split(' ').first
         : (user?.email.split('@').first ?? '');
-    final greeting = user == null
-        ? 'Welcome to EduCompass'
-        : 'Hi $displayName 👋';
 
     final isGuest = user == null;
+    final eyebrow = isGuest ? 'EDUCOMPASS' : 'TODAY';
+    final title = isGuest ? 'Welcome to EduCompass' : 'Hi $displayName 👋';
+    final subtitle = isGuest
+        ? 'Sign in for personalised picks, or browse as a guest.'
+        : 'What will you learn today?';
 
     return Scaffold(
+      backgroundColor: AppColors.pageBg,
       appBar: AppBar(
-        title: const Text('EduCompass'),
+        backgroundColor: AppColors.navy,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        scrolledUnderElevation: 0,
+        title: const Row(
+          children: [
+            Icon(
+              Icons.explore_rounded,
+              color: Colors.white,
+              size: 22,
+            ),
+            SizedBox(width: Spacing.xs),
+            Text(
+              'EduCompass',
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+                fontSize: 19,
+                letterSpacing: 0.1,
+              ),
+            ),
+          ],
+        ),
         actions: [
           if (isGuest)
-            TextButton.icon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const LoginScreen()),
+            Padding(
+              padding: const EdgeInsets.only(right: Spacing.xs),
+              child: TextButton.icon(
+                onPressed: () => Navigator.of(
+                  context,
+                ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
+                icon: const Icon(Icons.login_rounded, size: 18, color: Colors.white),
+                label: const Text(
+                  'Sign in',
+                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                ),
+                style: TextButton.styleFrom(foregroundColor: Colors.white),
               ),
-              icon: const Icon(Icons.login_rounded, size: 18),
-              label: const Text('Sign in'),
             ),
         ],
       ),
@@ -66,40 +129,49 @@ class _HomeScreenState extends State<HomeScreen> {
           ]);
         },
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: 16),
+          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                greeting,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                ),
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: HeroBanner(
+                eyebrow: eyebrow,
+                title: title,
+                subtitle: subtitle,
+                icon: Icons.school_rounded,
+                onTap: () {
+                  // Tap = open profile / browse. Guests → login, signed-in
+                  // users → profile tab via shell.
+                  if (isGuest) {
+                    Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const LoginScreen()),
+                    );
+                  } else {
+                    Navigator.of(context).pushNamed(AppRoutes.profile);
+                  }
+                },
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 4, 20, 16),
-              child: Text(
-                'What will you learn today?',
-                style: theme.textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
+            const SizedBox(height: Spacing.lg),
             _Section(
               title: 'Popular right now',
+              subtitle: 'What other learners are enrolling in this week',
+              icon: Icons.local_fire_department_rounded,
               courses: courses.popular,
               loading: courses.loadingPopular,
+              errorMessage: courses.popularError,
               onRetry: () => context.read<CourseProvider>().loadPopular(),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: Spacing.md),
             _Section(
               title: 'Top rated',
+              subtitle: 'Highest-rated picks across every subject',
+              icon: Icons.star_rate_rounded,
               courses: courses.topRated,
               loading: courses.loadingTopRated,
+              errorMessage: courses.topRatedError,
               onRetry: () => context.read<CourseProvider>().loadTopRated(),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: Spacing.xl),
           ],
         ),
       ),
@@ -110,57 +182,99 @@ class _HomeScreenState extends State<HomeScreen> {
 class _Section extends StatelessWidget {
   const _Section({
     required this.title,
+    required this.subtitle,
+    required this.icon,
     required this.courses,
     required this.loading,
     required this.onRetry,
+    this.errorMessage,
   });
+
   final String title;
+  final String subtitle;
+  final IconData icon;
   final List<Course> courses;
   final bool loading;
   final Future<void> Function() onRetry;
+  final String? errorMessage;
 
   void _open(BuildContext context, Course course) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.courseDetails,
-      arguments: course.id,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.courseDetails, arguments: course.id);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final scheme = Theme.of(context).colorScheme;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          child: Text(
-            title,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+        SectionHeader(
+          icon: icon,
+          title: title,
+          subtitle: subtitle,
+          trailing: IconBadge(
+            icon: Icons.arrow_forward_rounded,
+            size: 32,
+            background: scheme.primaryContainer,
+            foreground: scheme.onPrimaryContainer,
           ),
+          onTrailingTap: () {
+            Navigator.of(context).pushNamed(AppRoutes.recommendations);
+          },
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: Spacing.sm),
+        // Horizontal rail of cards. We give the rail an explicit height so
+        // the horizontal ListView has a bounded layout context — wrapping
+        // a viewport in IntrinsicHeight is illegal (the viewport cannot
+        // answer intrinsic-dimension queries), which used to crash the
+        // frame with a 2px RenderFlex overflow on small screens.
         SizedBox(
-          height: 140,
+          height: 168,
           child: courses.isEmpty
               ? _EmptyOrLoading(
                   loading: loading,
+                  errorMessage: errorMessage,
                   onRetry: onRetry,
                 )
               : ListView.separated(
                   scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
                   itemCount: courses.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 12),
-                  itemBuilder: (_, i) => SizedBox(
-                    width: 300,
-                    child: _CourseTile(
-                      course: courses[i],
-                      onTap: () => _open(context, courses[i]),
-                    ),
-                  ),
+                  separatorBuilder: (_, _) => const SizedBox(width: Spacing.sm),
+                  itemBuilder: (_, i) {
+                    final c = courses[i];
+                    return SizedBox(
+                      width: 320,
+                      child: CourseRowCard(
+                        title: c.name,
+                        provider: c.provider,
+                        level: c.level,
+                        subject: c.subject,
+                        skills: c.skills,
+                        rating: c.rating,
+                        isFree: c.isFree,
+                        thumbnail: CourseThumbnail(course: c, size: 64),
+                        trailing: c.url != null && c.url!.isNotEmpty
+                            ? IconButton(
+                                tooltip: 'Open in browser',
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(
+                                  minHeight: 32,
+                                  minWidth: 32,
+                                ),
+                                icon: Icon(
+                                  Icons.open_in_new_rounded,
+                                  color: scheme.primary,
+                                ),
+                                onPressed: () => openCourseUrl(context, c.url!),
+                              )
+                            : null,
+                        onTap: () => _open(context, c),
+                      ),
+                    );
+                  },
                 ),
         ),
       ],
@@ -169,168 +283,51 @@ class _Section extends StatelessWidget {
 }
 
 class _EmptyOrLoading extends StatelessWidget {
-  const _EmptyOrLoading({required this.loading, required this.onRetry});
+  const _EmptyOrLoading({
+    required this.loading,
+    required this.onRetry,
+    this.errorMessage,
+  });
   final bool loading;
   final Future<void> Function() onRetry;
+  final String? errorMessage;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     if (loading) {
       return const Center(child: CircularProgressIndicator());
+    }
+    if (errorMessage != null && errorMessage!.isNotEmpty) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.cloud_off_rounded, color: theme.colorScheme.error),
+            const SizedBox(height: Spacing.sm),
+            Text(
+              errorMessage!,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
+            ),
+            const SizedBox(height: Spacing.sm),
+            TextButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
     }
     return Center(
       child: TextButton.icon(
         onPressed: onRetry,
         icon: const Icon(Icons.refresh_rounded),
         label: const Text('Retry'),
-      ),
-    );
-  }
-}
-
-class _CourseTile extends StatelessWidget {
-  const _CourseTile({required this.course, required this.onTap});
-  final Course course;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CourseThumbnail(course: course, size: 72),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            course.provider ?? 'Course',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.labelMedium?.copyWith(
-                              color: theme.colorScheme.primary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        if (course.isFree)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.green.shade600,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              'FREE',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w800,
-                                fontSize: 10,
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Flexible(
-                      child: Text(
-                        course.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
-                        ),
-                      ),
-                    ),
-                    if (course.skills.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 0,
-                        children: [
-                          for (final s in course.skills.take(1))
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                s,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color:
-                                      theme.colorScheme.onSecondaryContainer,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                    const SizedBox(height: 2),
-                    Row(
-                      children: [
-                        if (course.rating != null) ...[
-                          Icon(Icons.star_rounded,
-                              size: 14, color: Colors.amber.shade700),
-                          const SizedBox(width: 2),
-                          Text(
-                            course.rating!.toStringAsFixed(1),
-                            style: theme.textTheme.bodySmall,
-                          ),
-                          const SizedBox(width: 8),
-                        ],
-                        Expanded(
-                          child: Text(
-                            [course.level, course.subject]
-                                .where((s) => (s ?? '').isNotEmpty)
-                                .join(' • '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        ),
-                        if (course.url != null && course.url!.isNotEmpty)
-                          SizedBox(
-                            height: 32,
-                            width: 32,
-                            child: IconButton(
-                              tooltip: 'Open in browser',
-                              padding: EdgeInsets.zero,
-                              iconSize: 18,
-                              icon: Icon(Icons.open_in_new_rounded,
-                                  color: theme.colorScheme.primary),
-                              onPressed: () =>
-                                  openCourseUrl(context, course.url!),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

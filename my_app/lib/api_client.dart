@@ -1,7 +1,11 @@
 /// Single HTTP client used by every provider in the app.
 ///
-/// Wraps every Flask endpoint, injects the JWT bearer token, maps errors to
-/// [ApiException], and applies a global timeout.
+/// Wraps every Flask endpoint, injects the JWT bearer token, maps
+/// errors to [ApiException], and applies a global timeout.
+///
+/// The base URL is read from `lib/config/api_config.dart`. Override at
+/// build time with
+///   --dart-define=API_BASE_URL=https://my-other-host.example.com
 library;
 
 import 'dart:async';
@@ -10,6 +14,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import 'config/api_config.dart';
 import 'models.dart';
 
 class ApiException implements Exception {
@@ -19,37 +24,59 @@ class ApiException implements Exception {
 
   const ApiException(this.statusCode, this.message, {this.code});
 
+  /// True when the failure was a network problem (DNS, socket, TLS)
+  /// rather than a server-side HTTP error.
+  bool get isNetwork => statusCode == 0;
+
   @override
   String toString() => 'ApiException($statusCode, $code): $message';
-}
-
-class ApiConfig {
-  static const String defaultBaseUrl = String.fromEnvironment(
-    'API_BASE_URL',
-    defaultValue: 'http://10.0.2.2:5000',
-  );
 }
 
 class ApiClient {
   final String baseUrl;
   final http.Client _http;
+
+  /// The JWT (or Firebase ID token) used as `Authorization: Bearer …`.
+  /// Set by [setToken] / [setFirebaseIdToken].
   String? _cachedBearer;
 
   ApiClient({String? baseUrl, http.Client? httpClient})
-      : baseUrl = (baseUrl ?? ApiConfig.defaultBaseUrl)
-            .replaceAll(RegExp(r'/$'), ''),
-        _http = httpClient ?? http.Client();
+    : baseUrl = baseUrl ?? ApiConfig.baseUrl,
+      _http = httpClient ?? http.Client();
 
+  // ---------------------------------------------------------------------------
+  // URL helpers
+  // ---------------------------------------------------------------------------
+
+  /// Build the full URL for a path under the `/api/v1` prefix.
   Uri _url(String path, [Map<String, dynamic>? query]) {
-    final qp = query
-        ?.map((k, v) => MapEntry(k, v?.toString()))
+    final qp = query?.map((k, v) => MapEntry(k, v?.toString()))
       ?..removeWhere((k, v) => v == null);
     return Uri.parse('$baseUrl/api/v1$path').replace(queryParameters: qp);
   }
 
-  void setToken(String? token) {
-    _cachedBearer = (token != null && token.isNotEmpty) ? 'Bearer $token' : null;
+  /// Build the full URL for a path under the unprefixed `/api`
+  /// namespace (health probes, etc.).
+  Uri _apiUrl(String path, [Map<String, dynamic>? query]) {
+    final qp = query?.map((k, v) => MapEntry(k, v?.toString()))
+      ?..removeWhere((k, v) => v == null);
+    return Uri.parse('$baseUrl/api$path').replace(queryParameters: qp);
   }
+
+  // ---------------------------------------------------------------------------
+  // Auth header management
+  // ---------------------------------------------------------------------------
+
+  /// Set the Flask JWT (`access_token`) returned by `/auth/login`.
+  void setToken(String? token) {
+    _cachedBearer = (token != null && token.isNotEmpty)
+        ? 'Bearer $token'
+        : null;
+  }
+
+  /// Alias used by the Firebase flow — the wire format is the same,
+  /// just a different source.
+  void setFirebaseIdToken(String? token) => setToken(token);
 
   Map<String, String> _headers({bool json = true}) {
     final headers = <String, String>{};
@@ -58,79 +85,223 @@ class ApiClient {
     return headers;
   }
 
+  // ---------------------------------------------------------------------------
+  // Response decoding
+  // ---------------------------------------------------------------------------
+
   Future<Map<String, dynamic>> _decode(http.Response response) async {
+    final raw = response.body;
     Map<String, dynamic> body;
     try {
-      body = jsonDecode(response.body) as Map<String, dynamic>;
+      final decoded = jsonDecode(raw);
+      body = decoded is Map<String, dynamic>
+          ? decoded
+          : <String, dynamic>{'success': false, 'data': decoded};
     } catch (_) {
-      body = {'success': false, 'message': response.body};
+      // Server returned HTML (Render 404 page, captive portal, etc.).
+      // Show a clean hint instead of a JSON parse error.
+      throw ApiException(
+        response.statusCode,
+        'Backend returned a non-JSON response. '
+        'Status ${response.statusCode}.',
+        code: 'NON_JSON_RESPONSE',
+      );
     }
-    if (response.statusCode >= 200 && response.statusCode < 300 &&
+
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
         body['success'] == true) {
       final data = body['data'];
       if (data is Map<String, dynamic>) return data;
       return {'value': data};
     }
-    throw ApiException(
-      response.statusCode,
-      (body['message'] ?? 'Request failed').toString(),
-      code: body['error_code']?.toString(),
+
+    final message = (body['message'] ?? 'Request failed').toString();
+    final code = body['error_code']?.toString();
+    throw ApiException(response.statusCode, message, code: code);
+  }
+
+  /// Wrap any caught error into either an [ApiException] (status-code
+  /// errors) or a network [ApiException] (status code 0).
+  Future<T> _guarded<T>(
+    Future<T> Function() body,
+    Uri uri,
+    String method,
+  ) async {
+    try {
+      return await body();
+    } on ApiException {
+      rethrow;
+    } on SocketException catch (e) {
+      _log(method, uri, statusCode: 0, error: e);
+      throw ApiException(0, describeNetworkError(e), code: 'NETWORK_ERROR');
+    } on TimeoutException catch (e) {
+      _log(method, uri, statusCode: 0, error: e);
+      throw ApiException(0, describeNetworkError(e), code: 'TIMEOUT');
+    } on http.ClientException catch (e) {
+      _log(method, uri, statusCode: 0, error: e);
+      throw ApiException(0, describeNetworkError(e), code: 'CLIENT_ERROR');
+    } catch (e) {
+      _log(method, uri, statusCode: 0, error: e);
+      throw ApiException(0, describeNetworkError(e), code: 'UNKNOWN');
+    }
+  }
+
+  Future<Map<String, dynamic>> _get(
+    String path, [
+    Map<String, dynamic>? query,
+  ]) async {
+    final uri = _url(path, query);
+    return _guarded(
+      () async {
+        final response = await _http
+            .get(uri, headers: _headers(json: false))
+            .timeout(ApiConfig.readTimeout);
+        _log('GET', uri, statusCode: response.statusCode, response: response);
+        return _decode(response);
+      },
+      uri,
+      'GET',
     );
   }
 
-  Future<Map<String, dynamic>> _get(String path,
-      [Map<String, dynamic>? query]) async {
-    final uri = _url(path, query);
-    final response = await _http
-        .get(uri, headers: _headers(json: false))
-        .timeout(const Duration(seconds: 12));
-    return _decode(response);
-  }
-
   Future<Map<String, dynamic>> _post(
-      String path, Map<String, dynamic> body,
-      {bool auth = true}) async {
+    String path,
+    Map<String, dynamic> body, {
+    bool auth = true,
+  }) async {
     final uri = _url(path);
-    final headers = _headers();
-    if (!auth) headers.remove('Authorization');
-    final response = await _http
-        .post(uri, headers: headers, body: jsonEncode(body))
-        .timeout(const Duration(seconds: 15));
-    return _decode(response);
+    return _guarded(
+      () async {
+        final headers = _headers();
+        if (!auth) headers.remove('Authorization');
+        final response = await _http
+            .post(uri, headers: headers, body: jsonEncode(body))
+            .timeout(ApiConfig.readTimeout);
+        _log(
+          'POST',
+          uri,
+          statusCode: response.statusCode,
+          body: body,
+          response: response,
+        );
+        return _decode(response);
+      },
+      uri,
+      'POST',
+    );
   }
 
-  Future<Map<String, dynamic>> _put(String path,
-      [Map<String, dynamic>? body]) async {
+  Future<Map<String, dynamic>> _put(
+    String path, [
+    Map<String, dynamic>? body,
+  ]) async {
     final uri = _url(path);
-    final response = await _http
-        .put(uri,
-            headers: _headers(),
-            body: body == null ? null : jsonEncode(body))
-        .timeout(const Duration(seconds: 12));
-    return _decode(response);
+    return _guarded(
+      () async {
+        final response = await _http
+            .put(
+              uri,
+              headers: _headers(),
+              body: body == null ? null : jsonEncode(body),
+            )
+            .timeout(ApiConfig.readTimeout);
+        _log(
+          'PUT',
+          uri,
+          statusCode: response.statusCode,
+          body: body,
+          response: response,
+        );
+        return _decode(response);
+      },
+      uri,
+      'PUT',
+    );
   }
 
   Future<Map<String, dynamic>> _delete(String path) async {
     final uri = _url(path);
-    final response = await _http
-        .delete(uri, headers: _headers(json: false))
-        .timeout(const Duration(seconds: 12));
-    return _decode(response);
+    return _guarded(
+      () async {
+        final response = await _http
+            .delete(uri, headers: _headers(json: false))
+            .timeout(ApiConfig.readTimeout);
+        _log(
+          'DELETE',
+          uri,
+          statusCode: response.statusCode,
+          response: response,
+        );
+        return _decode(response);
+      },
+      uri,
+      'DELETE',
+    );
   }
 
-  /// Human-readable hint for connection-level failures so screens don't have
-  /// to translate `SocketException`/`TimeoutException` themselves. Includes
-  /// the configured base URL so the developer can confirm they're pointed at
-  /// the right host (Android emulator vs. real device vs. local network).
+  // ---------------------------------------------------------------------------
+  // Debug logging
+  // ---------------------------------------------------------------------------
+
+  void _log(
+    String method,
+    Uri uri, {
+    required int statusCode,
+    Map<String, dynamic>? body,
+    http.Response? response,
+    Object? error,
+  }) {
+    if (!ApiConfig.verboseNetworkLogging) return;
+    final tag = '[EduCompass API]';
+    final url = uri.toString();
+    if (error != null) {
+      // ignore: avoid_print
+      print('$tag $method $url -> error: $error');
+      return;
+    }
+    final resp = response;
+    // ignore: avoid_print
+    print('$tag $method $url -> $statusCode');
+    if (body != null) {
+      // ignore: avoid_print
+      print(
+        '$tag   request body (sanitised): '
+        '${jsonEncode(ApiConfig.redact(body))}',
+      );
+    }
+    if (resp != null && resp.body.isNotEmpty) {
+      try {
+        final decoded = jsonDecode(resp.body);
+        // ignore: avoid_print
+        print(
+          '$tag   response body (sanitised): '
+          '${jsonEncode(ApiConfig.redact(decoded)).substring(0, resp.body.length.clamp(0, 2000))}',
+        );
+      } catch (_) {
+        // ignore: avoid_print
+        print(
+          '$tag   response body (non-JSON, first 240 chars): '
+          '${resp.body.substring(0, resp.body.length.clamp(0, 240))}',
+        );
+      }
+    }
+  }
+
+  /// Human-readable hint for connection-level failures so screens
+  /// don't have to translate `SocketException` / `TimeoutException`
+  /// themselves. Includes the configured base URL so the developer
+  /// can confirm they're pointed at the right host.
   String describeNetworkError(Object error) {
     if (error is SocketException) {
       return 'Cannot reach the EduCompass server at $baseUrl. '
-          'Start the Flask backend (cd backend && python run.py) '
-          'or pass --dart-define=API_BASE_URL=http://<host>:5000.';
+          'Check your internet connection or build with '
+          '--dart-define=API_BASE_URL=https://your-host.onrender.com.';
     }
     if (error is TimeoutException) {
-      return 'The EduCompass server at $baseUrl took too long to respond. '
-          'Check your connection or restart the backend.';
+      return 'The EduCompass server at $baseUrl took too long to '
+          'respond. Render free-tier services sleep after inactivity — '
+          'try again in a few seconds.';
     }
     if (error is http.ClientException) {
       return 'Network error talking to $baseUrl: ${error.message}';
@@ -138,7 +309,31 @@ class ApiClient {
     return 'Unexpected error contacting $baseUrl: $error';
   }
 
-  // --- Auth ----------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Health
+  // ---------------------------------------------------------------------------
+
+  /// Hits the unprefixed `/api/health` route (Render health check).
+  /// Returns the JSON body from the success envelope, or throws an
+  /// [ApiException] when the server is unreachable.
+  Future<Map<String, dynamic>> health() async {
+    final uri = _apiUrl('/health');
+    return _guarded(
+      () async {
+        final response = await _http
+            .get(uri, headers: _headers(json: false))
+            .timeout(ApiConfig.readTimeout);
+        _log('GET', uri, statusCode: response.statusCode, response: response);
+        return _decode(response);
+      },
+      uri,
+      'GET',
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auth
+  // ---------------------------------------------------------------------------
 
   Future<Map<String, dynamic>> register({
     required String fullName,
@@ -178,7 +373,16 @@ class ApiClient {
     return AppUser.fromJson(data.cast<String, dynamic>());
   }
 
-  // --- Courses -------------------------------------------------------------
+  /// Permanently delete the caller's account on the backend. After
+  /// this returns, the JWT is no longer valid — the caller must call
+  /// [setToken] with `null` (see [AuthProvider.deleteAccount]).
+  Future<void> deleteAccount() async {
+    await _delete('/auth/account');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Courses
+  // ---------------------------------------------------------------------------
 
   Future<List<Course>> searchCourses(
     String query, {
@@ -224,13 +428,14 @@ class ApiClient {
     return Course.fromJson((data['course'] as Map).cast<String, dynamic>());
   }
 
-  Future<List<Course>> similarCourses(String courseId,
-      {int limit = 6}) async {
+  Future<List<Course>> similarCourses(String courseId, {int limit = 6}) async {
     final data = await _get('/courses/$courseId/similar', {'limit': limit});
     return _mapCourses(data['results']);
   }
 
-  // --- Recommendations -----------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Recommendations
+  // ---------------------------------------------------------------------------
 
   Future<List<Course>> recommendByGoal(
     String query, {
@@ -246,22 +451,20 @@ class ApiClient {
   }
 
   Future<List<Course>> recommendPersonalized({int limit = 10}) async {
-    final data = await _post(
-      '/recommendations/personalized',
-      {'top_n': limit},
-    );
+    final data = await _post('/recommendations/personalized', {'top_n': limit});
     return _mapCourses(data['recommendations']);
   }
 
-  // --- Favourites, progress ----------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Favourites, progress
+  // ---------------------------------------------------------------------------
 
   Future<List<Course>> favorites() async {
     final data = await _get('/me/favorites');
     final hydrated = _mapCourses(data['results']);
     if (hydrated.isNotEmpty) return hydrated;
-    // Fallback: when the server returns only the legacy summary, rehydrate
-    // each entry by hitting the course-detail endpoint. This is a one-time
-    // cost on the empty-state cold start.
+    // Fallback: when the server returns only the legacy summary,
+    // rehydrate each entry by hitting the course-detail endpoint.
     final ids = ((data['favorites'] as List?) ?? const [])
         .whereType<Map>()
         .map((m) => (m['course_id'] ?? '').toString())
@@ -285,20 +488,21 @@ class ApiClient {
   Future<void> removeFavorite(String courseId) =>
       _delete('/me/favorites/$courseId');
 
-  Future<void> updateCourseProgress(String courseId, int percent,
-      {bool completed = false}) {
+  Future<void> updateCourseProgress(
+    String courseId,
+    int percent, {
+    bool completed = false,
+  }) {
     return _put('/me/progress/$courseId', {
       'progress': percent,
       'completed': completed,
     });
   }
 
-  // --- Enrollments -------------------------------------------------------   
+  // ---------------------------------------------------------------------------
+  // Enrollments (paid + free courses the user has signed up for)
+  // ---------------------------------------------------------------------------
 
-  /// Lists the course ids the signed-in user is enrolled in (newest
-  /// first). Mirrors the Firestore `users/{uid}/enrollments/{id}`
-  /// set, but read from SQL so server-side rendering and a second
-  /// device stay in sync.
   Future<List<String>> enrollments() async {
     final data = await _get('/me/enrollments');
     final raw = (data['enrollments'] as List?) ?? const [];
@@ -309,9 +513,6 @@ class ApiClient {
         .toList();
   }
 
-  /// Upserts an enrollment row. Idempotent on `(user_id, course_id)`
-  /// server-side, so a re-enroll with a fresh transaction id just
-  /// overwrites the previous one.
   Future<void> addEnrollment({
     required String courseId,
     required String paymentMethod,
@@ -326,18 +527,17 @@ class ApiClient {
     });
   }
 
-  /// Removes the SQL enrollment row for [courseId]. Safe to call even
-  /// when no row exists — the server treats it as a no-op.
   Future<void> removeEnrollment(String courseId) =>
       _delete('/me/enrollments/$courseId');
 
-  // --- Learning paths ------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // Learning paths
+  // ---------------------------------------------------------------------------
 
   Future<List<LearningPath>> learningPaths() async {
     final data = await _get('/learning-paths');
-    final raw = (data['paths'] as List?) ??
-        (data['results'] as List?) ??
-        const [];
+    final raw =
+        (data['paths'] as List?) ?? (data['results'] as List?) ?? const [];
     return raw
         .whereType<Map>()
         .map((m) => LearningPath.fromJson(m.cast<String, dynamic>()))
@@ -346,8 +546,7 @@ class ApiClient {
 
   Future<LearningPath> learningPath(String pathId) async {
     final data = await _get('/learning-paths/$pathId');
-    return LearningPath.fromJson(
-        (data['path'] as Map).cast<String, dynamic>());
+    return LearningPath.fromJson((data['path'] as Map).cast<String, dynamic>());
   }
 
   Future<Map<String, dynamic>> learningPathProgress(String pathId) async {
@@ -355,8 +554,11 @@ class ApiClient {
     return (data['progress'] as Map?)?.cast<String, dynamic>() ?? const {};
   }
 
-  Future<void> updateLearningPathProgress(String pathId, String stepId,
-      {required bool completed}) {
+  Future<void> updateLearningPathProgress(
+    String pathId,
+    String stepId, {
+    required bool completed,
+  }) {
     return _put('/learning-paths/$pathId/progress', {
       'step_id': stepId,
       'completed': completed,

@@ -1,5 +1,14 @@
-/// Goal-based and personalized recommendations.
-library;
+// "For You" tab — goal-based AI recommendations + personalised picks.
+//
+// Layout, top-to-bottom:
+//   1. AppBar (title: "For you").
+//   2. Goal card: SearchBar input + Filled CTA inside an EduCard.
+//   3. "By your goal" results (CourseRowCard list).
+//   4. "Picks for you" personalised list from UserProvider.
+//
+// All state mutations (text controller, search flag, results list,
+// personalised reload) are kept exactly as before. Only the widgets
+// that render them are swapped out for shared primitives.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,6 +18,7 @@ import '../app_state.dart';
 import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../widgets/design.dart';
 
 class RecommendationsScreen extends StatefulWidget {
   const RecommendationsScreen({super.key});
@@ -56,7 +66,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       if (!mounted) return;
       setState(() => _goalError = e.message);
     } finally {
-      if (mounted) setState(() => _searchingGoal = false);
+      if (mounted) {
+        setState(() => _searchingGoal = false);
+      }
     }
   }
 
@@ -66,36 +78,84 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Recommendations')),
+      appBar: AppBar(title: const Text('For you')),
       body: RefreshIndicator(
         onRefresh: _refreshPersonalized,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
           children: [
-            _GoalCard(
-              controller: _ctrl,
-              searching: _searchingGoal,
-              onSubmit: _runGoalSearch,
+            const Padding(
+              padding: EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.xs,
+                Spacing.md,
+                Spacing.sm,
+              ),
+              child: _IntroLine(),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: _GoalCard(
+                controller: _ctrl,
+                searching: _searchingGoal,
+                onSubmit: _runGoalSearch,
+              ),
             ),
             if (_goalError != null)
               Padding(
-                padding: const EdgeInsets.only(top: 12),
-                child: Text(_goalError!,
-                    style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                padding: const EdgeInsets.only(
+                  top: Spacing.sm,
+                  left: Spacing.md,
+                  right: Spacing.md,
+                ),
+                child: _ErrorBanner(
+                  message: _goalError!,
+                  onRetry: _runGoalSearch,
+                ),
               ),
             if (_goalResults.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const _SectionTitle('By your goal'),
-              for (final c in _goalResults)
-                _CourseRow(
-                  course: c,
-                  onTap: () => _open(context, c.id),
+              const SizedBox(height: Spacing.lg),
+              const SectionHeader(
+                icon: Icons.flag_rounded,
+                title: 'By your goal',
+                subtitle: 'Matches the text you typed',
+              ),
+              const SizedBox(height: Spacing.sm),
+              for (final c in _goalResults) ...[
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(
+                    Spacing.md,
+                    0,
+                    Spacing.md,
+                    Spacing.sm,
+                  ),
+                  child: CourseRowCard(
+                    title: c.name,
+                    provider: c.provider,
+                    level: c.level,
+                    subject: c.subject,
+                    skills: c.skills,
+                    isFree: c.isFree,
+                    reason: c.reasons.isEmpty ? null : c.reasons.first,
+                    score: c.finalScore,
+                    thumbnail: CourseThumbnail(course: c, size: 64),
+                    onTap: () => _open(context, c.id),
+                  ),
                 ),
+              ],
             ],
-            const SizedBox(height: 24),
-            const _SectionTitle('Picks for you'),
-            const _PersonalizedList(),
-            const SizedBox(height: 24),
+            const SizedBox(height: Spacing.lg),
+            const SectionHeader(
+              icon: Icons.recommend_rounded,
+              title: 'Picks for you',
+              subtitle: 'Driven by your interests and favourites',
+            ),
+            const SizedBox(height: Spacing.sm),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: _PersonalizedList(),
+            ),
+            const SizedBox(height: Spacing.xl),
           ],
         ),
       ),
@@ -103,13 +163,14 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   }
 
   void _open(BuildContext context, String courseId) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.courseDetails,
-      arguments: courseId,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.courseDetails, arguments: courseId);
   }
 }
 
+/// Goal-input card: a title, helper text, [SearchBar], and a primary
+/// CTA. While the search is in-flight the CTA shows a spinner.
 class _GoalCard extends StatelessWidget {
   const _GoalCard({
     required this.controller,
@@ -123,33 +184,37 @@ class _GoalCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Tell us your goal',
-                style: theme.textTheme.titleMedium
-                    ?.copyWith(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Text(
-              'For example: "I want to become a data scientist" or "learn React Native".',
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
+    return EduCard(
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Tell us your goal',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
             ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              decoration: const InputDecoration(
-                labelText: 'What do you want to learn?',
-                border: OutlineInputBorder(),
-              ),
-              onSubmitted: (_) => onSubmit(),
+          ),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            'For example: "I want to become a data scientist" or '
+            '"learn React Native".',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(height: 12),
-            FilledButton.icon(
+          ),
+          const SizedBox(height: Spacing.md),
+          EduSearchBar(
+            controller: controller,
+            hint: 'What do you want to learn?',
+            busy: searching,
+            onSubmitted: (_) => onSubmit(),
+            onChanged: (_) {},
+          ),
+          const SizedBox(height: Spacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
               onPressed: searching ? null : onSubmit,
               icon: searching
                   ? const SizedBox(
@@ -160,26 +225,60 @@ class _GoalCard extends StatelessWidget {
                   : const Icon(Icons.auto_awesome_rounded),
               label: const Text('Get recommendations'),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  const _SectionTitle(this.text);
-  final String text;
+/// Error banner reused by goal search / personalized load failures.
+class _ErrorBanner extends StatelessWidget {
+  const _ErrorBanner({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 12),
-      child: Text(
-        text,
-        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w700,
+    final theme = Theme.of(context);
+    return EduCard(
+      padding: const EdgeInsets.all(Spacing.md),
+      child: Row(
+        children: [
+          Icon(Icons.cloud_off_rounded, color: theme.colorScheme.error),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Text(
+              message,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall,
             ),
+          ),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Single-line subtitle that lives directly under the AppBar's
+/// "For you" title. Kept small and muted so the AppBar stays the
+/// single primary heading on this screen.
+class _IntroLine extends StatelessWidget {
+  const _IntroLine();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Text(
+      'Describe a goal or let your favourites drive the picks.',
+      style: theme.textTheme.bodySmall?.copyWith(
+        color: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }
@@ -194,192 +293,55 @@ class _PersonalizedList extends StatelessWidget {
     final api = context.read<ApiClient>();
     if (user.loadingPersonalized && user.personalized.isEmpty) {
       return const Padding(
-        padding: EdgeInsets.symmetric(vertical: 32),
+        padding: EdgeInsets.symmetric(vertical: Spacing.xl),
         child: Center(child: CircularProgressIndicator()),
       );
     }
     if (user.personalized.isEmpty) {
       final error = user.personalizedError;
       if (error != null) {
-        return Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Icon(Icons.cloud_off_rounded,
-                    size: 36,
-                    color: Theme.of(context).colorScheme.error),
-                const SizedBox(height: 8),
-                Text(
-                  error,
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-                const SizedBox(height: 8),
-                TextButton.icon(
-                  onPressed: () => context
-                      .read<UserProvider>()
-                      .loadPersonalized(),
-                  icon: const Icon(Icons.refresh_rounded),
-                  label: const Text('Retry'),
-                ),
-                Text(
-                  'API: ${api.baseUrl}',
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color:
-                            Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-              ],
+        return Column(
+          children: [
+            _ErrorBanner(
+              message: error,
+              onRetry: () => context.read<UserProvider>().loadPersonalized(),
             ),
-          ),
+            const SizedBox(height: Spacing.sm),
+            Text(
+              'API: ${api.baseUrl}',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
         );
       }
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              Icon(Icons.tips_and_updates_outlined,
-                  size: 36,
-                  color: Theme.of(context).colorScheme.primary),
-              const SizedBox(height: 8),
-              Text(
-                'Add favourites or set a goal to unlock personalised picks.',
-                textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-            ],
-          ),
-        ),
+      return const EmptyState(
+        icon: Icons.tips_and_updates_outlined,
+        message: 'Add favourites or set a goal to unlock personalised picks.',
       );
     }
     return Column(
       children: [
         for (final c in user.personalized)
-          _CourseRow(
-            course: c,
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.courseDetails,
-              arguments: c.id,
+          Padding(
+            padding: const EdgeInsets.only(bottom: Spacing.sm),
+            child: CourseRowCard(
+              title: c.name,
+              provider: c.provider,
+              level: c.level,
+              subject: c.subject,
+              skills: c.skills,
+              isFree: c.isFree,
+              reason: c.reasons.isEmpty ? null : c.reasons.first,
+              score: c.finalScore,
+              thumbnail: CourseThumbnail(course: c, size: 64),
+              onTap: () => Navigator.of(
+                context,
+              ).pushNamed(AppRoutes.courseDetails, arguments: c.id),
             ),
           ),
       ],
-    );
-  }
-}
-
-class _CourseRow extends StatelessWidget {
-  const _CourseRow({required this.course, required this.onTap});
-  final Course course;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final reason =
-        course.reasons.isEmpty ? null : course.reasons.first;
-    final hasUrl = course.url != null && course.url!.isNotEmpty;
-    return Card(
-      clipBehavior: Clip.antiAlias,
-      margin: const EdgeInsets.only(bottom: 8),
-      child: InkWell(
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CourseThumbnail(course: course, size: 64),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(course.name,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        )),
-                    if (reason != null) ...[
-                      const SizedBox(height: 4),
-                      Text(reason,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontStyle: FontStyle.italic,
-                          )),
-                    ],
-                    const SizedBox(height: 4),
-                    Text(
-                      [course.provider, course.level, course.subject]
-                          .where((s) => (s ?? '').isNotEmpty)
-                          .join(' • '),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                    if (course.skills.isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 4,
-                        children: [
-                          for (final s in course.skills.take(2))
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.tertiaryContainer,
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: Text(
-                                s,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color:
-                                      theme.colorScheme.onTertiaryContainer,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: 4),
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  if (course.finalScore != null)
-                    Text(
-                      '${(course.finalScore! * 100).toStringAsFixed(0)}%',
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        color: theme.colorScheme.primary,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  if (hasUrl)
-                    IconButton(
-                      tooltip: 'Open in browser',
-                      icon: Icon(Icons.open_in_new_rounded,
-                          color: theme.colorScheme.primary),
-                      onPressed: () => openCourseUrl(context, course.url!),
-                    ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }

@@ -1,10 +1,10 @@
 {
     "folders": [
         {
-            "path": "frontend"
+            "path": "backend"
         },
         {
-            "path": "backend"
+            "path": "my_app"
         },
         {
             "path": "ml"

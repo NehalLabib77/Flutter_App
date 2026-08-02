@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
-import '../widgets/custom_text_field.dart';
+import 'auth_chrome.dart';
 import 'login_screen.dart';
 import 'shell_screen.dart';
 
@@ -60,9 +60,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         // Registration and automatic login succeeded.
         // Clear all authentication pages and open the home shell.
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const ShellScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const ShellScreen()),
           (route) => false,
         );
       } else {
@@ -73,9 +71,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
 
         Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(
-            builder: (_) => const LoginScreen(),
-          ),
+          MaterialPageRoute(builder: (_) => const LoginScreen()),
           (route) => false,
         );
       }
@@ -95,170 +91,81 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Create account'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Form(
-                key: _formKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const _Header(),
-                    const SizedBox(height: 24),
-
-                    CustomTextField(
-                      controller: _nameCtrl,
-                      label: 'Full name',
-                      prefixIcon: Icons.person_outline,
-                      autofillHints: const [
-                        AutofillHints.name,
-                      ],
-                      textInputAction: TextInputAction.next,
-                      validator: _validateName,
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    CustomTextField(
-                      controller: _emailCtrl,
-                      label: 'Email',
-                      prefixIcon: Icons.email_outlined,
-                      autofillHints: const [
-                        AutofillHints.newUsername,
-                      ],
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      validator: _validateEmail,
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    CustomTextField(
-                      controller: _passwordCtrl,
-                      label: 'Password',
-                      prefixIcon: Icons.lock_outline,
-                      obscureText: true,
-                      autofillHints: const [
-                        AutofillHints.newPassword,
-                      ],
-                      textInputAction: TextInputAction.next,
-                      validator: _validatePassword,
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    CustomTextField(
-                      controller: _confirmCtrl,
-                      label: 'Confirm password',
-                      prefixIcon: Icons.lock_outline,
-                      obscureText: true,
-                      autofillHints: const [
-                        AutofillHints.newPassword,
-                      ],
-                      textInputAction: TextInputAction.done,
-                      validator: (value) {
-                        return _validateConfirm(
-                          value,
-                          _passwordCtrl.text,
-                        );
-                      },
-                      onFieldSubmitted: (_) => _submit(),
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: _submitting ? null : _submit,
-                        icon: _submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(
-                                Icons.person_add_alt_1_rounded,
-                              ),
-                        label: Text(
-                          _submitting
-                              ? 'Creating account...'
-                              : 'Sign up',
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    TextButton(
-                      onPressed: _submitting
-                          ? null
-                          : () {
-                              Navigator.of(context).pushReplacement(
-                                MaterialPageRoute(
-                                  builder: (_) => const LoginScreen(),
-                                ),
-                              );
-                            },
-                      child: const Text(
-                        'Already have an account? Log in',
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return AuthScaffold(
+      title: 'Create account',
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthHeading(
+              kicker: 'Get started',
+              title: 'Create your account',
+              body: 'Enter your details below to create your account.',
             ),
-          ),
+            InsetField(
+              controller: _nameCtrl,
+              label: 'Full name',
+              icon: Icons.person_outline,
+              autofillHints: const [AutofillHints.name],
+              textInputAction: TextInputAction.next,
+              validator: _validateName,
+            ),
+            InsetField(
+              controller: _emailCtrl,
+              label: 'Email',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.newUsername],
+              textInputAction: TextInputAction.next,
+              validator: _validateEmail,
+            ),
+            InsetField(
+              controller: _passwordCtrl,
+              label: 'Password',
+              icon: Icons.lock_outline,
+              obscure: true,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.next,
+              validator: _validatePassword,
+            ),
+            InsetField(
+              controller: _confirmCtrl,
+              label: 'Confirm password',
+              icon: Icons.lock_outline,
+              obscure: true,
+              autofillHints: const [AutofillHints.newPassword],
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(),
+              validator: (value) => _validateConfirm(value, _passwordCtrl.text),
+            ),
+            AuthPrimaryButton(
+              label: _submitting ? 'Creating account' : 'Create account',
+              icon: Icons.person_add_alt_1_rounded,
+              busy: _submitting,
+              onPressed: _submitting ? null : _submit,
+            ),
+            const SizedBox(height: 20),
+            AuthFootnoteLink(
+              prefix: 'Already have an account?',
+              linkLabel: 'Log in',
+              onTap: _submitting
+                  ? () {}
+                  : () {
+                      Navigator.of(context).pushReplacement(
+                        MaterialPageRoute(builder: (_) => const LoginScreen()),
+                      );
+                    },
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Create your account',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Enter your details below to create your account.',
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
     );
   }
 }
@@ -288,9 +195,7 @@ String? _validateEmail(String? value) {
     return 'Email is required';
   }
 
-  final pattern = RegExp(
-    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-  );
+  final pattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   if (!pattern.hasMatch(email)) {
     return 'Please enter a valid email address';
@@ -313,10 +218,7 @@ String? _validatePassword(String? value) {
   return null;
 }
 
-String? _validateConfirm(
-  String? value,
-  String password,
-) {
+String? _validateConfirm(String? value, String password) {
   final confirmPassword = value ?? '';
 
   if (confirmPassword.isEmpty) {

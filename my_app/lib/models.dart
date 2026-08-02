@@ -49,13 +49,13 @@ class Course {
     final skillsField = json['skills'];
     final skills = skillsField is String
         ? skillsField
-            .split(',')
-            .map((s) => s.trim())
-            .where((s) => s.isNotEmpty)
-            .toList()
+              .split(',')
+              .map((s) => s.trim())
+              .where((s) => s.isNotEmpty)
+              .toList()
         : (skillsField is List
-            ? skillsField.map((s) => s.toString()).toList()
-            : <String>[]);
+              ? skillsField.map((s) => s.toString()).toList()
+              : <String>[]);
     final isFreeRaw = json['is_free'];
     final price = (json['price'] ?? '').toString().toLowerCase();
     return Course(
@@ -71,7 +71,8 @@ class Course {
       reviewsCount: (json['reviews_count'] as num?)?.toInt(),
       studentsEnrolled: (json['students_enrolled'] as num?)?.toInt(),
       price: json['price']?.toString(),
-      isFree: (isFreeRaw is num && isFreeRaw == 1) ||
+      isFree:
+          (isFreeRaw is num && isFreeRaw == 1) ||
           isFreeRaw == true ||
           price == 'free',
       skills: skills,
@@ -132,9 +133,8 @@ class LearningPathStep {
   });
 
   factory LearningPathStep.fromJson(Map<String, dynamic> json) {
-    final courses = (json['course_ids'] as List?) ??
-        (json['courses'] as List?) ??
-        const [];
+    final courses =
+        (json['course_ids'] as List?) ?? (json['courses'] as List?) ?? const [];
     return LearningPathStep(
       id: (json['id'] ?? json['step_id'] ?? '').toString(),
       title: (json['title'] ?? '').toString(),

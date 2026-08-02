@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
-import '../widgets/custom_text_field.dart';
+import 'auth_chrome.dart';
 import 'register_screen.dart';
 import 'shell_screen.dart';
 
@@ -55,9 +55,7 @@ class _LoginScreenState extends State<LoginScreen> {
       // Remove LoginScreen/RegisterScreen from the route stack
       // and open the main home shell.
       Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(
-          builder: (_) => const ShellScreen(),
-        ),
+        MaterialPageRoute(builder: (_) => const ShellScreen()),
         (route) => false,
       );
     } on ApiException catch (e) {
@@ -76,133 +74,68 @@ class _LoginScreenState extends State<LoginScreen> {
 
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Sign in'),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(24),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 460),
-              child: Form(
-                key: _formKey,
-                autovalidateMode: AutovalidateMode.onUserInteraction,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const _Header(),
-                    const SizedBox(height: 24),
-
-                    CustomTextField(
-                      controller: _emailCtrl,
-                      label: 'Email',
-                      prefixIcon: Icons.email_outlined,
-                      autofillHints: const [
-                        AutofillHints.email,
-                      ],
-                      keyboardType: TextInputType.emailAddress,
-                      textInputAction: TextInputAction.next,
-                      validator: _validateEmail,
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    CustomTextField(
-                      controller: _passwordCtrl,
-                      label: 'Password',
-                      prefixIcon: Icons.lock_outline,
-                      obscureText: true,
-                      autofillHints: const [
-                        AutofillHints.password,
-                      ],
-                      textInputAction: TextInputAction.done,
-                      validator: _validatePassword,
-                      onFieldSubmitted: (_) => _submit(),
-                      enabled: !_submitting,
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      height: 48,
-                      child: FilledButton.icon(
-                        onPressed: _submitting ? null : _submit,
-                        icon: _submitting
-                            ? const SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.login_rounded),
-                        label: Text(
-                          _submitting ? 'Signing in...' : 'Login',
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 16),
-
-                    TextButton(
-                      onPressed: _submitting
-                          ? null
-                          : () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => const RegisterScreen(),
-                                ),
-                              );
-                            },
-                      child: const Text(
-                        "Don't have an account? Sign up",
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+    return AuthScaffold(
+      title: 'Sign in',
+      child: Form(
+        key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const AuthHeading(
+              kicker: 'Welcome back',
+              title: 'Sign in to continue',
+              body:
+                  'Use the email and password you used when you '
+                  'created your account.',
             ),
-          ),
+            InsetField(
+              controller: _emailCtrl,
+              label: 'Email',
+              icon: Icons.email_outlined,
+              keyboardType: TextInputType.emailAddress,
+              autofillHints: const [AutofillHints.email],
+              textInputAction: TextInputAction.next,
+              validator: _validateEmail,
+            ),
+            InsetField(
+              controller: _passwordCtrl,
+              label: 'Password',
+              icon: Icons.lock_outline,
+              obscure: true,
+              autofillHints: const [AutofillHints.password],
+              textInputAction: TextInputAction.done,
+              validator: _validatePassword,
+              onSubmitted: (_) => _submit(),
+            ),
+            AuthPrimaryButton(
+              label: _submitting ? 'Signing in' : 'Sign in',
+              icon: Icons.login_rounded,
+              busy: _submitting,
+              onPressed: _submitting ? null : _submit,
+            ),
+            const SizedBox(height: 20),
+            AuthFootnoteLink(
+              prefix: "Don't have an account?",
+              linkLabel: 'Sign up',
+              onTap: _submitting
+                  ? () {}
+                  : () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => const RegisterScreen(),
+                        ),
+                      );
+                    },
+            ),
+          ],
         ),
       ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Welcome back',
-          style: theme.textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          'Sign in with the email and password you used when you '
-          'created your account.',
-          style: theme.textTheme.bodyMedium,
-        ),
-      ],
     );
   }
 }
@@ -218,9 +151,7 @@ String? _validateEmail(String? value) {
     return 'Email is required';
   }
 
-  final pattern = RegExp(
-    r'^[^@\s]+@[^@\s]+\.[^@\s]+$',
-  );
+  final pattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
   if (!pattern.hasMatch(email)) {
     return 'Please enter a valid email address';

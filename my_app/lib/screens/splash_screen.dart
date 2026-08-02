@@ -35,15 +35,13 @@ class _SplashScreenState extends State<SplashScreen> {
       return;
     }
     // Sign-in is optional after onboarding — guests go straight to Home.
-    Navigator.of(context).pushReplacement(
-      MaterialPageRoute(builder: (_) => const ShellScreen()),
-    );
+    Navigator.of(
+      context,
+    ).pushReplacement(MaterialPageRoute(builder: (_) => const ShellScreen()));
   }
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      body: Center(child: CircularProgressIndicator()),
-    );
+    return const Scaffold(body: Center(child: CircularProgressIndicator()));
   }
 }

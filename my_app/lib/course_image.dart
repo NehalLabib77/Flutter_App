@@ -1,4 +1,4 @@
-﻿/// Shared widgets for displaying a course thumbnail with caching and a
+/// Shared widgets for displaying a course thumbnail with caching and a
 /// uniform fallback icon. Decouples CachedNetworkImage from every screen.
 library;
 
@@ -88,10 +88,7 @@ class _EnhancedPlaceholder extends StatelessWidget {
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            base,
-            Color.lerp(base, accent, 0.45) ?? accent,
-          ],
+          colors: [base, Color.lerp(base, accent, 0.45) ?? accent],
         ),
       ),
       child: Stack(
@@ -139,20 +136,21 @@ class _EnhancedPlaceholder extends StatelessWidget {
   }
 
   static String _initialsFor(String value) {
-    final parts =
-        value.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    final parts = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
     if (parts.isEmpty) return 'C';
     if (parts.length == 1) {
       final w = parts.first;
-      return w.length <= 3
-          ? w.toUpperCase()
-          : w.substring(0, 2).toUpperCase();
+      return w.length <= 3 ? w.toUpperCase() : w.substring(0, 2).toUpperCase();
     }
     return (parts.first[0] + parts.last[0]).toUpperCase();
   }
 }
 
-/// Open a course URL in the platform browser. Surfaces an error snackbar       
+/// Open a course URL in the platform browser. Surfaces an error snackbar
 /// when launching fails so the user is never silently dropped.
 ///
 /// Only `http://` and `https://` URLs are accepted. Anything else
@@ -163,9 +161,7 @@ Future<void> openCourseUrl(BuildContext context, String url) async {
   final messenger = ScaffoldMessenger.of(context);
   final uri = Uri.tryParse(url.trim());
   if (uri == null || !uri.hasScheme || uri.scheme.isEmpty) {
-    messenger.showSnackBar(
-      SnackBar(content: Text('Invalid course URL: $url')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text('Invalid course URL: $url')));
     return;
   }
   final scheme = uri.scheme.toLowerCase();
@@ -176,17 +172,13 @@ Future<void> openCourseUrl(BuildContext context, String url) async {
     return;
   }
   if (uri.host.isEmpty) {
-    messenger.showSnackBar(
-      SnackBar(content: Text('Invalid course URL: $url')),
-    );
+    messenger.showSnackBar(SnackBar(content: Text('Invalid course URL: $url')));
     return;
   }
   try {
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && context.mounted) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('Could not open $url')),
-      );
+      messenger.showSnackBar(SnackBar(content: Text('Could not open $url')));
     }
   } catch (e) {
     if (context.mounted) {

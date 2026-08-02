@@ -29,9 +29,7 @@ Future<bool> requireLogin(BuildContext context, {String? action}) async {
   }
 
   final navigator = Navigator.of(context);
-  await navigator.push(
-    MaterialPageRoute(builder: (_) => const LoginScreen()),
-  );
+  await navigator.push(MaterialPageRoute(builder: (_) => const LoginScreen()));
 
   // After returning from the login screen, the auth state may have changed;
   // re-read from the (still-attached) ancestor provider.

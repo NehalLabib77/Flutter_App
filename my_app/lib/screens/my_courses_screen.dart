@@ -1,12 +1,12 @@
-/// "My Courses" — local enrollment list (SharedPreferences-backed).
-///
-/// Mirrors `favorites_screen.dart` so the two screens feel consistent.
-/// Only reachable from the bottom-nav when the user is signed in; guests
-/// are gated out by `shell_screen.dart`.
-///
-/// Course titles / providers are fetched lazily from the Flask
-/// `/courses/{id}` endpoint and cached for the lifetime of the screen so
-/// a list of 20 enrolled courses only issues 20 calls (no N per rebuild).
+// "My Courses" — local enrollment list (SharedPreferences-backed).
+//
+// Mirrors `favorites_screen.dart` so the two screens feel consistent.
+// Only reachable from the bottom-nav when the user is signed in; guests
+// are gated out by `shell_screen.dart`.
+//
+// Course titles / providers are fetched lazily from the Flask
+// `/courses/{id}` endpoint and cached for the lifetime of the screen so
+// a list of 20 enrolled courses only issues 20 calls (no N per rebuild).
 library;
 
 import 'dart:async';
@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../widgets/design.dart';
 
 class MyCoursesScreen extends StatefulWidget {
   const MyCoursesScreen({super.key});
@@ -33,7 +34,6 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final enrolled = context.watch<EnrollmentProvider>();
     final ids = enrolled.ids.toList()..sort();
 
@@ -42,31 +42,35 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
       if (!_resolved.containsKey(id) && !_inflight.containsKey(id)) {
         final future = context.read<UserProvider>().courseDetail(id);
         _inflight[id] = future;
-        future.then((c) {
-          if (!mounted) return;
-          setState(() => _resolved[id] = c);
-        }).catchError((Object _) {
-          if (!mounted) return;
-          setState(() => _resolved[id] = null);
-        });
+        future
+            .then((c) {
+              if (!mounted) return;
+              setState(() => _resolved[id] = c);
+            })
+            .catchError((Object _) {
+              if (!mounted) return;
+              setState(() => _resolved[id] = null);
+            });
       }
     }
 
     return Scaffold(
       appBar: AppBar(title: const Text('My Courses')),
       body: ids.isEmpty
-          ? _empty(theme)
+          ? const _EmptyState()
           : ListView.separated(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(Spacing.md),
               itemCount: ids.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 6),
-              itemBuilder: (_, i) => _SwipeableCourseTile(
-                id: ids[i],
-                course: _resolved[ids[i]],
-                onDropped: (droppedId) async {
-                  await _dropOne(context, droppedId);
-                },
-              ),
+              separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
+              itemBuilder: (_, i) {
+                final id = ids[i];
+                return _SwipeableCourseCard(
+                  id: id,
+                  course: _resolved[id],
+                  onDropped: (droppedId) => _dropOne(droppedId),
+                  onUnenroll: () => _dropOne(id),
+                );
+              },
             ),
     );
   }
@@ -74,7 +78,7 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   /// Drops [id] from every store and surfaces a SnackBar with the
   /// outcome. Errors from the remote sync are non-fatal — the local
   /// list already reflects the drop, so we only mention them.
-  Future<void> _dropOne(BuildContext context, String id) async {
+  Future<void> _dropOne(String id) async {
     final messenger = ScaffoldMessenger.of(context);
     final provider = context.read<EnrollmentProvider>();
     final course = _resolved[id];
@@ -86,39 +90,79 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
         syncError ??= e.toString();
       },
     );
-    if (!context.mounted) return;
+    if (!mounted) return;
     messenger.showSnackBar(
       SnackBar(
-        content: Text(syncError == null
-            ? 'Removed "$label" from My Courses.'
-            : 'Removed "$label" locally — could not sync to server.'),
+        content: Text(
+          syncError == null
+              ? 'Removed "$label" from My Courses.'
+              : 'Removed "$label" locally — could not sync to server.',
+        ),
       ),
     );
   }
+}
 
-  Widget _empty(ThemeData theme) {
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
     return ListView(
-      // ListView keeps the screen pull-downable when empty.
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.md,
+        vertical: Spacing.xl,
+      ),
       children: [
-        const SizedBox(height: 120),
-        Icon(Icons.school_outlined,
-            size: 56, color: theme.colorScheme.primary),
-        const SizedBox(height: 16),
-        Text(
-          'No enrolled courses yet',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium,
+        const HeroBanner(
+          eyebrow: 'GET STARTED',
+          title: 'Your learning list is empty',
+          subtitle:
+              'Browse the catalog and tap Enroll on any course to see it here.',
+          icon: Icons.school_rounded,
         ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Open a course, tap Enroll, and complete the demo payment to '
-            'see it here.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+        const SizedBox(height: Spacing.lg),
+        EduCard(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.lg,
+            vertical: Spacing.xl,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.menu_book_rounded,
+                size: 36,
+                color: Theme.of(
+                  context,
+                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+              ),
+              const SizedBox(height: Spacing.md),
+              Text(
+                'No enrolled courses yet',
+                textAlign: TextAlign.center,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              ),
+              const SizedBox(height: Spacing.sm),
+              Text(
+                'Open a course, tap Enroll, and complete the demo payment to '
+                'add it here.',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+              const SizedBox(height: Spacing.md),
+              FilledButton.icon(
+                onPressed: () =>
+                    Navigator.of(context).pushNamed(AppRoutes.recommendations),
+                icon: const Icon(Icons.explore_rounded),
+                label: const Text('Browse courses'),
+              ),
+            ],
           ),
         ),
       ],
@@ -126,100 +170,269 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
   }
 }
 
-class _CourseTile extends StatelessWidget {
-  const _CourseTile({required this.id, required this.course});
+class _CourseCard extends StatelessWidget {
+  const _CourseCard({
+    required this.id,
+    required this.course,
+    required this.onUnenroll,
+  });
   final String id;
   final Course? course;
+  final Future<void> Function() onUnenroll;
+
+  @override
+  Widget build(BuildContext context) {
+    final user = context.watch<UserProvider>();
+    final progress = user.progressFor(id);
+    final completed = user.completedFor(id);
+    final loading = course == null;
+
+    final title = course?.name ?? (loading ? 'Loading course…' : id);
+
+    return CourseRowCard(
+      title: title,
+      provider: course?.provider,
+      level: course?.level,
+      subject: course?.subject,
+      rating: course?.rating,
+      score: course?.finalScore,
+      isFree: course?.isFree ?? false,
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          _ProgressTrailing(
+            progress: progress,
+            completed: completed,
+            loading: loading,
+          ),
+          const SizedBox(width: Spacing.xs),
+          _CourseMenuButton(id: id, onUnenroll: onUnenroll),
+        ],
+      ),
+      onTap: () => Navigator.of(
+        context,
+      ).pushNamed(AppRoutes.courseDetails, arguments: id),
+      thumbnail: _LeadingThumb(completed: completed, loading: loading),
+      reason: completed ? 'Completed' : null,
+    );
+  }
+}
+
+/// Action button shown in the AppBar when at least one course is
+/// enrolled. Long-press on a card also surfaces this menu so the
+/// "Unenroll" action is never hidden behind the swipe gesture alone.
+class _CourseMenuButton extends StatelessWidget {
+  const _CourseMenuButton({required this.id, required this.onUnenroll});
+
+  final String id;
+  final Future<void> Function() onUnenroll;
+
+  Future<void> _confirmUnenroll(BuildContext context) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Unenroll from this course?'),
+          content: const Text(
+            'You will lose access to the course on every device. '
+            'You can re-enroll at any time.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.tonal(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Unenroll'),
+            ),
+          ],
+        );
+      },
+    );
+    if (confirmed != true) return;
+    await onUnenroll();
+    // The provider-driven list will already have rebuilt by the
+    // time the SnackBar shows; we just surface a confirmation.
+    if (!context.mounted) return;
+    messenger.showSnackBar(
+      const SnackBar(content: Text('Course removed from My Courses.')),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return PopupMenuButton<String>(
+      tooltip: 'Course actions',
+      icon: const Icon(Icons.more_vert_rounded),
+      onSelected: (value) async {
+        if (value == 'unenroll') {
+          await _confirmUnenroll(context);
+        } else if (value == 'open') {
+          Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.courseDetails, arguments: id);
+        }
+      },
+      itemBuilder: (ctx) => [
+        const PopupMenuItem<String>(
+          value: 'open',
+          child: ListTile(
+            leading: Icon(Icons.open_in_new_rounded),
+            title: Text('Open course'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        PopupMenuItem<String>(
+          value: 'unenroll',
+          child: ListTile(
+            leading: Icon(Icons.event_busy_rounded, color: scheme.error),
+            title: Text('Unenroll', style: TextStyle(color: scheme.error)),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Thumb leading the row. Uses a tinted circle so the row reads at a glance
+/// whether the course is in progress, completed, or still loading.
+class _LeadingThumb extends StatelessWidget {
+  const _LeadingThumb({required this.completed, required this.loading});
+  final bool completed;
+  final bool loading;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final user = context.watch<UserProvider>();
-    final progress = user.progressFor(id);
-    final completed = user.completedFor(id);
+    final scheme = theme.colorScheme;
+    final color = completed ? scheme.primary : scheme.primaryContainer;
+    final fg = completed ? scheme.onPrimary : scheme.onPrimaryContainer;
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(Radii.md),
+      ),
+      alignment: Alignment.center,
+      child: loading
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2, color: fg),
+            )
+          : Icon(
+              completed ? Icons.verified_rounded : Icons.school_rounded,
+              color: fg,
+              size: 26,
+            ),
+    );
+  }
+}
 
-    final title = course?.name ?? id;
-    final subtitle = [
-      course?.provider,
-      course?.subject,
-    ].where((s) => (s ?? '').isNotEmpty).join(' • ');
+/// Right-side status: completion badge + progress % + thin linear bar.
+class _ProgressTrailing extends StatelessWidget {
+  const _ProgressTrailing({
+    required this.progress,
+    required this.completed,
+    required this.loading,
+  });
 
-    return Card(
-      child: ListTile(
-        onTap: () => Navigator.of(context).pushNamed(
-          AppRoutes.courseDetails,
-          arguments: id,
-        ),
-        leading: CircleAvatar(
-          backgroundColor: theme.colorScheme.primaryContainer,
-          child: Icon(
-            completed
-                ? Icons.verified_rounded
-                : Icons.school_rounded,
-            color: theme.colorScheme.onPrimaryContainer,
-          ),
-        ),
-        title: Text(title,
-            maxLines: 2, overflow: TextOverflow.ellipsis),
-        subtitle: subtitle.isEmpty
-            ? null
-            : Text(subtitle,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-        trailing: SizedBox(
-          width: 56,
-          child: Text(
-            '$progress%',
-            textAlign: TextAlign.end,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.primary,
+  final int progress;
+  final bool completed;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return SizedBox(
+      width: 84,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (completed)
+            Pill(text: 'DONE', color: Colors.green.shade600)
+          else if (!loading)
+            Text(
+              '$progress%',
+              style: theme.textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: scheme.primary,
+              ),
+            )
+          else
+            Text(
+              '…',
+              style: theme.textTheme.titleSmall?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          const SizedBox(height: Spacing.xs),
+          ClipRRect(
+            borderRadius: Radii.pill,
+            child: LinearProgressIndicator(
+              value: completed ? 1.0 : progress / 100.0,
+              minHeight: 6,
+              backgroundColor: scheme.surfaceContainerHighest,
+              valueColor: AlwaysStoppedAnimation<Color>(scheme.primary),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
 }
 
-/// Wraps [_CourseTile] in a swipe-to-remove gesture. The tile is
+/// Wraps [_CourseCard] in a swipe-to-remove gesture. The tile is
 /// rebuilt on the next frame after [onDropped] completes, by which
 /// point `EnrollmentProvider.drop` has already removed the id from
 /// the local set.
-class _SwipeableCourseTile extends StatelessWidget {
-  const _SwipeableCourseTile({
+class _SwipeableCourseCard extends StatelessWidget {
+  const _SwipeableCourseCard({
     required this.id,
     required this.course,
     required this.onDropped,
+    required this.onUnenroll,
   });
 
   final String id;
   final Course? course;
   final Future<void> Function(String id) onDropped;
+  final Future<void> Function() onUnenroll;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Dismissible(
       key: ValueKey('my-course-$id'),
       direction: DismissDirection.endToStart,
       background: Container(
         alignment: Alignment.centerRight,
-        padding: const EdgeInsets.symmetric(horizontal: 24),
+        padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
         decoration: BoxDecoration(
-          color: theme.colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(12),
+          color: scheme.errorContainer,
+          borderRadius: BorderRadius.circular(Radii.lg),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.delete_outline_rounded,
-                color: theme.colorScheme.onErrorContainer),
-            const SizedBox(width: 8),
+            Icon(Icons.event_busy_rounded, color: scheme.onErrorContainer),
+            const SizedBox(width: Spacing.sm),
             Text(
               'Unenroll',
               style: theme.textTheme.labelLarge?.copyWith(
-                color: theme.colorScheme.onErrorContainer,
-                fontWeight: FontWeight.w700,
+                color: scheme.onErrorContainer,
+                fontWeight: FontWeight.w800,
               ),
             ),
           ],
@@ -235,7 +448,7 @@ class _SwipeableCourseTile extends StatelessWidget {
       onDismissed: (_) {
         unawaited(onDropped(id));
       },
-      child: _CourseTile(id: id, course: course),
+      child: _CourseCard(id: id, course: course, onUnenroll: onUnenroll),
     );
   }
 }

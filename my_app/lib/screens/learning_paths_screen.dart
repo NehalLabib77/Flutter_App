@@ -1,4 +1,4 @@
-/// List of curated learning paths.
+// List of curated learning paths.
 library;
 
 import 'package:flutter/material.dart';
@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../widgets/design.dart';
 
 class LearningPathsScreen extends StatefulWidget {
   const LearningPathsScreen({super.key});
@@ -51,102 +52,190 @@ class _LearningPathsScreenState extends State<LearningPathsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(title: const Text('Learning paths')),
-      body: RefreshIndicator(
-        onRefresh: _load,
-        child: _buildBody(theme),
-      ),
+      body: RefreshIndicator(onRefresh: _load, child: _buildBody()),
     );
   }
 
-  Widget _buildBody(ThemeData theme) {
+  Widget _buildBody() {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
     if (_error != null) {
-      return _errorState(theme);
+      return _ErrorState(error: _error!, onRetry: _load);
     }
     if (_paths.isEmpty) {
-      return _emptyState(theme);
+      return const _EmptyState();
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: _paths.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      padding: const EdgeInsets.all(Spacing.md),
+      itemCount: _paths.length + 1,
+      separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, i) {
-        final p = _paths[i];
-        return Card(
-          child: ListTile(
-            onTap: () => Navigator.of(context).pushNamed(
-              AppRoutes.learningPathDetail,
-              arguments: p.id,
+        if (i == 0) {
+          return const Padding(
+            padding: EdgeInsets.only(bottom: Spacing.sm),
+            child: HeroBanner(
+              eyebrow: 'GUIDED TRACKS',
+              title: 'Learn with a path',
+              subtitle:
+                  'Curated multi-step paths group related courses so you can '
+                  'follow a structured arc end-to-end.',
+              icon: Icons.route_rounded,
             ),
-            leading: CircleAvatar(
-              backgroundColor: theme.colorScheme.tertiaryContainer,
-              child: Icon(Icons.route_rounded,
-                  color: theme.colorScheme.onTertiaryContainer),
-            ),
-            title: Text(p.title),
-            subtitle: Text(
-              '${p.steps.length} step${p.steps.length == 1 ? '' : 's'}',
-              style: theme.textTheme.bodySmall,
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded),
-          ),
+          );
+        }
+        final p = _paths[i - 1];
+        return _PathCard(
+          path: p,
+          onTap: () => Navigator.of(
+            context,
+          ).pushNamed(AppRoutes.learningPathDetail, arguments: p.id),
         );
       },
     );
   }
+}
 
-  Widget _emptyState(ThemeData theme) {
-    return ListView(
-      children: [
-        const SizedBox(height: 120),
-        Icon(Icons.route_outlined,
-            size: 56, color: theme.colorScheme.primary),
-        const SizedBox(height: 16),
-        Text(
-          'No learning paths yet',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium,
-        ),
-        const SizedBox(height: 8),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Text(
-            'Curated multi-step paths will appear here.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+class _PathCard extends StatelessWidget {
+  const _PathCard({required this.path, required this.onTap});
+  final LearningPath path;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final stepCount = path.steps.length;
+    return EduCard(
+      onTap: onTap,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          IconBadge(
+            icon: Icons.route_rounded,
+            size: 48,
+            background: scheme.tertiaryContainer,
+            foreground: scheme.onTertiaryContainer,
+            iconSize: 24,
+          ),
+          const SizedBox(width: Spacing.md),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  path.title,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if ((path.description ?? '').isNotEmpty) ...[
+                  const SizedBox(height: Spacing.xs),
+                  Text(
+                    path.description!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+                const SizedBox(height: Spacing.sm),
+                Row(
+                  children: [
+                    StatChip(
+                      icon: Icons.format_list_numbered_rounded,
+                      label: 'STEPS',
+                      value: '$stepCount',
+                    ),
+                    const SizedBox(width: Spacing.sm),
+                    const Pill(
+                      icon: Icons.collections_bookmark_rounded,
+                      text: 'Curated',
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
+          const SizedBox(width: Spacing.sm),
+          Icon(Icons.chevron_right_rounded, color: scheme.onSurfaceVariant),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(Spacing.md),
+      children: const [
+        HeroBanner(
+          eyebrow: 'GUIDED TRACKS',
+          title: 'No learning paths yet',
+          subtitle:
+              'Curated multi-step paths will appear here. Pull down to '
+              'refresh once they are available.',
+          icon: Icons.route_outlined,
+        ),
+        SizedBox(height: Spacing.lg),
+        EmptyState(
+          icon: Icons.route_outlined,
+          message: 'No learning paths have been published yet.',
         ),
       ],
     );
   }
+}
 
-  Widget _errorState(ThemeData theme) {
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.error, required this.onRetry});
+  final String error;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return ListView(
-      padding: const EdgeInsets.all(32),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(Spacing.lg),
       children: [
-        const SizedBox(height: 80),
-        Icon(Icons.error_outline_rounded,
-            size: 48, color: theme.colorScheme.error),
-        const SizedBox(height: 16),
-        Text('Could not load paths',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
-        Text(_error!,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall),
-        const SizedBox(height: 16),
+        const SizedBox(height: Spacing.xl),
+        Icon(Icons.error_outline_rounded, size: 48, color: scheme.error),
+        const SizedBox(height: Spacing.md),
+        Text(
+          'Could not load paths',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        Text(
+          error,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Spacing.md),
         Center(
-          child: FilledButton.tonal(
-            onPressed: _load,
-            child: const Text('Retry'),
+          child: FilledButton.tonalIcon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
           ),
         ),
       ],

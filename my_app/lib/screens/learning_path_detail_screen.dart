@@ -1,4 +1,4 @@
-/// Detail view for a learning path: title + steps + per-step completion.
+// Detail view for a learning path: title + steps + per-step completion.
 library;
 
 import 'package:flutter/material.dart';
@@ -8,6 +8,7 @@ import '../api_client.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../widgets/design.dart';
 
 class LearningPathDetailScreen extends StatefulWidget {
   const LearningPathDetailScreen({super.key, required this.pathId});
@@ -69,10 +70,10 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
     });
     try {
       await context.read<UserProvider>().updateLearningPathProgress(
-            widget.pathId,
-            step.id,
-            completed: !wasDone,
-          );
+        widget.pathId,
+        step.id,
+        completed: !wasDone,
+      );
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() {
@@ -82,34 +83,27 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
           _completedSteps.add(step.id);
         }
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(e.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
     }
   }
 
   void _openCourse(String courseId) {
-    Navigator.of(context).pushNamed(
-      AppRoutes.courseDetails,
-      arguments: courseId,
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.courseDetails, arguments: courseId);
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (_error != null || _path == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(_error ?? 'Path not found', textAlign: TextAlign.center),
-          ),
-        ),
+        body: _ErrorState(message: _error ?? 'Path not found', onRetry: _load),
       );
     }
     final p = _path!;
@@ -118,50 +112,94 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
     final pct = total == 0 ? 0.0 : done / total;
     return Scaffold(
       appBar: AppBar(
-          title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis)),
+        title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(Spacing.md),
         children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(p.title,
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      )),
-                  if ((p.description ?? '').isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(p.description!, style: theme.textTheme.bodyMedium),
-                  ],
-                  const SizedBox(height: 12),
-                  LinearProgressIndicator(value: pct),
-                  const SizedBox(height: 6),
-                  Text('$done of $total steps complete',
-                      style: theme.textTheme.bodySmall),
-                ],
+          _PathSummary(
+            title: p.title,
+            description: p.description,
+            done: done,
+            total: total,
+            pct: pct,
+          ),
+          const SizedBox(height: Spacing.lg),
+          SectionHeader(
+            icon: Icons.format_list_numbered_rounded,
+            title: 'Path outline',
+            subtitle: '$done of $total steps complete',
+            trailing: Text(
+              '${(pct * 100).round()}%',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: Theme.of(context).colorScheme.primary,
               ),
             ),
           ),
-          const SizedBox(height: 12),
-          for (var i = 0; i < p.steps.length; i++)
-            _StepTile(
+          const SizedBox(height: Spacing.sm),
+          for (var i = 0; i < p.steps.length; i++) ...[
+            _StepCard(
               index: i + 1,
               step: p.steps[i],
               done: _completedSteps.contains(p.steps[i].id),
               onToggle: () => _toggleStep(p.steps[i]),
               onCourseTap: _openCourse,
             ),
+            const SizedBox(height: Spacing.sm),
+          ],
         ],
       ),
     );
   }
 }
 
-class _StepTile extends StatelessWidget {
-  const _StepTile({
+class _PathSummary extends StatelessWidget {
+  const _PathSummary({
+    required this.title,
+    required this.description,
+    required this.done,
+    required this.total,
+    required this.pct,
+  });
+
+  final String title;
+  final String? description;
+  final int done;
+  final int total;
+  final double pct;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final pctLabel = '${(pct * 100).round()}%';
+    return HeroBanner(
+      eyebrow: 'LEARNING PATH',
+      title: title,
+      subtitle: (description ?? '').isEmpty ? null : description,
+      icon: Icons.route_rounded,
+      trailing: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            pctLabel,
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+              color: scheme.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(height: Spacing.xs),
+          Pill(text: '$done of $total', icon: Icons.check_circle_rounded),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepCard extends StatelessWidget {
+  const _StepCard({
     required this.index,
     required this.step,
     required this.done,
@@ -177,71 +215,186 @@ class _StepTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: done
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.surfaceContainerHighest,
-                  child: done
-                      ? Icon(Icons.check_rounded,
-                          color: theme.colorScheme.onPrimary, size: 16)
-                      : Text('$index',
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            fontWeight: FontWeight.w700,
-                          )),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Text(step.title,
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      )),
-                ),
-                IconButton(
-                  icon: Icon(done
-                      ? Icons.check_circle_rounded
-                      : Icons.radio_button_unchecked_rounded),
-                  color: done ? theme.colorScheme.primary : null,
-                  onPressed: onToggle,
-                ),
-              ],
-            ),
-            if ((step.description ?? '').isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Padding(
-                padding: const EdgeInsets.only(left: 40),
-                child: Text(step.description!, style: theme.textTheme.bodySmall),
+    final scheme = theme.colorScheme;
+    return EduCard(
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              IconBadge(
+                icon: done
+                    ? Icons.check_rounded
+                    : Icons.fiber_manual_record_rounded,
+                size: 40,
+                background: done
+                    ? scheme.primary
+                    : scheme.surfaceContainerHighest,
+                foreground: done ? scheme.onPrimary : scheme.onSurfaceVariant,
+                iconSize: 20,
               ),
-            ],
-            if (step.courseIds.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Padding(
-                padding: const EdgeInsets.only(left: 40),
-                child: Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    for (final id in step.courseIds)
-                      ActionChip(
-                        label: Text('Course: $id',
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                        onPressed: () => onCourseTap(id),
+                    Row(
+                      children: [
+                        Text(
+                          'Step $index',
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 0.4,
+                          ),
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        if (done) ...[
+                          const Pill(
+                            text: 'Done',
+                            icon: Icons.verified_rounded,
+                            color: Colors.green,
+                          ),
+                        ] else
+                          const Pill(text: 'Pending'),
+                      ],
+                    ),
+                    const SizedBox(height: Spacing.xs),
+                    Text(
+                      step.title,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
                       ),
+                    ),
+                    if ((step.description ?? '').isNotEmpty) ...[
+                      const SizedBox(height: Spacing.xs),
+                      Text(
+                        step.description!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ),
+              const SizedBox(width: Spacing.sm),
+              IconButton.filledTonal(
+                tooltip: done ? 'Mark as pending' : 'Mark as done',
+                onPressed: onToggle,
+                icon: Icon(
+                  done
+                      ? Icons.check_circle_rounded
+                      : Icons.radio_button_unchecked_rounded,
+                ),
+              ),
             ],
+          ),
+          if (step.courseIds.isNotEmpty) ...[
+            const SizedBox(height: Spacing.md),
+            const Divider(height: 1),
+            const SizedBox(height: Spacing.md),
+            Wrap(
+              spacing: Spacing.sm,
+              runSpacing: Spacing.sm,
+              children: [
+                for (final id in step.courseIds)
+                  _CourseChip(id: id, onTap: () => onCourseTap(id)),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CourseChip extends StatelessWidget {
+  const _CourseChip({required this.id, required this.onTap});
+  final String id;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(Radii.lg),
+      child: Container(
+        padding: const EdgeInsets.symmetric(
+          horizontal: Spacing.md,
+          vertical: Spacing.sm,
+        ),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.secondaryContainer,
+          borderRadius: BorderRadius.circular(Radii.lg),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.play_lesson_rounded,
+              size: 18,
+              color: theme.colorScheme.onSecondaryContainer,
+            ),
+            const SizedBox(width: Spacing.sm),
+            Text(
+              id,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  const _ErrorState({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(Spacing.lg),
+      children: [
+        const SizedBox(height: Spacing.xl),
+        Icon(Icons.error_outline_rounded, size: 48, color: scheme.error),
+        const SizedBox(height: Spacing.md),
+        Text(
+          'Could not open this path',
+          textAlign: TextAlign.center,
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: Spacing.sm),
+        Text(
+          message,
+          textAlign: TextAlign.center,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: scheme.onSurfaceVariant,
+          ),
+        ),
+        const SizedBox(height: Spacing.md),
+        Center(
+          child: FilledButton.tonalIcon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh_rounded),
+            label: const Text('Retry'),
+          ),
+        ),
+      ],
     );
   }
 }
