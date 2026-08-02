@@ -208,6 +208,37 @@ def re_split_comma(text: str) -> list[str]:
     return re.split(r",\s*", text)
 
 
+def _safe_column_array(
+    df: pd.DataFrame,
+    candidates: tuple[str, ...] | list[str] | None,
+    n_rows: int,
+) -> np.ndarray:
+    """Return a float32 numpy array for ranking without ever raising KeyError.
+
+    The optimized ``courses.parquet`` may be missing ranking columns
+    (e.g. ``popularity_score``, ``reviews_count``, ``students_enrolled``)
+    because the v4 training script keeps the on-disk frame as slim as
+    possible. The ranking paths in :class:`RecommendationModelAdapter`
+    must therefore degrade gracefully instead of crashing with a
+    ``KeyError``.
+
+    Resolution order, tried against ``df.columns``:
+
+    1. The first candidate name that exists verbatim on the frame.
+    2. A zero-filled ``float32`` array of length ``n_rows``.
+
+    The returned array is always ``float32`` and always non-aliased to
+    the source column (when present, ``copy=False`` is used so we don't
+    inflate RSS). NaN/inf are NOT scrubbed here — callers handle that
+    via :func:`numpy.nan_to_num` so the helper stays allocation-free.
+    """
+    if candidates:
+        for name in candidates:
+            if name in df.columns:
+                return df[name].to_numpy(dtype=np.float32, copy=False)
+    return np.zeros(n_rows, dtype=np.float32)
+
+
 def course_row_to_dict(row: pd.Series) -> dict:
     """Convert a DataFrame row to the JSON dict expected by the routes."""
     out: dict = {}
@@ -523,18 +554,26 @@ class RecommendationModelAdapter:
     # -- popularity -----------------------------------------------------
 
     def popular(self, limit: int = 12, slim: bool = True) -> list[dict]:
+        # ``popularity_score`` is the canonical column, but the slim
+        # v4 bundle may have dropped it. Fall back to engagement
+        # proxies (students_enrolled → reviews_count → 0).
         return self._top_by_score(
-            score_columns=("popularity_score",),
-            bonus_columns=("students_enrolled",),
+            score_columns=("popularity_score", "students_enrolled",
+                           "reviews_count"),
+            bonus_columns=("students_enrolled", "reviews_count",
+                           "popularity_score"),
             bonus_divisor=1_000_000.0,
             limit=limit,
             slim=slim,
         )
 
     def top_rated(self, limit: int = 12, slim: bool = True) -> list[dict]:
+        # ``rating`` is always present; the bonus tries ``reviews_count``
+        # first, then falls back to ``popularity_score`` / enrolment.
         return self._top_by_score(
             score_columns=("rating",),
-            bonus_columns=("reviews_count",),
+            bonus_columns=("reviews_count", "popularity_score",
+                           "students_enrolled"),
             bonus_divisor=1_000_000.0,
             limit=limit,
             slim=slim,
@@ -552,15 +591,20 @@ class RecommendationModelAdapter:
         """Sort the top-``limit`` rows by a composite score, but never
         copy the whole DataFrame. ``argpartition`` runs in O(n) instead
         of O(n log n) and only allocates ``limit`` result rows.
+
+        Every column lookup goes through :func:`_safe_column_array` so
+        a slimmed-down ``courses.parquet`` that no longer ships
+        ``popularity_score`` / ``reviews_count`` / ``students_enrolled``
+        falls back to the next available proxy and ultimately to a
+        zero-filled array — never to a ``KeyError``.
         """
         df = self.courses_df
         n = len(df)
         if n == 0 or limit <= 0:
             return []
 
-        primary = df[score_columns[0]].to_numpy(dtype=np.float32, copy=False)
-        bonus = df[bonus_columns[0]].to_numpy(dtype=np.float32, copy=False) \
-            if bonus_columns else np.zeros(n, dtype=np.float32)
+        primary = _safe_column_array(df, score_columns, n)
+        bonus = _safe_column_array(df, bonus_columns, n)
         # NaN/inf-safe: replace with 0 so ranking stays stable.
         primary = np.nan_to_num(primary, nan=0.0, posinf=0.0, neginf=0.0)
         bonus = np.nan_to_num(bonus, nan=0.0, posinf=0.0, neginf=0.0)
