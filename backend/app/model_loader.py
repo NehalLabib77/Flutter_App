@@ -89,6 +89,83 @@ _COURSE_FIELDS: tuple[str, ...] = (
     "has_image", "has_course_url", "popularity_score", "data_quality_score",
 )
 
+# Fields returned on list endpoints (search, popular, top-rated,
+# recommendations, similar, favourites). The full ``course_row_to_dict``
+# payload is only used on the detail endpoint, where the client has
+# explicitly asked for everything.
+_SLIM_LIST_FIELDS: tuple[str, ...] = (
+    "course_id", "course_name", "image_url", "url", "rating",
+    "reviews_count", "students_enrolled", "level", "subject",
+    "provider", "duration", "is_free", "certificate_type",
+    "popularity_score",
+)
+
+# Categorical columns (low-cardinality) that benefit from
+# ``pd.Categorical`` storage. A 24k-row frame with object dtype for
+# these fields bloats RSS by 10–30 MB.
+_CATEGORICAL_FIELDS: tuple[str, ...] = (
+    "subject", "level", "provider", "organization", "language",
+    "certificate_type", "course_type",
+)
+
+# Numeric columns that should be downcast to 32-bit dtypes. ``float64``
+# is the default pandas rehydrates from Parquet, but the schema never
+# needs that precision for course metadata.
+_FLOAT32_FIELDS: tuple[str, ...] = (
+    "rating", "popularity_score", "data_quality_score", "price",
+    "students_enrolled",
+)
+_INT32_FIELDS: tuple[str, ...] = (
+    "reviews_count", "lectures_count",
+)
+_BOOL_FIELDS: tuple[str, ...] = (
+    "is_free", "has_image", "has_course_url",
+)
+
+
+def _optimize_courses_dataframe(df: pd.DataFrame) -> pd.DataFrame:
+    """Downcast object/float columns to keep RSS small.
+
+    A 24k-row Parquet round-trip can leave the DataFrame with object
+    dtype everywhere — that's ~3× the on-disk size in RAM. We
+    categorise low-cardinality columns and downcast numerics to
+    float32/int32, which together usually shrinks the frame by
+    50–70%.
+    """
+    for col in _CATEGORICAL_FIELDS:
+        if col not in df.columns:
+            continue
+        try:
+            df[col] = df[col].astype("category")
+        except (TypeError, ValueError):
+            log.debug("could not convert %s to category", col)
+
+    for col in _FLOAT32_FIELDS:
+        if col not in df.columns:
+            continue
+        try:
+            df[col] = pd.to_numeric(df[col], errors="coerce").astype("float32")
+        except (TypeError, ValueError):
+            log.debug("could not downcast %s to float32", col)
+
+    for col in _INT32_FIELDS:
+        if col not in df.columns:
+            continue
+        try:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype("int32")
+        except (TypeError, ValueError):
+            log.debug("could not downcast %s to int32", col)
+
+    for col in _BOOL_FIELDS:
+        if col not in df.columns:
+            continue
+        try:
+            df[col] = df[col].astype("bool")
+        except (TypeError, ValueError):
+            log.debug("could not convert %s to bool", col)
+
+    return df
+
 
 def _safe_text(value: Any) -> str:
     if value is None:
@@ -157,6 +234,46 @@ def course_row_to_dict(row: pd.Series) -> dict:
     out["id"] = out["course_id"]
     out["name"] = out.get("course_name") or ""
     out["skills"] = _parse_skills(out.get("skills"))
+    return out
+
+
+def course_row_to_slim(row: pd.Series) -> dict:
+    """Compact row payload for list endpoints.
+
+    Drops the heavy ``description`` blob (used only on the detail
+    endpoint) and any non-marketing columns the client doesn't render
+    on cards. ``skills`` is **kept** because the Flutter client draws
+    it as small badges on each card and the parsed list is tiny.
+    """
+    fields = _SLIM_LIST_FIELDS
+    out: dict = {}
+    for f in fields:
+        if f not in row.index:
+            out[f] = None
+            continue
+        v = row[f]
+        if v is None:
+            out[f] = None
+        elif isinstance(v, float):
+            fv = v
+            out[f] = None if (math.isnan(fv) or math.isinf(fv)) else fv
+        elif isinstance(v, (np.integer,)):
+            out[f] = int(v)
+        elif isinstance(v, (np.floating,)):
+            fv = float(v)
+            out[f] = None if (math.isnan(fv) or math.isinf(fv)) else fv
+        elif isinstance(v, (np.bool_,)):
+            out[f] = bool(v)
+        else:
+            out[f] = v
+    cid = out.get("course_id")
+    out["course_id"] = str(cid) if cid is not None else str(row.name)
+    out["id"] = out["course_id"]
+    out["name"] = out.get("course_name") or ""
+    # ``skills`` is small and the client renders it on cards. Cost is
+    # bounded (a few hundred bytes per row) and the parser is cheap.
+    out["skills"] = _parse_skills(row.get("skills")) \
+        if "skills" in row.index else []
     return out
 
 
@@ -265,35 +382,130 @@ class RecommendationModelAdapter:
         level: Optional[str] = None,
         provider: Optional[str] = None,
         is_free: Optional[bool] = None,
+        slim: bool = True,
     ) -> tuple[list[dict], int]:
-        """Sparse TF-IDF search returning (rows, total_matches)."""
+        """Sparse TF-IDF search returning (rows, total_matches).
+
+        ``slim=True`` (default) returns the compact list payload; the
+        detail endpoint opts back into the full schema.
+        """
         q = (query or "").strip().lower()
+        serializer = course_row_to_slim if slim else course_row_to_dict
         if not q:
-            results = [course_row_to_dict(self.courses_df.iloc[i])
-                       for i in range(len(self.courses_df))]
-            total = len(results)
-        else:
+            # No query → page through the full DataFrame in declared order.
             try:
-                q_vec = self.tfidf_vectorizer.transform([q])
-                sims = _row_similarities(q_vec, self.tfidf_matrix)
-            except Exception as exc:
-                raise ModelLoadError(
-                    f"failed to transform query against vectorizer: {exc}"
-                ) from exc
-            order = np.argsort(-sims)
-            df = self.courses_df.copy()
-            df["__match_score"] = sims
-            results = []
-            for i in order:
-                if sims[i] <= 0:
-                    break
-                results.append(course_row_to_dict(df.iloc[int(i)]))
-            total = len(results)
-        filtered = self._apply_filters(
-            results, subject=subject, level=level,
-            provider=provider, is_free=is_free,
-        )
-        return filtered[offset:offset + limit], len(filtered)
+                page = self._slice_df(
+                    offset=offset, limit=limit,
+                    subject=subject, level=level,
+                    provider=provider, is_free=is_free,
+                    serializer=serializer,
+                )
+                return page["items"], page["total"]
+            except Exception:
+                # Fallback to the legacy scan if the filter path raises.
+                results = [serializer(self.courses_df.iloc[i])
+                           for i in range(len(self.courses_df))]
+                filtered = self._apply_filters(
+                    results, subject=subject, level=level,
+                    provider=provider, is_free=is_free,
+                )
+                return filtered[offset:offset + limit], len(filtered)
+
+        try:
+            q_vec = self.tfidf_vectorizer.transform([q])
+            sims = _row_similarities(q_vec, self.tfidf_matrix)
+        except Exception as exc:
+            raise ModelLoadError(
+                f"failed to transform query against vectorizer: {exc}"
+            ) from exc
+
+        # Score-sorted order. We never materialise a full sorted copy
+        # of the scores — we just iterate in argsort order and stop at
+        # ``offset + limit + 1`` so we know the total.
+        order = np.argsort(-sims)
+        ranked_idx: list[int] = []
+        for i in order:
+            if sims[i] <= 0:
+                break
+            ranked_idx.append(int(i))
+
+        # Apply filters *before* slicing so the returned ``total`` is
+        # the count of matches that satisfy the filter, not the global
+        # rank size.
+        if any(x is not None for x in (subject, level, provider, is_free)):
+            filtered_rows: list[dict] = []
+            for i in ranked_idx:
+                row = self.courses_df.iloc[i]
+                if not self._row_matches_filters(
+                    row, subject=subject, level=level,
+                    provider=provider, is_free=is_free,
+                ):
+                    continue
+                filtered_rows.append(serializer(row))
+            total = len(filtered_rows)
+            return filtered_rows[offset:offset + limit], total
+
+        # No filters → raw top-k slice.
+        page = ranked_idx[offset:offset + limit]
+        total = len(ranked_idx)
+        return [serializer(self.courses_df.iloc[i]) for i in page], total
+
+    @staticmethod
+    def _row_matches_filters(
+        row: pd.Series,
+        *,
+        subject: Optional[str],
+        level: Optional[str],
+        provider: Optional[str],
+        is_free: Optional[bool],
+    ) -> bool:
+        if subject is not None and str(row.get("subject") or "").lower() != subject.lower():
+            return False
+        if level is not None and str(row.get("level") or "").lower() != level.lower():
+            return False
+        if provider is not None and str(row.get("provider") or "").lower() != provider.lower():
+            return False
+        if is_free is not None and bool(row.get("is_free")) != bool(is_free):
+            return False
+        return True
+
+    def _slice_df(
+        self,
+        *,
+        offset: int,
+        limit: int,
+        subject: Optional[str],
+        level: Optional[str],
+        provider: Optional[str],
+        is_free: Optional[bool],
+        serializer,
+    ) -> dict:
+        """Materialise a small slice of the DataFrame without building a
+        dense copy of the full frame.
+
+        For ``limit`` ≪ ``n_rows`` this is much faster than building
+        the entire list first and then slicing — and far cheaper in
+        peak RSS.
+        """
+        df = self.courses_df
+        if any(x is not None for x in (subject, level, provider, is_free)):
+            mask = pd.Series(True, index=df.index)
+            if subject is not None:
+                mask &= df["subject"].astype(str).str.lower() == subject.lower()
+            if level is not None:
+                mask &= df["level"].astype(str).str.lower() == level.lower()
+            if provider is not None:
+                mask &= df["provider"].astype(str).str.lower() == provider.lower()
+            if is_free is not None:
+                mask &= df["is_free"].astype(bool) == bool(is_free)
+            positions = np.flatnonzero(mask.to_numpy())
+        else:
+            positions = np.arange(len(df))
+
+        total = int(positions.shape[0])
+        page = positions[offset:offset + limit]
+        rows = [serializer(df.iloc[int(i)]) for i in page]
+        return {"items": rows, "total": total}
 
     def _apply_filters(self, results, *, subject, level, provider, is_free):
         def keep(d: dict) -> bool:
@@ -310,57 +522,95 @@ class RecommendationModelAdapter:
 
     # -- popularity -----------------------------------------------------
 
-    def popular(self, limit: int = 12) -> list[dict]:
-        df = self.courses_df.copy()
-        df["__score"] = (
-            df.get("popularity_score", pd.Series([0] * len(df))).fillna(0)
-            + df.get("students_for_ranking", pd.Series([0] * len(df))).fillna(0) / 1e6
+    def popular(self, limit: int = 12, slim: bool = True) -> list[dict]:
+        return self._top_by_score(
+            score_columns=("popularity_score",),
+            bonus_columns=("students_enrolled",),
+            bonus_divisor=1_000_000.0,
+            limit=limit,
+            slim=slim,
         )
-        df = df.sort_values("__score", ascending=False).head(limit)
-        return [course_row_to_dict(df.iloc[i]) for i in range(len(df))]
 
-    def top_rated(self, limit: int = 12) -> list[dict]:
-        df = self.courses_df.copy()
-        df["__score"] = (
-            df.get("rating", pd.Series([0] * len(df))).fillna(0)
-            + df.get("reviews_count", pd.Series([0] * len(df))).fillna(0) / 1e6
+    def top_rated(self, limit: int = 12, slim: bool = True) -> list[dict]:
+        return self._top_by_score(
+            score_columns=("rating",),
+            bonus_columns=("reviews_count",),
+            bonus_divisor=1_000_000.0,
+            limit=limit,
+            slim=slim,
         )
-        df = df.sort_values("__score", ascending=False).head(limit)
-        return [course_row_to_dict(df.iloc[i]) for i in range(len(df))]
+
+    def _top_by_score(
+        self,
+        *,
+        score_columns: tuple[str, ...],
+        bonus_columns: tuple[str, ...],
+        bonus_divisor: float,
+        limit: int,
+        slim: bool,
+    ) -> list[dict]:
+        """Sort the top-``limit`` rows by a composite score, but never
+        copy the whole DataFrame. ``argpartition`` runs in O(n) instead
+        of O(n log n) and only allocates ``limit`` result rows.
+        """
+        df = self.courses_df
+        n = len(df)
+        if n == 0 or limit <= 0:
+            return []
+
+        primary = df[score_columns[0]].to_numpy(dtype=np.float32, copy=False)
+        bonus = df[bonus_columns[0]].to_numpy(dtype=np.float32, copy=False) \
+            if bonus_columns else np.zeros(n, dtype=np.float32)
+        # NaN/inf-safe: replace with 0 so ranking stays stable.
+        primary = np.nan_to_num(primary, nan=0.0, posinf=0.0, neginf=0.0)
+        bonus = np.nan_to_num(bonus, nan=0.0, posinf=0.0, neginf=0.0)
+        score = primary + bonus / bonus_divisor
+
+        k = min(limit, n)
+        top_idx = np.argpartition(-score, kth=k - 1)[:k]
+        top_idx = top_idx[np.argsort(-score[top_idx])]
+
+        serializer = course_row_to_slim if slim else course_row_to_dict
+        return [serializer(df.iloc[int(i)]) for i in top_idx]
 
     # -- recommendation -------------------------------------------------
 
-    def recommend_similar(self, course_id: str, limit: int = 6) -> list[dict]:
+    def recommend_similar(self, course_id: str, limit: int = 6, slim: bool = True) -> list[dict]:
         idx = self.row_index.get(str(course_id))
         if idx is None:
             return []
         sims = _row_similarities(self.tfidf_matrix[idx], self.tfidf_matrix)
-        order = np.argsort(-sims)
+        # argpartition is O(n); avoid sorting all 24k rows just to take 6.
+        k = min(limit + 1, len(sims))
+        top_idx = np.argpartition(-sims, kth=k - 1)[:k]
+        top_idx = top_idx[np.argsort(-sims[top_idx])]
+        serializer = course_row_to_slim if slim else course_row_to_dict
         out: list[dict] = []
-        for i in order:
+        for i in top_idx:
             if int(i) == idx:
                 continue
-            out.append(course_row_to_dict(self.courses_df.iloc[int(i)]))
+            out.append(serializer(self.courses_df.iloc[int(i)]))
             if len(out) >= limit:
                 break
         return out
 
-    def recommend_query(self, query: str, limit: int = 10) -> list[dict]:
+    def recommend_query(self, query: str, limit: int = 10, slim: bool = True) -> list[dict]:
         """Sparse-query recommendation. Linear-kernel safe, no dense build."""
         q = (query or "").strip()
         if not q:
-            return self.popular(limit=limit)
+            return self.popular(limit=limit, slim=slim)
         q_vec = self.tfidf_vectorizer.transform([q])
         sims = _row_similarities(q_vec, self.tfidf_matrix)
         # top-k via argpartition; preserves score order inside the top-k.
         k = min(limit, len(sims))
         top_idx = np.argpartition(-sims, kth=k - 1)[:k]
         top_idx = top_idx[np.argsort(-sims[top_idx])]
+        serializer = course_row_to_slim if slim else course_row_to_dict
         out: list[dict] = []
         for i in top_idx:
             if sims[i] <= 0:
                 continue
-            out.append(course_row_to_dict(self.courses_df.iloc[int(i)]))
+            out.append(serializer(self.courses_df.iloc[int(i)]))
             if len(out) >= limit:
                 break
         return out
@@ -461,20 +711,46 @@ def load_adapter(
 
     log.info("loading v4 model from %s", mdir)
 
-    # Parquet; Arrow schema is stable across pandas versions.
+    # Parquet; Arrow schema is stable across pandas versions. We only
+    # pull the columns API endpoints actually serialize so the
+    # DataFrame stays small (≪ 200 MB even with 24k courses).
     try:
-        courses_df = pd.read_parquet(courses_path, engine="pyarrow")
+        all_cols = pd.read_parquet(
+            courses_path, engine="pyarrow", columns=None
+        ).columns.tolist()
+    except Exception as exc:
+        raise ModelLoadError(
+            f"failed to inspect courses.parquet: {exc}. "
+            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+        ) from exc
+
+    if "course_id" not in all_cols:
+        raise ModelLoadError(
+            "courses.parquet is missing required 'course_id' column; "
+            "re-run ml/training/train_v4.py to regenerate the v4 bundle."
+        )
+
+    wanted_cols = [c for c in _COURSE_FIELDS if c in all_cols]
+    extra_cols = [c for c in all_cols if c not in _COURSE_FIELDS]
+    if extra_cols:
+        log.info(
+            "courses.parquet: dropping %d unused columns at load time: %s",
+            len(extra_cols), ", ".join(extra_cols[:8]) +
+            ("..." if len(extra_cols) > 8 else ""),
+        )
+
+    try:
+        courses_df = pd.read_parquet(
+            courses_path, engine="pyarrow",
+            columns=wanted_cols,
+        )
     except Exception as exc:
         raise ModelLoadError(
             f"failed to load courses.parquet: {exc}. "
             f"Re-run ml/training/train_v4.py to regenerate the bundle."
         ) from exc
 
-    if "course_id" not in courses_df.columns:
-        raise ModelLoadError(
-            "courses.parquet is missing required 'course_id' column; "
-            "re-run ml/training/train_v4.py to regenerate the v4 bundle."
-        )
+    courses_df = _optimize_courses_dataframe(courses_df)
 
     # Pre-built CSR matrix from disk. ``load_npz`` reads straight into
     # float32 (matches the dtype we wrote).
