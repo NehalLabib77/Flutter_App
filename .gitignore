@@ -131,6 +131,12 @@ ml/artifacts/models/**/*.h5
 ml/artifacts/models/**/*.pt
 ml/artifacts/models/**/*.pth
 
+# Local backup of the previous v4 deployment bundle, kept on disk for
+# archaeology but never pushed. Regenerate with
+# ``python ml/training/train_v4_15k.py`` if you ever need it back.
+ml/artifacts/models/v4_backup_before_15k/
+ml/artifacts/models/v4_backup_before_15k/**
+
 # ---- Large / regenerable datasets (keep raw small samples, ignore huge ones) ----
 data/raw/*.csv
 data/raw/*.json

@@ -1,8 +1,9 @@
 {
-  "model_name": "EduCompass TF-IDF Course Recommender (v4 lite)",
+  "model_name": "EduCompass TF-IDF Course Recommender (v4 strict-AND)",
   "model_type": "Content-based NLP recommendation system",
   "model_version": "v4",
-  "number_of_courses": 24646,
+  "subset_size": 3107,
+  "number_of_courses": 3107,
   "number_of_features": 20000,
   "vectorizer": "TfidfVectorizer",
   "ngram_range": [
@@ -10,6 +11,7 @@
     2
   ],
   "max_features": 20000,
+  "filter_policy": "strict_AND: valid course_url AND valid image_url",
   "recommendation_methods": [
     "Natural-language query recommendation",
     "Similar-course recommendation"

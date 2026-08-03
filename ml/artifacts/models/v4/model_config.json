@@ -1,6 +1,24 @@
 {
-  "selected_model_version": "v4_word_tfidf_lite",
-  "source_preprocessor": "tfidf_lite_v4",
+  "selected_model_version": "v4_word_tfidf_strict_url_image",
+  "source_preprocessor": "tfidf_strict_v4",
+  "filter_policy": {
+    "rule": "strict_AND",
+    "require_valid_course_url": true,
+    "require_valid_image_url": true,
+    "invalidate_tokens": [
+      "",
+      "#",
+      "-",
+      "about:blank",
+      "n.a.",
+      "n/a",
+      "nan",
+      "none",
+      "not found",
+      "null",
+      "undefined"
+    ]
+  },
   "field_weights": {
     "course_name": 3.0,
     "skills": 3.0,
@@ -13,8 +31,9 @@
     "popularity_weight": 0.1,
     "quality_weight": 0.05
   },
-  "number_of_courses": 24646,
+  "number_of_courses": 3107,
   "number_of_features": 20000,
+  "max_row_count": 15000,
   "vectorizer": {
     "stop_words": "english",
     "ngram_range": [
