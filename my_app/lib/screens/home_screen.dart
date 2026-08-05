@@ -31,10 +31,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  late final TextEditingController _searchCtrl;
+  late final FocusNode _searchFocus;
+
   @override
   void initState() {
     super.initState();
-    // Kick off both providers in parallel — they're independently cached.
+    _searchCtrl = TextEditingController();
+    _searchFocus = FocusNode();
+    // Kick off both providers in parallel — they're independently cached.      
     Future.microtask(() {
       if (!mounted) return;
       final c = context.read<CourseProvider>();
@@ -44,19 +49,52 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   @override
+  void dispose() {
+    _searchCtrl.dispose();
+    _searchFocus.dispose();
+    super.dispose();
+  }
+
+  /// Push the "For you" tab with the user's query pre-filled so the goal
+  /// search on that screen picks it up and runs immediately. We route to
+  /// the existing `/recommendations` tab rather than introducing a new
+  /// search screen — the goal-search flow already lives there.
+  void _submitSearch(String query) {
+    final q = query.trim();
+    if (q.isEmpty) return;
+    // Drop focus before navigation so the keyboard isn't left floating
+    // over the pushed screen for the brief moment before it builds.
+    _searchFocus.unfocus();
+    Navigator.of(context).pushNamed(
+      AppRoutes.recommendations,
+      arguments: {'query': q},
+    );
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Hot-reload-safe fallback: if either list is empty (e.g. after a
     // hot reload that wiped provider state but never re-ran initState),
     // re-issue the fetches so the rails are not stuck on the empty /
     // retry placeholder.
-    final c = context.read<CourseProvider>();
-    if (c.popular.isEmpty && !c.loadingPopular) {
-      c.loadPopular();
-    }
-    if (c.topRated.isEmpty && !c.loadingTopRated) {
-      c.loadTopRated();
-    }
+    //
+    // CRITICAL: must NOT call loadPopular()/loadTopRated() synchronously
+    // here — they call notifyListeners() at the start, and
+    // didChangeDependencies() runs *during* the build phase, which
+    // throws "setState() or markNeedsBuild() called during build".
+    // Defer to the post-frame callback so the first build completes
+    // before the provider is told to repaint.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final c = context.read<CourseProvider>();
+      if (c.popular.isEmpty && !c.loadingPopular) {
+        c.loadPopular();
+      }
+      if (c.topRated.isEmpty && !c.loadingTopRated) {
+        c.loadTopRated();
+      }
+    });
   }
 
   @override
@@ -149,6 +187,21 @@ class _HomeScreenState extends State<HomeScreen> {
                     Navigator.of(context).pushNamed(AppRoutes.profile);
                   }
                 },
+              ),
+            ),
+            const SizedBox(height: Spacing.lg),
+            // Search bar — sits directly under the hero banner and feeds
+            // the goal-search flow on the "For you" tab. Wrapped in a
+            // padding that mirrors the rest of the page so it lines up
+            // with the hero block edges.
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+              child: EduSearchBar(
+                controller: _searchCtrl,
+                focusNode: _searchFocus,
+                hint: 'Search courses, skills, goals…',
+                onSubmitted: _submitSearch,
+                onClear: () => _searchCtrl.clear(),
               ),
             ),
             const SizedBox(height: Spacing.lg),

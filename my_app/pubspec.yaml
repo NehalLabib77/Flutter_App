@@ -16,6 +16,8 @@ dependencies:
   # falls back to shared_preferences on every platform.
   cached_network_image: ^3.4.1
   url_launcher: ^6.3.1
+  url_launcher_platform_interface: ^2.3.2
+  app_links: ^6.3.2
   shared_preferences: ^2.3.2
   # Firebase packages are kept in case cloud sync is reintroduced, but
   # auth and profile storage now go through the Flask backend (see

@@ -531,6 +531,45 @@ class ApiClient {
       _delete('/me/enrollments/$courseId');
 
   // ---------------------------------------------------------------------------
+  // Payments (SSLCOMMERZ)
+  // ---------------------------------------------------------------------------
+
+  /// Returns the active billing provider exposed by the backend. The
+  /// shape is intentionally permissive (a `Map<String, dynamic>`) so we
+  /// can stay forward-compatible with future providers.
+  Future<Map<String, dynamic>> paymentProviderInfo() async {
+    final data = await _get('/payments/provider');
+    return (data as Map).cast<String, dynamic>();
+  }
+
+  /// Mints a new SSLCOMMERZ transaction and returns the gateway URL
+  /// the client should open via `url_launcher`. The backend resolves
+  /// the course price from `courseId`; the client **must not** send an
+  /// amount. Doing so would let a tampered client under-pay for a
+  /// course, so the parameter was removed.
+  Future<SslCommerzSession> createSslCommerzSession({
+    required String courseId,
+  }) async {
+    final data = await _post('/payments/sslcommerz/session', {
+      'course_id': courseId,
+    });
+    // Backend nests the session under ``session``; fall back to the raw
+    // payload for older mock endpoints.
+    final raw = (data['session'] as Map?)?.cast<String, dynamic>() ?? data;
+    return SslCommerzSession.fromJson(raw);
+  }
+
+  /// Polls the backend for the status of a transaction. Used as a
+  /// fallback when the deep-link redirect is delayed or never arrives.
+  Future<SslCommerzPaymentStatus> getSslCommerzPaymentStatus(
+    String transactionId,
+  ) async {
+    final data = await _get('/payments/sslcommerz/status/$transactionId');
+    final raw = (data['payment'] as Map?)?.cast<String, dynamic>() ?? data;
+    return SslCommerzPaymentStatus.fromJson(raw);
+  }
+
+  // ---------------------------------------------------------------------------
   // Learning paths
   // ---------------------------------------------------------------------------
 

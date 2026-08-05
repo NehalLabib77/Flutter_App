@@ -170,3 +170,233 @@ class LearningPath {
     );
   }
 }
+
+/// Response from `POST /payments/sslcommerz/session`. Tells the client
+/// which gateway URL to open and which transaction id to bind the
+/// deep-link return to.
+///
+/// **Gateway URL field naming:** the SSLCOMMERZ API returns the URL
+/// under several casings (`GatewayPageURL`, `gateway_url`,
+/// `gateway_page_url`, etc.). We normalise on [gatewayUrl] (a getter
+/// over [gatewayPageUrl]) so callers don't have to remember which
+/// casing the current backend version emitted. The original field is
+/// retained for backwards compatibility with older deserialisation
+/// code that used `gatewayPageUrl` directly.
+class SslCommerzSession {
+  SslCommerzSession({
+    required this.transactionId,
+    required this.gatewayPageUrl,
+    this.status,
+    this.provider,
+    this.sessionKey,
+    this.currency,
+    this.amount,
+    this.courseId,
+    this.mode,
+  });
+
+  final String transactionId;
+  final String gatewayPageUrl;
+  final String? status;
+  final String? provider;
+  final String? sessionKey;
+  final String? currency;
+  final double? amount;
+  final String? courseId;
+
+  /// `'sandbox'` or `'live'`. Reflects which SSLCOMMERZ environment
+  /// minted this transaction. May be `null` for older backend versions
+  /// that did not include the field; callers should treat `null` as
+  /// "unknown" rather than defaulting to a particular environment.
+  final String? mode;
+
+  /// Preferred name from the user-facing contract; identical to
+  /// [gatewayPageUrl] (kept under both names so existing callers and
+  /// new ones stay consistent).
+  String get gatewayUrl => gatewayPageUrl;
+
+  factory SslCommerzSession.fromJson(Map<String, dynamic> json) {
+    final session = (json['session'] as Map?)?.cast<String, dynamic>() ?? json;
+    String pickUrl(Map<String, dynamic> m) {
+      // SSLCOMMERZ uses several casings depending on the API version.
+      // Try them in order so older backends still work.
+      const candidates = [
+        'gateway_url',
+        'gatewayPageURL',
+        'GatewayPageURL',
+        'gateway_page_url',
+        'redirectGatewayURL',
+        'redirect_url',
+      ];
+      for (final key in candidates) {
+        final v = m[key];
+        if (v != null && v.toString().isNotEmpty) return v.toString();
+      }
+      return '';
+    }
+
+    String? pickMode(Map<String, dynamic> m) {
+      // The backend may expose the SSLCOMMERZ mode under any of
+      // these keys depending on version. We normalise to lower-case
+      // so callers can compare against `'sandbox'` / `'live'` without
+      // case-folding the result themselves.
+      for (final key in const ['mode', 'payment_mode', 'paymentMode']) {
+        final v = m[key];
+        if (v != null) {
+          final s = v.toString().trim();
+          if (s.isNotEmpty) return s.toLowerCase();
+        }
+      }
+      return null;
+    }
+
+    return SslCommerzSession(
+      transactionId:
+          (session['transaction_id'] ??
+                  session['tran_id'] ??
+                  session['session_id'] ??
+                  '')
+              .toString(),
+      gatewayPageUrl: pickUrl(session),
+      status: session['status']?.toString(),
+      provider: session['provider']?.toString(),
+      sessionKey: session['session_key']?.toString(),
+      currency: session['currency']?.toString(),
+      amount: (session['amount'] as num?)?.toDouble(),
+      courseId: session['course_id']?.toString(),
+      mode: pickMode(session),
+    );
+  }
+}
+
+/// Response from `GET /payments/status/<transaction_id>`. The backend
+/// resolves the latest row for the transaction and tells the client
+/// whether the payment is `validated`, `failed`, `cancelled`, etc.
+///
+/// **Source of truth:** the backend status endpoint is authoritative
+/// for the payment outcome. The deep-link redirect is only a UX hint
+/// that helps the client know when to start polling — it must never
+/// be trusted on its own. Callers should always gate enrollment on
+/// [isValid] / [isFailure] rather than on the raw [status] string.
+class SslCommerzPaymentStatus {
+  SslCommerzPaymentStatus({
+    required this.transactionId,
+    required this.status,
+    this.amount,
+    this.currency,
+    this.paymentMethod,
+    this.enrolled = false,
+    this.enrollmentStatus,
+    this.validated = false,
+    this.enrollmentCompleted = false,
+    this.courseId,
+    this.cardType,
+    this.bankTransactionId,
+    this.riskLevel,
+    this.riskTitle,
+    this.updatedAt,
+  });
+
+  final String transactionId;
+  final String status;
+  final double? amount;
+  final String? currency;
+
+  /// Coarse payment method label (e.g. `'VISA'`, `'bKash'`,
+  /// `'Nagad'`). For finer-grained card / wallet detail prefer
+  /// [cardType] when present.
+  final String? paymentMethod;
+  final bool enrolled;
+  final String? enrollmentStatus;
+  final bool validated;
+  final bool enrollmentCompleted;
+
+  /// Course the payment is bound to. Returned by the backend under
+  /// `course_id`. May be `null` for older status rows.
+  final String? courseId;
+
+  /// Specific card / instrument brand reported by SSLCOMMERZ
+  /// (`'VISA'`, `'MASTERCARD'`, etc.). Distinct from [paymentMethod]
+  /// which carries the broader channel label.
+  final String? cardType;
+
+  /// Bank-side transaction reference returned by the gateway. Used
+  /// for dispute / reconciliation flows; never sent back to the
+  /// backend from the client.
+  final String? bankTransactionId;
+
+  /// Numeric risk score. `0` = safe; higher values indicate the
+  /// gateway wants manual review. Parsed safely: a missing or
+  /// non-numeric value leaves this `null`.
+  final int? riskLevel;
+
+  /// Human-readable risk verdict (e.g. `'Safe'`, `'High'`).
+  final String? riskTitle;
+
+  /// When the status row was last updated server-side. Parsed from
+  /// an ISO-8601 string. A `null` value means the backend did not
+  /// expose the timestamp.
+  final DateTime? updatedAt;
+
+  String get normalizedStatus => status.toUpperCase();
+
+  bool get isValid => normalizedStatus == 'VALIDATED' && enrollmentCompleted;
+
+  bool get isReviewRequired => normalizedStatus == 'REVIEW_REQUIRED';
+
+  bool get isPending => normalizedStatus == 'PENDING';
+
+  bool get isFailure =>
+      normalizedStatus == 'FAILED' ||
+      normalizedStatus == 'CANCELLED' ||
+      normalizedStatus == 'VALIDATION_FAILED';
+
+  factory SslCommerzPaymentStatus.fromJson(Map<String, dynamic> json) {
+    final payment = (json['payment'] as Map?)?.cast<String, dynamic>() ?? json;
+
+    // `risk_level` is sometimes a string ('0') in gateway payloads
+    // and sometimes a JSON number. Coerce both safely.
+    int? parseRiskLevel(Object? raw) {
+      if (raw == null) return null;
+      if (raw is int) return raw;
+      if (raw is num) return raw.toInt();
+      return int.tryParse(raw.toString().trim());
+    }
+
+    DateTime? parseUpdatedAt(Object? raw) {
+      if (raw == null) return null;
+      final s = raw.toString().trim();
+      if (s.isEmpty) return null;
+      return DateTime.tryParse(s);
+    }
+
+    return SslCommerzPaymentStatus(
+      transactionId:
+          (payment['transaction_id'] ??
+                  payment['tran_id'] ??
+                  json['transaction_id'] ??
+                  '')
+              .toString(),
+      status: (payment['status'] ?? json['status'] ?? 'pending').toString(),
+      amount: (payment['amount'] as num?)?.toDouble(),
+      currency: payment['currency']?.toString(),
+      paymentMethod: payment['payment_method']?.toString(),
+      enrolled: payment['enrolled'] == true || json['enrolled'] == true,
+      enrollmentStatus:
+          (payment['enrollment_status'] ?? json['enrollment_status'])
+              ?.toString(),
+      validated: payment['validated'] == true || json['validated'] == true,
+      enrollmentCompleted:
+          payment['enrollment_completed'] == true ||
+          json['enrollment_completed'] == true,
+      courseId: (payment['course_id'] ?? json['course_id'])?.toString(),
+      cardType: (payment['card_type'] ?? json['card_type'])?.toString(),
+      bankTransactionId: (payment['bank_transaction_id'] ??
+              json['bank_transaction_id'])
+          ?.toString(),
+      riskLevel: parseRiskLevel(payment['risk_level'] ?? json['risk_level']),
+      riskTitle: (payment['risk_title'] ?? json['risk_title'])?.toString(),
+      updatedAt: parseUpdatedAt(payment['updated_at'] ?? json['updated_at']),
+    );
+  }
+}

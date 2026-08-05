@@ -1,17 +1,29 @@
-/// Sign-up screen — Flask backend email + password (JWT).
+/// Sign-up screen — Firebase email + password + verification link.
+///
+/// The screen creates a Firebase Auth user, sends the verification
+/// email, and stays on the registration screen. AuthWrapper's
+/// `userChanges` stream observes the new (unverified) user and routes
+/// to [EmailVerificationScreen] on the next tick. We deliberately do
+/// NOT push the screen ourselves — that would race with the
+/// StreamBuilder and cause a double rebuild.
+///
+/// The EduCompass backend's SQL mirror row is **not** created here —
+/// that happens on the first successful backend login, which only
+/// happens once the user has verified. (See `routes.register` and the
+/// `verified_user_required` decorator.)
 library;
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
-import '../api_client.dart';
-import '../app_state.dart';
+import '../services/firebase_auth_service.dart';
 import 'auth_chrome.dart';
 import 'login_screen.dart';
-import 'shell_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({super.key});
+  const RegisterScreen({super.key, this.firebaseAuthService});
+
+  /// Optional override for tests.
+  final FirebaseAuthService? firebaseAuthService;
 
   @override
   State<RegisterScreen> createState() => _RegisterScreenState();
@@ -26,6 +38,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _confirmCtrl = TextEditingController();
 
   bool _submitting = false;
+
+  FirebaseAuthService get _service =>
+      widget.firebaseAuthService ?? FirebaseAuthServiceFactory.instance;
 
   @override
   void dispose() {
@@ -45,37 +60,28 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
     setState(() => _submitting = true);
 
-    final auth = context.read<AuthProvider>();
-
     try {
-      final bool ok = await auth.register(
-        fullName: _nameCtrl.text.trim(),
+      await _service.registerWithEmail(
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
+        name: _nameCtrl.text.trim(),
       );
 
       if (!mounted) return;
 
-      if (ok) {
-        // Registration and automatic login succeeded.
-        // Clear all authentication pages and open the home shell.
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const ShellScreen()),
-          (route) => false,
-        );
-      } else {
-        // The account was created, but automatic login failed.
-        _showMessage(
-          'Account created, but automatic sign-in failed. '
-          'Please log in using your new account.',
-        );
-
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => const LoginScreen()),
-          (route) => false,
-        );
-      }
-    } on ApiException catch (e) {
+      // Firebase created the user and fired the verification email.
+      // The user remains signed in (signOut was removed from the auth
+      // service) so AuthWrapper's `userChanges` stream will see the
+      // unverified user and rebuild into EmailVerificationScreen on
+      // its own. We deliberately do not push the screen ourselves —
+      // doing so would race with the StreamBuilder tick and cause a
+      // double-navigation. Just stay put and let the wrapper take
+      // over. If the stream is somehow delayed we nudge the user.
+      _showMessage(
+        'Account created. Please check your inbox to verify your '
+        'email before signing in.',
+      );
+    } on FirebaseAuthFailure catch (e) {
       _showMessage(e.message);
     } catch (e) {
       _showMessage('Sign up failed. Please try again.');
@@ -88,7 +94,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
   void _showMessage(String message) {
     if (!mounted) return;
-
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -107,7 +112,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
             const AuthHeading(
               kicker: 'Get started',
               title: 'Create your account',
-              body: 'Enter your details below to create your account.',
+              body:
+                  'Enter your details below. We will email you a '
+                  'verification link.',
             ),
             InsetField(
               controller: _nameCtrl,

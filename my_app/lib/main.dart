@@ -6,6 +6,8 @@ import 'api_client.dart';
 import 'app.dart';
 import 'app_state.dart';
 import 'firebase_options.dart';
+import 'screens/auth_wrapper.dart';
+import 'services/deep_link_service.dart';
 
 Future<void> main() async {
   // Required before any plugin (Firebase / shared_preferences) call.
@@ -38,5 +40,22 @@ Future<void> main() async {
   // flag so AuthWrapper can pick the right screen on the first build.
   await auth.bootstrap();
 
-  runApp(EduCompassApp(api: api, auth: auth, prefs: prefs));
+  // Start the deep-link listener so an `educompass://verify-email?oobCode=...`
+  // click from the verification email bounces back into the app and
+  // auto-applies the action code. AuthWrapper also reads the cold-start
+  // URI synchronously via the installed reader below.
+  final deepLinks = DeepLinkService();
+  await deepLinks.start();
+  AuthWrapper.installColdStartReader(
+    deepLinks.consumeInitialVerificationCode,
+  );
+
+  runApp(
+    EduCompassApp(
+      api: api,
+      auth: auth,
+      prefs: prefs,
+      deepLinks: deepLinks,
+    ),
+  );
 }

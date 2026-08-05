@@ -21,14 +21,20 @@ import '../navigation.dart';
 import '../widgets/design.dart';
 
 class RecommendationsScreen extends StatefulWidget {
-  const RecommendationsScreen({super.key});
+  const RecommendationsScreen({super.key, this.initialQuery = ''});
+
+  /// Optional seed text for the goal-search input. Set when the user
+  /// submits the home-screen search bar so the "For you" tab lands
+  /// already-typed and the search runs immediately. An empty value
+  /// preserves the original blank-state behaviour.
+  final String initialQuery;
 
   @override
   State<RecommendationsScreen> createState() => _RecommendationsScreenState();
 }
 
 class _RecommendationsScreenState extends State<RecommendationsScreen> {
-  final _ctrl = TextEditingController();
+  late final TextEditingController _ctrl;
   List<Course> _goalResults = const [];
   bool _searchingGoal = false;
   String? _goalError;
@@ -37,10 +43,18 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
   @override
   void initState() {
     super.initState();
+    _ctrl = TextEditingController(text: widget.initialQuery);
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
       if (!_initialLoaded) {
         _initialLoaded = true;
         context.read<UserProvider>().loadPersonalized();
+      }
+      // If we were launched with a prefilled query (e.g. from the
+      // home-screen search bar) fire the goal search automatically so
+      // the user lands on the results instead of having to retype.
+      if (widget.initialQuery.trim().isNotEmpty && !_searchingGoal) {
+        _runGoalSearch();
       }
     });
   }

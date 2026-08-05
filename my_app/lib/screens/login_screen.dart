@@ -1,4 +1,14 @@
-/// Sign-in screen — Flask backend email + password (JWT).
+/// Sign-in screen — Firebase email + password, gated on `emailVerified`,
+/// then exchanges the verified Firebase session for an EduCompass JWT.
+///
+/// The user can:
+///  * sign in with email + password;
+///  * if their email isn't verified yet, the screen surfaces a friendly
+///    message and lets AuthWrapper's `userChanges` stream route them to
+///    [EmailVerificationScreen] (the screen pushes itself, we do not
+///    push a duplicate here);
+///  * tap "Resend verification email" on the verification screen to ask
+///    Firebase to send a fresh link (cooldown handled by the screen).
 library;
 
 import 'package:flutter/material.dart';
@@ -6,12 +16,15 @@ import 'package:provider/provider.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../services/firebase_auth_service.dart';
 import 'auth_chrome.dart';
 import 'register_screen.dart';
 import 'shell_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+  const LoginScreen({super.key, this.firebaseAuthService});
+
+  final FirebaseAuthService? firebaseAuthService;
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
@@ -25,11 +38,37 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _submitting = false;
 
+  FirebaseAuthService get _service =>
+      widget.firebaseAuthService ?? FirebaseAuthServiceFactory.instance;
+
   @override
   void dispose() {
     _emailCtrl.dispose();
     _passwordCtrl.dispose();
     super.dispose();
+  }
+
+  /// Exchange the verified Firebase session for the EduCompass JWT
+  /// and push the user into the shell. Extracted so the verification
+  /// screen can trigger the same completion path after the email is
+  /// verified.
+  Future<void> _completePostVerificationLogin() async {
+    final auth = context.read<AuthProvider>();
+    try {
+      await auth.login(
+        email: _emailCtrl.text.trim().toLowerCase(),
+        password: _passwordCtrl.text,
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      _showMessage(e.message);
+      return;
+    }
+    if (!mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(builder: (_) => const ShellScreen()),
+      (route) => false,
+    );
   }
 
   Future<void> _submit() async {
@@ -41,27 +80,57 @@ class _LoginScreenState extends State<LoginScreen> {
 
     setState(() => _submitting = true);
 
-    final auth = context.read<AuthProvider>();
-
     try {
-      await auth.login(
+      await _service.signInWithEmail(
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
       );
-
-      if (!mounted) return;
-
-      // Login succeeded.
-      // Remove LoginScreen/RegisterScreen from the route stack
-      // and open the main home shell.
-      Navigator.of(context).pushAndRemoveUntil(
-        MaterialPageRoute(builder: (_) => const ShellScreen()),
-        (route) => false,
-      );
-    } on ApiException catch (e) {
+      // Verified! Exchange Firebase session for the EduCompass JWT so
+      // the API client can call protected routes.
+      await _completePostVerificationLogin();
+    } on FirebaseAuthFailure catch (e) {
+      if (e.kind == FirebaseAuthFailureKind.emailNotVerified) {
+        // Keep the Firebase session alive (signInWithEmail did not
+        // sign it out) and let AuthWrapper's `userChanges` stream
+        // route to EmailVerificationScreen. We do NOT push the screen
+        // ourselves — that would race with the StreamBuilder tick
+        // and produce a double-navigation. We just stay put so the
+        // wrapper can take over.
+        if (!mounted) return;
+        _showMessage(e.message);
+        return;
+      }
       _showMessage(e.message);
     } catch (e) {
       _showMessage('Sign in failed. Please try again.');
+    } finally {
+      if (mounted) {
+        setState(() => _submitting = false);
+      }
+    }
+  }
+
+  /// Resend the verification email without first signing in. Uses the
+  /// user's email + password as proof of account ownership so
+  /// Firebase will accept the OOB request.
+  Future<void> _resendVerification() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    setState(() => _submitting = true);
+    try {
+      await _service.resendVerificationWithPassword(
+        email: _emailCtrl.text.trim().toLowerCase(),
+        password: _passwordCtrl.text,
+      );
+      if (!mounted) return;
+      _showMessage(
+        'Verification email has been sent again. Check your inbox.',
+      );
+    } on FirebaseAuthFailure catch (e) {
+      if (!mounted) return;
+      _showMessage(e.message);
+    } catch (e) {
+      if (!mounted) return;
+      _showMessage('Unable to resend verification email.');
     } finally {
       if (mounted) {
         setState(() => _submitting = false);
@@ -119,7 +188,13 @@ class _LoginScreenState extends State<LoginScreen> {
               busy: _submitting,
               onPressed: _submitting ? null : _submit,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 8),
+            AuthFootnoteLink(
+              prefix: 'Didn\'t receive the verification email?',
+              linkLabel: 'Resend verification email',
+              onTap: _submitting ? () {} : _resendVerification,
+            ),
+            const SizedBox(height: 12),
             AuthFootnoteLink(
               prefix: "Don't have an account?",
               linkLabel: 'Sign up',
@@ -128,7 +203,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   : () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (_) => const RegisterScreen(),
+                          builder: (_) => RegisterScreen(
+                            firebaseAuthService: _service,
+                          ),
                         ),
                       );
                     },

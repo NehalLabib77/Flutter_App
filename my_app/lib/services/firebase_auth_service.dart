@@ -93,7 +93,7 @@ abstract class FirebaseAuthService {
 }
 
 /// Result of register / sign-in. Carries the email so the verification
-/// screen can show "We sent a link to <email>" without re-querying
+/// screen can show "We sent a link to `${email}`" without re-querying
 /// Firebase.
 class EmailVerificationSession {
   const EmailVerificationSession({required this.email});
@@ -123,7 +123,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
       );
       final user = credential.user;
       if (user == null) {
-        throw const FirebaseAuthFailure(
+        throw FirebaseAuthFailure(
           FirebaseAuthFailureKind.other,
           'Unable to create the user account.',
         );
@@ -135,15 +135,11 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
           debugPrint('updateDisplayName failed: ${e.message}');
         }
       }
-      // Send the verification email *before* signing out so the
-      // message can reference the same user. The verification link
-      // continues to work after we sign out — Firebase stores the
-      // OOB code on its end.
+      // Send the verification email *and keep the user signed in* so
+      // the AuthWrapper's `userChanges` stream emits the unverified
+      // user and routes straight to EmailVerificationScreen. The link
+      // is valid whether or not the local Firebase session is alive.
       await user.sendEmailVerification();
-      // Sign out so the user can't reach the app shell until they
-      // verify. The AuthWrapper will route them back to Login → then
-      // EmailVerificationScreen after they sign in.
-      await _auth.signOut();
       return EmailVerificationSession(email: email.trim());
     } on FirebaseAuthException catch (e) {
       throw _mapFirebaseError(e);
@@ -168,7 +164,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
       final user = credential.user;
       if (user == null) {
         await _auth.signOut();
-        throw const FirebaseAuthFailure(
+        throw FirebaseAuthFailure(
           FirebaseAuthFailureKind.userNotFound,
           'Unable to find the user account.',
         );
@@ -181,7 +177,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
         // Keep the session — AuthWrapper will show the verification
         // screen. The wrapper signs the user out only when they
         // explicitly tap "Use another account".
-        throw const FirebaseAuthFailure(
+        throw FirebaseAuthFailure(
           FirebaseAuthFailureKind.emailNotVerified,
           'Please verify your email before signing in.',
         );
@@ -212,13 +208,13 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
   Future<void> sendVerificationEmailToCurrent() async {
     final user = _auth.currentUser;
     if (user == null) {
-      throw const FirebaseAuthFailure(
+      throw FirebaseAuthFailure(
         FirebaseAuthFailureKind.notSignedIn,
         'Please sign in again.',
       );
     }
     if (user.emailVerified) {
-      throw const FirebaseAuthFailure(
+      throw FirebaseAuthFailure(
         FirebaseAuthFailureKind.alreadyVerified,
         'This email is already verified.',
       );
@@ -248,7 +244,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
       final user = credential.user;
       if (user == null) {
         await _auth.signOut();
-        throw const FirebaseAuthFailure(
+        throw FirebaseAuthFailure(
           FirebaseAuthFailureKind.userNotFound,
           'User account not found.',
         );
@@ -257,7 +253,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
       final refreshed = _auth.currentUser;
       if (refreshed?.emailVerified == true) {
         await _auth.signOut();
-        throw const FirebaseAuthFailure(
+        throw FirebaseAuthFailure(
           FirebaseAuthFailureKind.alreadyVerified,
           'This email is already verified.',
         );

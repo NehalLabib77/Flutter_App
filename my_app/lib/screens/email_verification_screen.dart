@@ -1,7 +1,12 @@
 /// Full-screen interstitial shown after registration or after the user
-/// signs in with an unverified address. Offers a manual "I have
-/// verified my email" check, a 60-second cooldown-gated resend, and a
-/// "Use another account" sign-out escape hatch.
+/// signs in with an unverified address. Auto-detects verification by
+/// polling the Firebase user + a resume hook (lifecycle + manual
+/// tap-out-and-back). Offers a 60-second cooldown-gated resend and a
+/// "Use another account" sign-out escape hatch — but *no* manual
+/// "I have verified" button. The AuthWrapper's `userChanges` stream
+/// is the source of truth; this screen just keeps the local
+/// `FirebaseAuth` instance fresh so the cached `emailVerified`
+/// flag catches up.
 library;
 
 import 'dart:async';
@@ -17,6 +22,7 @@ class EmailVerificationScreen extends StatefulWidget {
     this.service,
     this.onVerified,
     this.onUseAnotherAccount,
+    this.pollInterval = const Duration(seconds: 4),
   });
 
   /// Email address the verification link was sent to. Displayed in the
@@ -36,17 +42,29 @@ class EmailVerificationScreen extends StatefulWidget {
   /// signed them out. AuthWrapper handles the route swap.
   final VoidCallback? onUseAnotherAccount;
 
+  /// How often to poll for verification while the screen is in the
+  /// foreground. Overridable so widget tests can crank it down.
+  final Duration pollInterval;
+
   @override
   State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
 }
 
-class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
+class _EmailVerificationScreenState extends State<EmailVerificationScreen>
+    with WidgetsBindingObserver {
   static const Duration _resendCooldown = Duration(seconds: 60);
 
-  bool _checking = false;
   bool _sending = false;
   int _resendSeconds = 0;
-  Timer? _timer;
+  Timer? _cooldownTimer;
+  Timer? _pollTimer;
+  bool _pollInFlight = false;
+
+  /// Single-flight guard: once we've handed the verified user off to
+  /// the AuthWrapper (via `onVerified`) we MUST NOT fire onVerified
+  /// again or restart polling — that would race with the AuthWrapper's
+  /// own rebuild.
+  bool _navigated = false;
 
   FirebaseAuthService get _service =>
       widget.service ?? FirebaseAuthServiceFactory.instance;
@@ -54,14 +72,42 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _startCooldown();
+    _startPolling();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // When the user comes back from their mail app the verification
+    // may have just landed. Force a reload + check on resume.
+    if (state == AppLifecycleState.resumed && !_navigated) {
+      _checkVerification(triggeredByResume: true);
+    }
+  }
+
+  void _startPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = Timer.periodic(widget.pollInterval, (_) {
+      if (!mounted || _navigated) return;
+      _checkVerification();
+    });
+    // Kick off an immediate check too — the user might already have
+    // verified before this screen mounted.
+    _checkVerification();
+  }
+
+  void _stopPolling() {
+    _pollTimer?.cancel();
+    _pollTimer = null;
   }
 
   void _startCooldown() {
-    _timer?.cancel();
+    _cooldownTimer?.cancel();
     if (!mounted) return;
     setState(() => _resendSeconds = _resendCooldown.inSeconds);
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) {
         timer.cancel();
         return;
@@ -75,31 +121,39 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     });
   }
 
-  Future<void> _checkVerification() async {
+  Future<void> _checkVerification({bool triggeredByResume = false}) async {
+    if (_navigated) return;
+    if (_pollInFlight) return; // overlap guard — never start a check
+    // while the previous one is still on the wire.
     if (!mounted) return;
-    setState(() => _checking = true);
+    _pollInFlight = true;
     try {
       await _service.reloadCurrentUser();
       final verified = await _service.isCurrentEmailVerified();
-      if (!mounted) return;
+      if (!mounted || _navigated) return;
       if (verified) {
-        _showSnack('Email verified successfully.');
+        _navigated = true;
+        _stopPolling();
+        _cooldownTimer?.cancel();
         widget.onVerified?.call();
         return;
       }
-      _showSnack(
-        'Email is not verified yet. Click the link in your inbox.',
-      );
-    } on FirebaseAuthFailure catch (e) {
-      if (!mounted) return;
-      _showSnack(e.message);
-    } catch (e) {
-      if (!mounted) return;
-      _showSnack('Unable to check verification.');
-    } finally {
-      if (mounted) {
-        setState(() => _checking = false);
+      if (triggeredByResume) {
+        // Only nag on a user-initiated resume; the periodic poll
+        // should stay silent so we don't spam SnackBars.
+        _showSnack(
+          'Still waiting — tap the link in the verification email.',
+        );
       }
+    } on FirebaseAuthFailure catch (e) {
+      if (!mounted || _navigated) return;
+      _showSnack(e.message);
+    } catch (_) {
+      if (!mounted || _navigated) return;
+      // Best-effort: polling must never crash the screen. The next
+      // tick will try again.
+    } finally {
+      _pollInFlight = false;
     }
   }
 
@@ -115,7 +169,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
     } on FirebaseAuthFailure catch (e) {
       if (!mounted) return;
       _showSnack(e.message);
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
       _showSnack('Unable to send verification email.');
     } finally {
@@ -126,9 +180,12 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
   }
 
   Future<void> _signOut() async {
+    _navigated = true;
+    _stopPolling();
+    _cooldownTimer?.cancel();
     try {
       await _service.signOutCurrent();
-    } catch (e) {
+    } catch (_) {
       // Best-effort. AuthWrapper will treat a null current user as
       // signed-out regardless.
     }
@@ -145,7 +202,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _cooldownTimer?.cancel();
+    _stopPolling();
+    WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
 
@@ -179,18 +238,15 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen> {
                 'We sent a verification link to:\n${widget.email}',
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
-              ElevatedButton(
-                onPressed: _checking ? null : _checkVerification,
-                child: _checking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('I have verified my email'),
+              const SizedBox(height: 16),
+              const Text(
+                'This screen will update automatically once you tap '
+                'the verification link. You can keep using the app '
+                'in the meantime.',
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 13, color: Colors.black54),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 32),
               TextButton(
                 onPressed:
                     (_sending || _resendSeconds > 0) ? null : _resendEmail,

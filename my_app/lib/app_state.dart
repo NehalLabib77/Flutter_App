@@ -12,6 +12,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'api_client.dart';
 import 'models.dart';
 import 'services/enrollment_service.dart';
+import 'services/firebase_auth_service.dart';
 
 const _tokenKey = 'auth_token';
 
@@ -89,6 +90,12 @@ class AuthProvider extends ChangeNotifier {
     _api.setToken(null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    // Also clear the Firebase session so the verification gate stops
+    // intercepting the user. Wrapped so a missing Firebase init on
+    // Web / Linux doesn't block the local sign-out.
+    try {
+      await FirebaseAuthServiceFactory.instance.signOutCurrent();
+    } catch (_) {}
     notifyListeners();
   }
 
@@ -104,6 +111,11 @@ class AuthProvider extends ChangeNotifier {
     _api.setToken(null);
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_tokenKey);
+    // Drop the Firebase session too so the AuthWrapper doesn't keep
+    // showing the verification screen for a deleted account.
+    try {
+      await FirebaseAuthServiceFactory.instance.signOutCurrent();
+    } catch (_) {}
     notifyListeners();
   }
 

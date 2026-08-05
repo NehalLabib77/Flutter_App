@@ -21,17 +21,43 @@ import 'profile_screen.dart';
 import 'recommendations_screen.dart';
 
 class ShellScreen extends StatefulWidget {
-  const ShellScreen({super.key});
+  const ShellScreen({
+    super.key,
+    this.initialTabIndex = 0,
+    this.initialQuery = '',
+  });
+
+  /// Opens the shell with a specific tab selected. Used by deep-link
+  /// / pushNamed routes that want to land the user on the "For you"
+  /// tab after typing a query on the home screen. Index is clamped
+  /// against the active tab list so an out-of-range value falls back
+  /// to Home without crashing.
+  final int initialTabIndex;
+
+  /// Forwarded to the embedded [RecommendationsScreen] so the goal
+  /// search input is pre-filled and the search runs immediately. Has
+  /// no effect on tabs other than "For you".
+  final String initialQuery;
 
   @override
   State<ShellScreen> createState() => _ShellScreenState();
 }
 
 class _ShellScreenState extends State<ShellScreen> {
-  int _index = 0;
+  late int _index;
 
-  static const _coreTabs = <_TabItem>[
+  @override
+  void initState() {
+    super.initState();
+    _index = widget.initialTabIndex;
+  }
+
+  static const _coreTabsTemplate = <_TabItem>[
     _TabItem(icon: Icons.home_rounded, label: 'Home', screen: HomeScreen()),
+    // The "For you" tab is rebuilt each build so it can pick up
+    // [widget.initialQuery] from the shell. We keep the entry in the
+    // template purely so the icon/label/length stay aligned with the
+    // signed-in branch (which appends Favorites + My Courses).
     _TabItem(
       icon: Icons.auto_awesome_rounded,
       label: 'For you',
@@ -56,16 +82,31 @@ class _ShellScreenState extends State<ShellScreen> {
     screen: MyCoursesScreen(),
   );
 
+  /// Build the live tab list. The "For you" entry is constructed
+  /// fresh on every build so it can carry the latest
+  /// [widget.initialQuery] from a deep-link route — the rest stay
+  /// `const` for parity with the previous implementation.
   List<_TabItem> _tabsFor(bool signedIn) {
-    if (!signedIn) return _coreTabs;
+    final forYou = _TabItem(
+      icon: Icons.auto_awesome_rounded,
+      label: 'For you',
+      screen: RecommendationsScreen(initialQuery: widget.initialQuery),
+    );
+    if (!signedIn) {
+      return [
+        _coreTabsTemplate[0],
+        forYou,
+        _coreTabsTemplate[2],
+      ];
+    }
     // Insert My Courses and Favorites after "For you" so they sit at
     // indices 2 and 3 for signed-in users.
     return [
-      _coreTabs[0],
-      _coreTabs[1],
+      _coreTabsTemplate[0],
+      forYou,
       _myCoursesTab,
       _favoritesTab,
-      _coreTabs[2],
+      _coreTabsTemplate[2],
     ];
   }
 

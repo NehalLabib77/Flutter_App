@@ -10,6 +10,8 @@ import 'navigation.dart';
 import 'screens/auth_wrapper.dart';
 import 'screens/course_details_screen.dart';
 import 'screens/learning_path_detail_screen.dart';
+import 'screens/shell_screen.dart';
+import 'services/deep_link_service.dart';
 import 'theme.dart';
 
 /// Re-exposes the providers used by the root [MultiProvider] to a child
@@ -33,6 +35,12 @@ Widget wrapWithProviders(BuildContext context, Widget child) {
       ChangeNotifierProvider<ThemeProvider>.value(
         value: context.read<ThemeProvider>(),
       ),
+      // DeepLinkService lives above the root provider scope, so any
+      // route-pushed screen (e.g. MockPaymentScreen) needs it
+      // re-exposed here too. Without this the payment screen crashes
+      // with "Could not find the correct Provider<DeepLinkService>"
+      // the moment it calls `context.read<DeepLinkService>()`.
+      Provider<DeepLinkService>.value(value: context.read<DeepLinkService>()),
     ],
     child: child,
   );
@@ -43,12 +51,14 @@ class EduCompassApp extends StatelessWidget {
   final ApiClient api;
   final AuthProvider auth;
   final SharedPreferences prefs;
+  final DeepLinkService deepLinks;
 
   const EduCompassApp({
     super.key,
     required this.api,
     required this.auth,
     required this.prefs,
+    required this.deepLinks,
   });
 
   @override
@@ -61,6 +71,11 @@ class EduCompassApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => UserProvider(api)),
         ChangeNotifierProvider(create: (_) => EnrollmentProvider(prefs, api)),
         ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
+        // Expose the singleton DeepLinkService constructed in
+        // `main.dart` so MockPaymentScreen (and any future deep-link
+        // consumers) can `context.read<DeepLinkService>()` instead of
+        // crashing with a missing-provider assertion.
+        Provider<DeepLinkService>.value(value: deepLinks),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, theme, _) => MaterialApp(
@@ -74,6 +89,30 @@ class EduCompassApp extends StatelessWidget {
           // so a cold restart lands back on the right screen.
           home: const _EnrollmentRemoteSync(child: AuthWrapper()),
           routes: {
+            // The "For you" tab lives inside the bottom-nav shell, so
+            // routing to it from a screen outside the shell (e.g. the
+            // home search bar) needs to push a fresh ShellScreen with
+            // the requested tab selected. We unpack the optional
+            // `{query}` payload so the search box can be prefilled —
+            // see [RecommendationsScreen] for the read side.
+            AppRoutes.recommendations: (ctx) {
+              final args = ModalRoute.of(ctx)?.settings.arguments;
+              final initialQuery = args is Map && args['query'] is String
+                  ? args['query'] as String
+                  : '';
+              // 1 = "For you" tab in both the guest and signed-in
+              // tab orderings (Home at 0, For you at 1, then My
+              // Courses/Favorites/Profile). The shell clamps the
+              // index at build time so an out-of-range value falls
+              // back to Home without crashing.
+              return wrapWithProviders(
+                ctx,
+                ShellScreen(
+                  initialTabIndex: 1,
+                  initialQuery: initialQuery,
+                ),
+              );
+            },
             AppRoutes.courseDetails: (ctx) {
               final id =
                   ModalRoute.of(ctx)?.settings.arguments as String? ?? '';

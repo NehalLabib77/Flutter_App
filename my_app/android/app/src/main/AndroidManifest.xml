@@ -23,6 +23,43 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!--
+                SSLCOMMERZ deep-link return handler.
+                After the gateway finishes, the user is redirected back to
+                  educompass://payment/return?transaction_id=<id>&status=<status>
+                We listen for this URI scheme/host/path-prefix and route
+                the URI to the Flutter `app_links` plugin, which forwards
+                it to `DeepLinkService` so the payment screen can poll the
+                authoritative /payments/status/<id> endpoint.
+                `singleTop` launchMode (above) keeps the existing Flutter
+                activity instance alive so the deep-link is delivered to
+                the live Navigator instead of spawning a second activity.
+            -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="educompass"
+                      android:host="payment"
+                      android:pathPrefix="/return"/>
+            </intent-filter>
+            <!--
+                Email-verification deep link.
+                Firebase rewrites the verification URL in the email body
+                to point at this scheme, e.g.
+                  educompass://verify-email?oobCode=<...>&mode=verifyEmail
+                `DeepLinkService` picks the `oobCode` out and forwards
+                it to `FirebaseAuthService.applyVerificationCode`, which
+                applies the action code server-side and reloads the
+                cached user so AuthWrapper flips to the shell.
+            -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="educompass"
+                      android:host="verify-email"/>
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"
