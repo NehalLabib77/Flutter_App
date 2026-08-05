@@ -326,7 +326,7 @@ class _Section extends StatelessWidget {
                         skills: c.skills,
                         rating: c.rating,
                         isFree: c.isFree,
-                        thumbnail: CourseThumbnail(course: c, size: 72),
+                        thumbnail: CourseThumbnail(course: c, size: 68),
                         trailing: c.url != null && c.url!.isNotEmpty
                             ? IconButton(
                                 tooltip: 'Open in browser',

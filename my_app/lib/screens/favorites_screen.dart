@@ -105,7 +105,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       skills: c.skills,
                       rating: c.rating,
                       isFree: c.isFree,
-                      thumbnail: CourseThumbnail(course: c, size: 72),
+                      thumbnail: CourseThumbnail(course: c, size: 68),
                       trailing: IconButton(
                         tooltip: 'Remove from favorites',
                         icon: Icon(

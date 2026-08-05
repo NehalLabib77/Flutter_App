@@ -158,7 +158,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               busy: _submitting,
               onPressed: _submitting ? null : _submit,
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 12),
             AuthFootnoteLink(
               prefix: 'Already have an account?',
               linkLabel: 'Log in',

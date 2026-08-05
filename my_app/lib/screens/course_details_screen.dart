@@ -338,7 +338,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
             child: SingleChildScrollView(
               controller: _scroll,
               padding: EdgeInsets.only(
-                bottom: 132 + MediaQuery.paddingOf(context).bottom,
+                bottom: 116 + MediaQuery.paddingOf(context).bottom,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -510,6 +510,10 @@ class _HeroImage extends StatelessWidget {
             : CachedNetworkImage(
                 imageUrl: url,
                 fit: BoxFit.cover,
+                alignment: Alignment.center,
+                filterQuality: FilterQuality.high,
+                fadeInDuration: const Duration(milliseconds: 180),
+                useOldImageOnUrlChange: true,
                 placeholder: (_, _) => _heroFallback(scheme),
                 errorWidget: (_, _, _) => _heroFallback(scheme),
               ),
@@ -980,7 +984,7 @@ class _SkillsCardState extends State<_SkillsCard> {
             ),
             child: scrollable
                 ? SizedBox(
-                    height: 236,
+                    height: 210,
                     child: Scrollbar(
                       controller: _skillsScroll,
                       thumbVisibility: true,
@@ -1096,7 +1100,7 @@ class _SimilarRail extends StatelessWidget {
   Widget build(BuildContext context) {
     final visible = courses.take(_maxVisible).toList();
     return SizedBox(
-      height: 200,
+      height: 188,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
@@ -1117,7 +1121,7 @@ class _SimilarCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return SizedBox(
-      width: 168,
+      width: 148,
       child: Material(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(Radii.lg),
@@ -1140,11 +1144,12 @@ class _SimilarCard extends StatelessWidget {
               children: [
                 ClipRRect(
                   borderRadius: BorderRadius.circular(Radii.md),
-                  child: AspectRatio(
-                    aspectRatio: 1,
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 92,
                     child: CourseThumbnail(
                       course: course,
-                      size: 156,
+                      size: 140,
                       borderRadius: BorderRadius.zero,
                     ),
                   ),
@@ -1237,8 +1242,8 @@ class _BottomCTA extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 56,
-                height: 56,
+                width: 50,
+                height: 50,
                 decoration: BoxDecoration(
                   border: Border.all(
                     color: scheme.outlineVariant.withValues(alpha: 0.7),
@@ -1259,7 +1264,7 @@ class _BottomCTA extends StatelessWidget {
               const SizedBox(width: Spacing.md),
               Expanded(
                 child: SizedBox(
-                  height: 56,
+                  height: 50,
                   child: FilledButton.icon(
                     onPressed: onPrimary,
                     icon: Icon(primaryIcon, size: 20),
@@ -1276,7 +1281,7 @@ class _BottomCTA extends StatelessWidget {
                       ),
                       textStyle: const TextStyle(
                         fontWeight: FontWeight.w800,
-                        fontSize: 16,
+                        fontSize: 15,
                         letterSpacing: 0.2,
                       ),
                     ),

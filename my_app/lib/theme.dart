@@ -48,9 +48,9 @@ class AppSpacing {
   static const double xs = 4;
   static const double sm = 8;
   static const double md = 12;
-  static const double lg = 16;
-  static const double xl = 24;
-  static const double xxl = 32;
+  static const double lg = 14;
+  static const double xl = 20;
+  static const double xxl = 28;
   static const EdgeInsets pageH = EdgeInsets.symmetric(horizontal: lg);
 }
 
@@ -58,8 +58,8 @@ class AppRadii {
   const AppRadii._();
   static const double sm = 10;
   static const double md = 14;
-  static const double lg = 20;
-  static const double xl = 24;
+  static const double lg = 18;
+  static const double xl = 20;
   static const double pill = 999;
   static const BorderRadius pillRadius =
       BorderRadius.all(Radius.circular(pill));
@@ -133,8 +133,8 @@ ThemeData _base({
       centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 0,
-      toolbarHeight: 72,
-      titleSpacing: 24,
+      toolbarHeight: 68,
+      titleSpacing: 20,
       backgroundColor: AppColors.navy,
       foregroundColor: Colors.white,
       surfaceTintColor: Colors.transparent,
@@ -190,8 +190,8 @@ ThemeData _base({
         foregroundColor: scheme.onPrimary,
         disabledBackgroundColor: outline.withValues(alpha: 0.45),
         disabledForegroundColor: secondary.withValues(alpha: 0.7),
-        minimumSize: const Size.fromHeight(52),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        minimumSize: const Size.fromHeight(48),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: const RoundedRectangleBorder(
           borderRadius: AppRadii.pillRadius,
         ),
@@ -205,10 +205,10 @@ ThemeData _base({
 
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size.fromHeight(50),
+        minimumSize: const Size.fromHeight(48),
         foregroundColor: onSurface,
         side: BorderSide(color: outline, width: 1.2),
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
+        padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
         shape: const RoundedRectangleBorder(
           borderRadius: AppRadii.pillRadius,
         ),
@@ -230,7 +230,7 @@ ThemeData _base({
       hintStyle: TextStyle(color: secondary, fontWeight: FontWeight.w500),
       labelStyle: TextStyle(color: secondary, fontWeight: FontWeight.w600),
       errorMaxLines: 3,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadii.md),
         borderSide: BorderSide(color: outline),
@@ -260,7 +260,7 @@ ThemeData _base({
     ),
 
     navigationBarTheme: NavigationBarThemeData(
-      height: 78,
+      height: 72,
       backgroundColor: isDark ? AppColors.darkPage : Colors.white,
       indicatorColor:
           isDark ? const Color(0xFF263E70) : const Color(0xFFE1EAF7),
@@ -305,7 +305,7 @@ ThemeData _base({
           isDark ? AppColors.darkCardRaised : const Color(0xFF1A1F2C),
       contentTextStyle: const TextStyle(color: Colors.white, height: 1.35),
       behavior: SnackBarBehavior.floating,
-      insetPadding: const EdgeInsets.all(16),
+      insetPadding: const EdgeInsets.all(12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadii.md),
       ),
@@ -324,7 +324,7 @@ ThemeData _base({
       modalBackgroundColor: card,
       surfaceTintColor: Colors.transparent,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
     ),
 

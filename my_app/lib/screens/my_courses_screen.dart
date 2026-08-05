@@ -321,8 +321,8 @@ class _LeadingThumb extends StatelessWidget {
     final color = completed ? scheme.primary : scheme.primaryContainer;
     final fg = completed ? scheme.onPrimary : scheme.onPrimaryContainer;
     return Container(
-      width: 56,
-      height: 56,
+      width: 52,
+      height: 52,
       decoration: BoxDecoration(
         color: color,
         borderRadius: BorderRadius.circular(Radii.md),

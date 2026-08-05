@@ -696,8 +696,8 @@ class ProfileHeader extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 52,
+            height: 52,
             decoration: BoxDecoration(
               color: scheme.primary,
               shape: BoxShape.circle,

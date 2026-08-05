@@ -49,7 +49,7 @@ class CourseThumbnail extends StatelessWidget {
           fadeInDuration: const Duration(milliseconds: 180),
           fadeOutDuration: const Duration(milliseconds: 90),
           useOldImageOnUrlChange: true,
-          filterQuality: FilterQuality.medium,
+          filterQuality: FilterQuality.high,
           placeholder: (_, _) => _EnhancedPlaceholder(
             size: size,
             course: course,

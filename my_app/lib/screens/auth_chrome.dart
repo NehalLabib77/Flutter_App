@@ -102,9 +102,10 @@ class AuthScaffold extends StatelessWidget {
     final palette = _AuthPalette.of(context);
     return Scaffold(
       backgroundColor: palette.canvas,
+      resizeToAvoidBottomInset: true,
       // Blue AppBar with a hairline so it doesn't bleed into the body.
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(64),
+        preferredSize: const Size.fromHeight(60),
         child: Container(
           decoration: BoxDecoration(
             color: palette.accent,
@@ -156,11 +157,9 @@ class AuthScaffold extends StatelessWidget {
       ),
       body: Stack(
         children: [
-          // Diagonal band that runs from top-right to bottom-left.
           Positioned.fill(
             child: CustomPaint(painter: _DiagonalBandPainter(palette)),
           ),
-          // Background compass mark — oversized and very faint.
           Positioned(
             right: -120,
             top: media.size.height * 0.42,
@@ -176,27 +175,38 @@ class AuthScaffold extends StatelessWidget {
               ),
             ),
           ),
-          // Scrollable content, right-justified card on wide screens.
           SafeArea(
             top: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final compact = constraints.maxWidth < 380;
-                final horizontal = compact ? 16.0 : 24.0;
-                return SingleChildScrollView(
-                  keyboardDismissBehavior:
-                      ScrollViewKeyboardDismissBehavior.onDrag,
-                  padding: EdgeInsets.fromLTRB(
-                    horizontal,
-                    compact ? 20 : 28,
-                    horizontal,
-                    28 + MediaQuery.viewInsetsOf(context).bottom,
+                final compactWidth = constraints.maxWidth < 380;
+                final horizontal = compactWidth ? 14.0 : 20.0;
+                final vertical = compactWidth ? 12.0 : 16.0;
+                final cardWidth = math.min(
+                  430.0,
+                  math.max(280.0, constraints.maxWidth - (horizontal * 2)),
+                );
+
+                // Auth forms stay on one screen with equal top/bottom space.
+                // BoxFit.scaleDown only activates on short displays or while
+                // the keyboard is open, preventing RenderFlex overflow
+                // without introducing a scroll view.
+                return Padding(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: horizontal,
+                    vertical: vertical,
                   ),
-                  child: Align(
-                    alignment: Alignment.centerRight,
-                    child: ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 460),
-                      child: _PaperCard(palette: palette, child: child),
+                  child: Center(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.center,
+                      child: SizedBox(
+                        width: cardWidth,
+                        child: _PaperCard(
+                          palette: palette,
+                          child: child,
+                        ),
+                      ),
                     ),
                   ),
                 );
@@ -224,25 +234,25 @@ class _PaperCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: palette.paper,
         borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(22),
-          topRight: Radius.circular(22),
-          bottomLeft: Radius.circular(6),
-          bottomRight: Radius.circular(22),
+          topLeft: Radius.circular(20),
+          topRight: Radius.circular(20),
+          bottomLeft: Radius.circular(8),
+          bottomRight: Radius.circular(20),
         ),
         border: Border.all(color: palette.hairline),
         boxShadow: [
           BoxShadow(
             color: palette.shadow,
-            blurRadius: 24,
-            offset: const Offset(0, 12),
+            blurRadius: 18,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
       padding: EdgeInsets.fromLTRB(
-        compact ? 20 : 28,
-        compact ? 24 : 32,
-        compact ? 20 : 28,
-        compact ? 22 : 28,
+        compact ? 16 : 22,
+        compact ? 16 : 20,
+        compact ? 16 : 22,
+        compact ? 16 : 20,
       ),
       child: child,
     );
@@ -271,41 +281,42 @@ class AuthHeading extends StatelessWidget {
       children: [
         Row(
           children: [
-            Container(width: 28, height: 2, color: palette.accent),
-            const SizedBox(width: 10),
+            Container(width: 24, height: 2, color: palette.accent),
+            const SizedBox(width: 8),
             Text(
               kicker.toUpperCase(),
               style: TextStyle(
                 color: palette.accentDeep,
-                fontSize: 11,
+                fontSize: 10.5,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 2.4,
+                letterSpacing: 2.0,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 10),
         Text(
           title,
           style: TextStyle(
             color: palette.ink,
-            fontSize: 28,
+            fontSize: 24,
             fontWeight: FontWeight.w700,
-            height: 1.1,
+            height: 1.08,
             letterSpacing: -0.5,
           ),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 6),
         Text(
           body,
           style: TextStyle(
             color: palette.inkSoft,
-            fontSize: 13.5,
-            height: 1.45,
+            fontSize: 12.5,
+            height: 1.35,
           ),
         ),
-        const SizedBox(height: 22),
+        const SizedBox(height: 12),
         Container(height: 1, color: palette.hairline),
+        const SizedBox(height: 10),
       ],
     );
   }
@@ -384,10 +395,10 @@ class _InsetFieldState extends State<InsetField> {
           children: [
             Icon(
               widget.icon,
-              size: 16,
+              size: 15,
               color: _focused ? palette.accentDeep : palette.inkSoft,
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             Expanded(
               child: Text(
                 widget.label.toUpperCase(),
@@ -398,8 +409,8 @@ class _InsetFieldState extends State<InsetField> {
                       ? palette.danger
                       : (_focused ? palette.accentDeep : palette.inkSoft),
                   fontWeight: FontWeight.w600,
-                  fontSize: 11,
-                  letterSpacing: 1.4,
+                  fontSize: 10.5,
+                  letterSpacing: 1.25,
                 ),
               ),
             ),
@@ -419,7 +430,7 @@ class _InsetFieldState extends State<InsetField> {
               ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 3),
         TextFormField(
           controller: widget.controller,
           focusNode: _focus,
@@ -434,7 +445,7 @@ class _InsetFieldState extends State<InsetField> {
           cursorWidth: 1.4,
           style: TextStyle(
             color: palette.ink,
-            fontSize: 16,
+            fontSize: 14.5,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.1,
           ),
@@ -446,26 +457,26 @@ class _InsetFieldState extends State<InsetField> {
             focusedErrorBorder: InputBorder.none,
             disabledBorder: InputBorder.none,
             isDense: true,
-            contentPadding: EdgeInsets.symmetric(vertical: 6),
+            contentPadding: EdgeInsets.symmetric(vertical: 3),
             errorStyle: TextStyle(height: 0),
           ),
         ),
         AnimatedContainer(
           duration: const Duration(milliseconds: 160),
-          margin: const EdgeInsets.only(top: 4),
+          margin: const EdgeInsets.only(top: 2),
           height: underlineWidth,
           color: underlineColor,
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 3),
         Text(
           hasError ? errorText : (widget.helper ?? ''),
           style: TextStyle(
             color: hasError ? palette.danger : palette.inkSoft,
-            fontSize: 11.5,
-            height: 1.3,
+            fontSize: 10.5,
+            height: 1.2,
           ),
         ),
-        const SizedBox(height: 14),
+        const SizedBox(height: 8),
       ],
     );
   }
@@ -522,7 +533,7 @@ class AuthPrimaryButton extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 14),
+              padding: const EdgeInsets.symmetric(vertical: 12),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -558,15 +569,15 @@ class AuthPrimaryButton extends StatelessWidget {
                         const SizedBox(width: 10),
                         Flexible(
                           child: Text(
-                          label.toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 2,
-                            fontSize: 13.5,
-                          ),
+                            label.toUpperCase(),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 2,
+                              fontSize: 13,
+                            ),
                           ),
                         ),
                       ],
@@ -604,7 +615,7 @@ class AuthFootnoteLink extends StatelessWidget {
         children: [
           Text(
             prefix,
-            style: TextStyle(color: palette.inkSoft, fontSize: 13),
+            style: TextStyle(color: palette.inkSoft, fontSize: 12),
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -622,7 +633,7 @@ class AuthFootnoteLink extends StatelessWidget {
                 style: TextStyle(
                   color: palette.accentDeep,
                   fontWeight: FontWeight.w700,
-                  fontSize: 13,
+                  fontSize: 12,
                 ),
               ),
             ),

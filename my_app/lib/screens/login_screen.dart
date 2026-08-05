@@ -188,13 +188,13 @@ class _LoginScreenState extends State<LoginScreen> {
               busy: _submitting,
               onPressed: _submitting ? null : _submit,
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             AuthFootnoteLink(
               prefix: 'Didn\'t receive the verification email?',
               linkLabel: 'Resend verification email',
               onTap: _submitting ? () {} : _resendVerification,
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
             AuthFootnoteLink(
               prefix: "Don't have an account?",
               linkLabel: 'Sign up',

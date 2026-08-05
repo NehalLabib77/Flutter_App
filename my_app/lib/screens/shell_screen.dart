@@ -139,7 +139,7 @@ class _ShellScreenState extends State<ShellScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: NavigationBar(
-        height: 78,
+        height: 72,
         selectedIndex: safeIndex,
         onDestinationSelected: (i) => setState(() => _index = i),
         backgroundColor: navBackground,

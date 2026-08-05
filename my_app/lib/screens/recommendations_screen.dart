@@ -158,7 +158,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     isFree: c.isFree,
                     reason: c.reasons.isEmpty ? null : c.reasons.first,
                     score: c.finalScore,
-                    thumbnail: CourseThumbnail(course: c, size: 72),
+                    thumbnail: CourseThumbnail(course: c, size: 68),
                     onTap: () => _open(context, c.id),
                   ),
                 ),
@@ -377,7 +377,7 @@ class _PersonalizedList extends StatelessWidget {
               isFree: c.isFree,
               reason: c.reasons.isEmpty ? null : c.reasons.first,
               score: c.finalScore,
-              thumbnail: CourseThumbnail(course: c, size: 72),
+              thumbnail: CourseThumbnail(course: c, size: 68),
               onTap: () => Navigator.of(
                 context,
               ).pushNamed(AppRoutes.courseDetails, arguments: c.id),
