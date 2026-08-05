@@ -15,7 +15,9 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
@@ -26,6 +28,17 @@ from .extensions import db
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+PAYMENT_STATUS_INITIATED = "INITIATED"
+PAYMENT_STATUS_PENDING = "PENDING"
+PAYMENT_STATUS_VALID = "VALID"
+PAYMENT_STATUS_VALIDATED = "VALIDATED"
+PAYMENT_STATUS_REVIEW_REQUIRED = "REVIEW_REQUIRED"
+PAYMENT_STATUS_FAILED = "FAILED"
+PAYMENT_STATUS_CANCELLED = "CANCELLED"
+PAYMENT_STATUS_INITIATION_FAILED = "INITIATION_FAILED"
+PAYMENT_STATUS_VALIDATION_FAILED = "VALIDATION_FAILED"
 
 
 class User(db.Model):
@@ -63,6 +76,8 @@ class User(db.Model):
                                      cascade="all, delete-orphan")
     enrollments = relationship("Enrollment", backref="user",
                                cascade="all, delete-orphan")
+    payments = relationship("Payment", backref="user",
+                            cascade="all, delete-orphan")
 
     def set_password(self, password: str) -> None:
         self.password_hash = generate_password_hash(password)
@@ -213,6 +228,55 @@ class Enrollment(db.Model):
         }
 
 
+class Payment(db.Model):
+    """Tracks gateway payment lifecycle for course enrollment."""
+
+    __tablename__ = "payments"
+
+    id = Column(Integer, primary_key=True)
+    transaction_id = Column(String(80), unique=True, nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=False, index=True)
+    amount = Column(Numeric(12, 2), nullable=False)
+    currency = Column(String(8), nullable=False, default="BDT")
+    status = Column(String(32), nullable=False, default=PAYMENT_STATUS_INITIATED,
+                    index=True)
+    session_key = Column(String(128), nullable=True)
+    gateway_url = Column(String(512), nullable=True)
+    validation_id = Column(String(128), nullable=True)
+    bank_transaction_id = Column(String(128), nullable=True)
+    card_type = Column(String(64), nullable=True)
+    risk_level = Column(Integer, nullable=True)
+    risk_title = Column(String(255), nullable=True)
+    validated = Column(Boolean, nullable=False, default=False)
+    enrollment_completed = Column(Boolean, nullable=False, default=False)
+    gateway_payload = Column(Text, nullable=True)
+    created_at = Column(DateTime, nullable=False, default=_utcnow)
+    updated_at = Column(DateTime, nullable=False,
+                        default=_utcnow, onupdate=_utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("transaction_id", name="uq_payment_transaction_id"),
+    )
+
+    def to_dict(self) -> dict:
+        return {
+            "transaction_id": self.transaction_id,
+            "course_id": self.course_id,
+            "status": self.status,
+            "amount": str(self.amount) if self.amount is not None else None,
+            "currency": self.currency,
+            "validated": bool(self.validated),
+            "enrollment_completed": bool(self.enrollment_completed),
+            "card_type": self.card_type,
+            "bank_transaction_id": self.bank_transaction_id,
+            "risk_level": self.risk_level,
+            "risk_title": self.risk_title,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+        }
+
+
 __all__ = [
     "User",
     "UserInterest",
@@ -222,4 +286,14 @@ __all__ = [
     "LearningPathProgress",
     "Notification",
     "Enrollment",
+    "Payment",
+    "PAYMENT_STATUS_INITIATED",
+    "PAYMENT_STATUS_PENDING",
+    "PAYMENT_STATUS_VALID",
+    "PAYMENT_STATUS_VALIDATED",
+    "PAYMENT_STATUS_REVIEW_REQUIRED",
+    "PAYMENT_STATUS_FAILED",
+    "PAYMENT_STATUS_CANCELLED",
+    "PAYMENT_STATUS_INITIATION_FAILED",
+    "PAYMENT_STATUS_VALIDATION_FAILED",
 ]

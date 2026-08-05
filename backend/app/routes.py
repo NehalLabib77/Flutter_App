@@ -10,6 +10,7 @@ import json
 import logging
 import os
 import re
+from functools import wraps
 from pathlib import Path
 
 from flask import Blueprint, current_app, jsonify, request
@@ -99,6 +100,38 @@ def current_user() -> User | None:
     if identity is None:
         return None
     return User.query.get(int(identity))
+
+
+def verified_user_required(view_function):
+    """Decorator: require the caller to be signed in *and* verified.
+
+    Builds on top of ``jwt_required`` so any protected endpoint can be
+    gated by both at once. The user's ``firebase_uid`` is looked up in
+    Firebase Auth to confirm ``email_verified`` is true; if Firebase is
+    unreachable the request is rejected (fail closed) rather than
+    silently letting an unverified user through.
+    """
+
+    @wraps(view_function)
+    def wrapped_view(*args, **kwargs):
+        user = current_user()
+        if user is None:
+            return json_error("Account not found.", status=404,
+                              code="USER_NOT_FOUND")
+        uid = user.firebase_uid
+        if not uid:
+            return json_error(
+                "This account is not linked to an identity provider.",
+                status=403, code="NO_FIREBASE_LINK",
+            )
+        if not firebase_client.is_email_verified(uid):
+            return json_error(
+                "Verify your email before accessing this resource.",
+                status=403, code="EMAIL_NOT_VERIFIED",
+            )
+        return view_function(*args, **kwargs)
+
+    return wrapped_view
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +342,18 @@ def register():
     )
     db.session.add(user)
     db.session.commit()
+
+    # 4. Send the verification email. Best-effort — if this fails the
+    #    user can request a fresh link from the login screen. We don't
+    #    roll the registration back because the account itself was
+    #    created successfully in Firebase.
+    try:
+        firebase_client.send_verification_email(email)
+    except firebase_client.EmailVerificationError as exc:
+        log.warning(
+            "Could not send verification email to %s: %s", email, exc.message,
+        )
+
     return json_ok(user.to_dict(), message="Account created.", status=201)
 
 
@@ -457,11 +502,95 @@ def login():
         db.session.add(user)
         db.session.commit()
 
+    # 3. Email verification gate. We refuse to issue a JWT until the
+    #    user has confirmed the address — see
+    #    ``verified_user_required`` for the protected-endpoint side of
+    #    the same check.
+    if not firebase_client.is_email_verified(uid):
+        # Best-effort: also send a fresh verification link so the user
+        # doesn't have to dig out the original email. We swallow the
+        # error — they can always click "Resend" on the client.
+        try:
+            firebase_client.send_verification_email(email)
+        except firebase_client.EmailVerificationError:
+            log.warning("Could not resend verification email to %s", email)
+        return json_error(
+            "Verify your email before signing in. "
+            "A fresh verification link has been sent.",
+            status=403, code="EMAIL_NOT_VERIFIED",
+        )
+
     return json_ok({
         "user": user.to_dict(),
         "access_token": create_access_token(identity=str(user.id)),
         "refresh_token": create_refresh_token(identity=str(user.id)),
     })
+
+
+@bp.post("/auth/send-verification")
+def send_verification():
+    """Resend the email-verification link.
+
+    Body: ``{"email": "...", "password": "..."}``
+
+    The caller proves control of the account by re-supplying the
+    password. We don't issue a session here — just trigger Firebase's
+    ``sendOobCode`` and return success.
+
+    Always returns ``200 OK`` when the credentials are valid so the
+    client can't probe for which addresses are registered (parity with
+    the rest of the auth surface).
+    """
+
+    data = body()
+    email = (data.get("email") or "").strip().casefold()
+    password = data.get("password") or ""
+
+    if not email or not password:
+        return json_error(
+            "Email and password are required.",
+            code="MISSING_CREDENTIALS",
+        )
+
+    if not firebase_client.is_configured():
+        hint = firebase_client.configuration_hint()
+        return json_error(
+            f"Authentication backend is not configured. {hint}",
+            status=503, code="AUTH_BACKEND_UNAVAILABLE",
+        )
+
+    # Verify the password first so we don't let unauthenticated callers
+    # spam emails at arbitrary addresses.
+    try:
+        uid = firebase_client.verify_password(email=email, password=password)
+    except firebase_client.PasswordVerificationError as exc:
+        # Collapse the outcome to "we sent (or tried to send) the
+        # email" so the endpoint can't be used as a credential oracle.
+        log.info("send-verification: password rejected for %s (%s)",
+                 email, exc.code)
+        return json_ok(None, message=(
+            "If that account exists, a verification link has been "
+            "sent to its inbox."
+        ))
+
+    if firebase_client.is_email_verified(uid):
+        return json_ok(None, message=(
+            "This email is already verified."
+        ), code="ALREADY_VERIFIED")
+
+    try:
+        firebase_client.send_verification_email(email)
+    except firebase_client.EmailVerificationError as exc:
+        log.warning("send-verification failed for %s: %s", email, exc.message)
+        return json_error(
+            exc.message,
+            status=429 if exc.code == "TOO_MANY_ATTEMPTS" else 502,
+            code=exc.code,
+        )
+
+    return json_ok(None, message=(
+        "Verification email sent. Check your inbox (and spam folder)."
+    ))
 
 
 @bp.post("/auth/refresh")
@@ -589,6 +718,7 @@ def recommendations_query():
 
 @bp.post("/recommendations/personalized")
 @jwt_required()
+@verified_user_required()
 def recommendations_personalized():
     adapter = current_app.extensions["educompass_model"]
     user = current_user()
@@ -632,6 +762,7 @@ def recommendations_filters():
 
 @bp.get("/me/favorites")
 @jwt_required()
+@verified_user_required()
 def favorites_list():
     user = current_user()
     if user is None:
@@ -654,6 +785,7 @@ def favorites_list():
 
 @bp.post("/me/favorites")
 @jwt_required()
+@verified_user_required()
 def favorites_add():
     user = current_user()
     if user is None:
@@ -674,6 +806,7 @@ def favorites_add():
 
 @bp.delete("/me/favorites/<course_id>")
 @jwt_required()
+@verified_user_required()
 def favorites_remove(course_id):
     user = current_user()
     if user is None:
@@ -687,6 +820,7 @@ def favorites_remove(course_id):
 
 @bp.get("/me/history")
 @jwt_required()
+@verified_user_required()
 def history_list():
     user = current_user()
     if user is None:
@@ -702,6 +836,7 @@ def history_list():
 
 @bp.post("/me/history")
 @jwt_required()
+@verified_user_required()
 def history_add():
     user = current_user()
     if user is None:
@@ -718,6 +853,7 @@ def history_add():
 
 @bp.get("/me/progress")
 @jwt_required()
+@verified_user_required()
 def progress_list():
     user = current_user()
     if user is None:
@@ -733,6 +869,7 @@ def progress_list():
 
 @bp.put("/me/progress/<course_id>")
 @jwt_required()
+@verified_user_required()
 def progress_update(course_id):
     user = current_user()
     if user is None:
@@ -774,6 +911,7 @@ def progress_update(course_id):
 
 @bp.get("/me/enrollments")
 @jwt_required()
+@verified_user_required()
 def enrollments_list():
     user = current_user()
     if user is None:
@@ -788,6 +926,7 @@ def enrollments_list():
 
 @bp.post("/me/enrollments")
 @jwt_required()
+@verified_user_required()
 def enrollments_add():
     """Upsert an enrollment. Idempotent on (user_id, course_id)."""
     user = current_user()
@@ -828,6 +967,7 @@ def enrollments_add():
 
 @bp.delete("/me/enrollments/<course_id>")
 @jwt_required()
+@verified_user_required()
 def enrollments_remove(course_id):
     user = current_user()
     if user is None:
@@ -913,6 +1053,7 @@ def learning_path_detail(path_id):
 
 @bp.get("/learning-paths/<path_id>/progress")
 @jwt_required()
+@verified_user_required()
 def learning_path_progress(path_id):
     user = current_user()
     if user is None:
@@ -929,6 +1070,7 @@ def learning_path_progress(path_id):
 
 @bp.put("/learning-paths/<path_id>/progress")
 @jwt_required()
+@verified_user_required()
 def learning_path_progress_update(path_id):
     user = current_user()
     if user is None:

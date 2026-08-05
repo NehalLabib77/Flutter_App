@@ -164,6 +164,19 @@ class Config:
     )
     AUTO_CREATE_DB = _bool(os.environ.get("AUTO_CREATE_DB"), True)
 
+    PAYMENT_MODE = _str(os.environ.get("PAYMENT_MODE"), "sandbox").lower()
+    USE_MOCK_PAYMENT = _bool(os.environ.get("USE_MOCK_PAYMENT"), False)
+    SSLC_STORE_ID = _str(os.environ.get("SSLC_STORE_ID"), "")
+    SSLC_STORE_PASSWORD = _str(os.environ.get("SSLC_STORE_PASSWORD"), "")
+    PUBLIC_BASE_URL = _str(os.environ.get("PUBLIC_BASE_URL"), "")
+    APP_RETURN_URI = _str(
+        os.environ.get("APP_RETURN_URI"),
+        "educompass://payment/return",
+    )
+    PAYMENT_HTTP_TIMEOUT_SECONDS = int(
+        os.environ.get("PAYMENT_HTTP_TIMEOUT_SECONDS", "12")
+    )
+
 
 class DevelopmentConfig(Config):
     DEBUG = True

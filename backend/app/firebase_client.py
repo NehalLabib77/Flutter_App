@@ -215,6 +215,41 @@ def upsert_user_profile(uid: str, *, email: str,
     db.collection("users").document(uid).set(doc, merge=True)
 
 
+def upsert_user_enrollment(
+    uid: str,
+    *,
+    course_id: str,
+    payment_method: str,
+    transaction_id: str,
+    payment_status: str,
+) -> bool:
+    """Upsert ``users/{uid}/enrollments/{course_id}`` in Firestore.
+
+    Returns ``True`` when the write succeeded or Firebase is unavailable
+    in the current environment (best-effort/no-op), otherwise ``False``.
+    """
+
+    db = firestore_client()
+    if db is None:
+        return True
+    doc = {
+        "course_id": course_id,
+        "payment_method": payment_method,
+        "transaction_id": transaction_id,
+        "payment_status": payment_status,
+        "updated_at": firestore_ServerTimestamp(),
+    }
+    try:
+        db.collection("users").document(uid).collection("enrollments").document(course_id).set(
+            doc,
+            merge=True,
+        )
+    except Exception:  # noqa: BLE001
+        log.exception("Could not upsert Firestore enrollment for uid=%s", uid)
+        return False
+    return True
+
+
 def firestore_ServerTimestamp() -> Any:
     """Return a Firestore server-timestamp sentinel."""
 
@@ -290,6 +325,136 @@ def verify_password(email: str, password: str) -> str:
     raise PasswordVerificationError("AUTH_ERROR", msg)
 
 
+# ---------------------------------------------------------------------------
+# Email verification (REST)
+# ---------------------------------------------------------------------------
+#
+# Firebase Auth exposes two REST endpoints that we use from the backend:
+#
+#  * sendOobCode with requestType=VERIFY_EMAIL  — sends the verification
+#    link to the user's mailbox (uses the same template configured in the
+#    Firebase Console → Authentication → Templates page).
+#  * accounts:lookup                          — fetches the latest
+#    ``emailVerified`` flag for a uid/email pair.
+#
+# Both endpoints require the public web API key (``FIREBASE_WEB_API_KEY``)
+# because the Admin SDK intentionally does not expose a
+# "send-verification-email" method (it only has ``update_user`` which
+# flips ``email_verified`` server-side — not what we want).
+
+
+class EmailVerificationError(Exception):
+    """Raised when Firebase rejects an email-verification request."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(message)
+        self.code = code  # "USER_NOT_FOUND" / "TOO_MANY_ATTEMPTS" / ...
+        self.message = message
+
+
+def _require_web_api_key() -> str:
+    api_key = os.environ.get("FIREBASE_WEB_API_KEY")
+    if not api_key:
+        raise EmailVerificationError(
+            "SERVER_MISCONFIGURED",
+            "Server is missing FIREBASE_WEB_API_KEY.",
+        )
+    return api_key
+
+
+def send_verification_email(email: str) -> None:
+    """Ask Firebase to email the verification link for ``email``.
+
+    Uses ``sendOobCode`` with ``requestType=VERIFY_EMAIL``. The link's
+    ``continueUrl`` is ignored by Identity Toolkit (Firebase rewrites it
+    to the action URL configured on the email template), but we send it
+    anyway because some accounts/projects require it.
+
+    Raises :class:`EmailVerificationError` on failure.
+    """
+
+    api_key = _require_web_api_key()
+    url = (
+        "https://identitytoolkit.googleapis.com/v1/"
+        f"accounts:sendOobCode?key={api_key}"
+    )
+    payload = {
+        "requestType": "VERIFY_EMAIL",
+        "email": email,
+        "returnSecureToken": True,
+    }
+    try:
+        resp = requests.post(url, json=payload, timeout=10)
+    except requests.RequestException as exc:
+        raise EmailVerificationError(
+            "NETWORK_ERROR",
+            f"Could not reach Firebase: {exc}",
+        ) from exc
+
+    if resp.ok:
+        return
+
+    data = resp.json() if resp.content else {}
+    err = data.get("error", {}) or {}
+    msg = (err.get("message") or "Could not send verification email.").strip()
+
+    if "EMAIL_NOT_FOUND" in msg:
+        # Mirror the same UX we use for sign-in: don't leak whether the
+        # email is registered. Treat the request as success so the client
+        # doesn't probe for valid addresses.
+        return
+    if "TOO_MANY_ATTEMPTS" in msg:
+        raise EmailVerificationError(
+            "TOO_MANY_ATTEMPTS",
+            "Too many attempts. Try again in a few minutes.",
+        )
+    raise EmailVerificationError("AUTH_ERROR", msg)
+
+
+def is_email_verified(uid: str) -> bool:
+    """Return True when the Firebase user's ``email_verified`` is set.
+
+    Returns ``False`` for unknown uids so callers can treat "not found"
+    and "not verified" the same way at the route layer (the client is
+    asked to verify either way).
+    """
+
+    auth = auth_client()
+    if auth is None:
+        # If Firebase is unavailable we cannot prove the address is
+        # verified — fail closed (return False) so protected routes
+        # refuse to serve until Firebase comes back.
+        return False
+    try:
+        user = auth.get_user(uid)
+    except Exception:  # noqa: BLE001 — unknown uid, deleted user, etc.
+        return False
+    return bool(getattr(user, "email_verified", False))
+
+
+def mark_email_verified(uid: str) -> bool:
+    """Flip the ``email_verified`` flag on a Firebase user.
+
+    This is the *only* server-side way to mark an email verified (the
+    client SDK can't bypass the verification step). Callers should only
+    invoke this after the user has proven control of the address — i.e.
+    after the click on the link in the verification email.
+
+    Returns ``True`` on success, ``False`` when Firebase is unavailable
+    or the user no longer exists.
+    """
+
+    auth = auth_client()
+    if auth is None:
+        return False
+    try:
+        auth.update_user(uid, email_verified=True)
+        return True
+    except Exception:  # noqa: BLE001
+        log.exception("Could not mark email_verified for uid=%s", uid)
+        return False
+
+
 __all__ = [
     "is_configured",
     "configuration_hint",
@@ -298,6 +463,11 @@ __all__ = [
     "create_auth_user",
     "get_auth_user_by_email",
     "upsert_user_profile",
+    "upsert_user_enrollment",
     "verify_password",
+    "send_verification_email",
+    "is_email_verified",
+    "mark_email_verified",
     "PasswordVerificationError",
+    "EmailVerificationError",
 ]

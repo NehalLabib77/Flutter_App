@@ -41,6 +41,21 @@ services:
           name: educompass-db
           property: connectionString
 
+      - key: PAYMENT_MODE
+        value: sandbox
+
+      - key: SSLC_STORE_ID
+        sync: true
+
+      - key: SSLC_STORE_PASSWORD
+        sync: true
+
+      - key: PUBLIC_BASE_URL
+        value: https://<educompass-backend-service>.onrender.com
+
+      - key: APP_RETURN_URI
+        value: educompass://payment/return
+
 databases:
   - name: educompass-db
     plan: free

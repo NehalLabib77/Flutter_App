@@ -25,6 +25,7 @@ from .database_models import db
 from .extensions import cors, jwt
 from .migrations import apply_lightweight_migrations
 from .model_service import load_recommender
+from .payment_routes import payment_bp
 from .routes import bp as api_bp, json_error, json_ok
 
 
@@ -66,6 +67,7 @@ def _maybe_create_tables(app: Flask) -> None:
         History,
         LearningPathProgress,
         Notification,
+        Payment,
         User,
         UserInterest,
     )
@@ -117,6 +119,7 @@ def create_app(skip_model_load: bool = False) -> Flask:
         app.extensions["educompass_model"] = load_recommender()
 
     app.register_blueprint(api_bp)
+    app.register_blueprint(payment_bp)
 
     # Friendly homepage so `curl http://127.0.0.1:5000/` (and the browser
     # smoke test) returns something useful instead of a 404. The real
@@ -217,6 +220,7 @@ def create_app(skip_model_load: bool = False) -> Flask:
             History,
             LearningPathProgress,
             Notification,
+            Payment,
             User,
             UserInterest,
         )

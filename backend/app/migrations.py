@@ -95,6 +95,15 @@ def apply_lightweight_migrations(db) -> None:
                         index_name,
                     )
 
+    # ``db.create_all`` usually creates this table, but on partially
+    # upgraded deployments we defensively ensure it exists.
+    inspector = inspect(db.engine)
+    if not inspector.has_table("payments"):
+        from .database_models import Payment
+
+        log.info("Migration: creating payments table")
+        Payment.__table__.create(bind=db.engine, checkfirst=True)
+
 
 __all__ = ["apply_lightweight_migrations"]
 
