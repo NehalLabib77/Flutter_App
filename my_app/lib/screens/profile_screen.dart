@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 import '../api_client.dart';
 import '../app_state.dart';
 import '../models.dart';
+import '../theme.dart';
 import '../widgets/design.dart';
 import 'login_screen.dart';
 
@@ -210,75 +211,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Profile')),
       body: ListView(
-        padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+        padding: const EdgeInsets.fromLTRB(
+          Spacing.md,
+          Spacing.md,
+          Spacing.md,
+          Spacing.xxl,
+        ),
         children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: ProfileHeader(
-              fullName: user.fullName,
-              email: user.email,
-              interests: user.interests,
-              busy: _savingProfile,
-              onEdit: () => _editProfile(user),
-            ),
+          ProfileHeader(
+            fullName: user.fullName,
+            email: user.email,
+            interests: user.interests,
+            busy: _savingProfile,
+            onEdit: () => _editProfile(user),
           ),
           const SizedBox(height: Spacing.lg),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: _ThemeCard(),
+          const _ThemeCard(),
+          const SizedBox(height: Spacing.md),
+          const _InfoCard(),
+          const SizedBox(height: Spacing.md),
+          _AccountActionCard(
+            busy: _loggingOut,
+            onSignOut: _logout,
           ),
           const SizedBox(height: Spacing.md),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: _InfoCard(),
+          _DangerZoneCard(
+            busy: _deletingAccount,
+            disabled: _loggingOut,
+            onDelete: () => _deleteAccount(user),
           ),
-          const SizedBox(height: Spacing.lg),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: OutlinedButton.icon(
-              onPressed: _loggingOut ? null : _logout,
-              icon: _loggingOut
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.logout_rounded),
-              label: const Text('Sign out'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                minimumSize: const Size.fromHeight(48),
-              ),
-            ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          // Delete account — destructive, gated by a typed-email
-          // confirmation in [_deleteAccount]. Matches the "Sign out"
-          // button visually but uses error styling and a different
-          // icon so it's distinguishable as permanent.
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
-            child: TextButton.icon(
-              onPressed: (_loggingOut || _deletingAccount)
-                  ? null
-                  : () => _deleteAccount(user),
-              icon: _deletingAccount
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_forever_outlined),
-              label: Text(
-                _deletingAccount ? 'Deleting account…' : 'Delete account',
-              ),
-              style: TextButton.styleFrom(
-                foregroundColor: Theme.of(context).colorScheme.error,
-                minimumSize: const Size.fromHeight(44),
-              ),
-            ),
-          ),
-          const SizedBox(height: Spacing.xl),
         ],
       ),
     );
@@ -291,73 +252,163 @@ class _GuestProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return ListView(
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.fromLTRB(
+        Spacing.md,
+        Spacing.md,
+        Spacing.md,
+        Spacing.xxl,
+      ),
       children: [
-        EduCard(
-          padding: const EdgeInsets.all(Spacing.lg),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: scheme.surfaceContainerHighest,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.person_outline_rounded,
-                      color: scheme.onSurfaceVariant,
-                    ),
-                  ),
-                  const SizedBox(width: Spacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'Browsing as guest',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
-                          ),
-                        ),
-                        const SizedBox(height: Spacing.xs),
-                        Text(
-                          'Sign in to save favorites, enroll in courses, '
-                          'and pick up where you left off.',
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: scheme.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: Spacing.md),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
-                  onPressed: onSignIn,
-                  icon: const Icon(Icons.login_rounded),
-                  label: const Text('Sign in'),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: Spacing.lg),
+        const _GuestIdentityCard(),
+        const SizedBox(height: Spacing.md),
+        _GuestSignInCard(onSignIn: onSignIn),
+        const SizedBox(height: Spacing.md),
         const _ThemeCard(),
         const SizedBox(height: Spacing.md),
         const _InfoCard(),
       ],
+    );
+  }
+}
+
+class _GuestIdentityCard extends StatelessWidget {
+  const _GuestIdentityCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    return Container(
+      padding: const EdgeInsets.all(Spacing.lg),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(Radii.xl),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: isDark
+              ? const [Color(0xFF1D4B87), Color(0xFF24477B)]
+              : const [AppColors.navy, Color(0xFF5D7FAF)],
+        ),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 64,
+            height: 64,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: Colors.white.withValues(alpha: 0.08),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.48),
+                width: 1.5,
+              ),
+            ),
+            child: const Text(
+              'G',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 25,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+          const SizedBox(width: Spacing.lg),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Guest',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Browsing without an account',
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.82),
+                    height: 1.35,
+                  ),
+                ),
+                const SizedBox(height: Spacing.xs),
+                Row(
+                  children: [
+                    const Icon(
+                      Icons.circle,
+                      size: 10,
+                      color: Color(0xFF68E0A2),
+                    ),
+                    const SizedBox(width: Spacing.xs),
+                    Flexible(
+                      child: Text(
+                        'Not signed in',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.92),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GuestSignInCard extends StatelessWidget {
+  const _GuestSignInCard({required this.onSignIn});
+  final VoidCallback onSignIn;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return EduCard(
+      border: true,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Sign in to unlock EduCompass',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.xs),
+          Text(
+            'Save favorites, enroll in courses, and pick up where you left off.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: Spacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton.icon(
+              onPressed: onSignIn,
+              icon: const Icon(Icons.login_rounded),
+              label: const Text('Sign in'),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
@@ -367,42 +418,67 @@ class _ThemeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = context.watch<ThemeProvider>();
+    final themeProvider = context.watch<ThemeProvider>();
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return EduCard(
+      border: true,
       padding: const EdgeInsets.all(Spacing.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            'APPEARANCE',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.palette_outlined,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: Spacing.sm),
-              Text(
-                'Appearance',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+              Icon(Icons.palette_outlined, size: 22, color: scheme.primary),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Theme mode',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Pick how EduCompass looks across the app.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
-          const SizedBox(height: Spacing.md),
+          const SizedBox(height: Spacing.lg),
           SizedBox(
             width: double.infinity,
             child: SegmentedButton<ThemeMode>(
+              showSelectedIcon: false,
+              expandedInsets: EdgeInsets.zero,
               segments: const [
-                ButtonSegment(
-                  value: ThemeMode.light,
-                  icon: Icon(Icons.light_mode_rounded),
-                  label: Text('Light'),
-                ),
                 ButtonSegment(
                   value: ThemeMode.system,
                   icon: Icon(Icons.brightness_auto_rounded),
                   label: Text('Auto'),
+                ),
+                ButtonSegment(
+                  value: ThemeMode.light,
+                  icon: Icon(Icons.light_mode_rounded),
+                  label: Text('Light'),
                 ),
                 ButtonSegment(
                   value: ThemeMode.dark,
@@ -410,8 +486,8 @@ class _ThemeCard extends StatelessWidget {
                   label: Text('Dark'),
                 ),
               ],
-              selected: {theme.mode},
-              onSelectionChanged: (m) => theme.setMode(m.first),
+              selected: {themeProvider.mode},
+              onSelectionChanged: (m) => themeProvider.setMode(m.first),
             ),
           ),
         ],
@@ -428,32 +504,192 @@ class _InfoCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return EduCard(
+      border: true,
       padding: const EdgeInsets.all(Spacing.lg),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.lightbulb_outline_rounded, color: scheme.primary),
-          const SizedBox(width: Spacing.md),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  'All courses',
+          Text(
+            'ABOUT',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.info_outline_rounded, color: scheme.primary),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Text(
+                  'About EduCompass',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: Spacing.xs),
-                Text(
-                  'Browse the catalog, save favourites, and tap "Enroll" on '
-                  'any course to add it to your learning list.',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: scheme.onSurfaceVariant,
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.lg),
+          Text(
+            'EduCompass helps you discover courses, save favourites, and build '
+            'a learning path that fits your goals.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: scheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: Spacing.md),
+          Align(
+            alignment: Alignment.centerRight,
+            child: Text(
+              'Version 1.0.0',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AccountActionCard extends StatelessWidget {
+  const _AccountActionCard({required this.busy, required this.onSignOut});
+  final bool busy;
+  final VoidCallback onSignOut;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return EduCard(
+      border: true,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'ACCOUNT ACTIONS',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            children: [
+              Icon(Icons.lock_outline_rounded, color: scheme.primary),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Text(
+                  'Session',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ],
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onSignOut,
+              icon: busy
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout_rounded),
+              label: Text(busy ? 'Signing out…' : 'Sign out'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DangerZoneCard extends StatelessWidget {
+  const _DangerZoneCard({
+    required this.busy,
+    required this.disabled,
+    required this.onDelete,
+  });
+
+  final bool busy;
+  final bool disabled;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return EduCard(
+      border: true,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'DANGER ZONE',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.error,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.warning_amber_rounded, color: scheme.error),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Delete account',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Permanently remove your account, data, and enrollments.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.lg),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: (busy || disabled) ? null : onDelete,
+              icon: busy
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.delete_forever_outlined),
+              label: Text(busy ? 'Deleting account…' : 'Delete account'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: scheme.error,
+                side: BorderSide(color: scheme.error.withValues(alpha: 0.75)),
+              ),
             ),
           ),
         ],

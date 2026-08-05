@@ -122,23 +122,24 @@ class _ShellScreenState extends State<ShellScreen> {
     // Clamp the current index so a previously-selected Favorites tab doesn't
     // leave us on a phantom page after the user signs out.
     final safeIndex = _index.clamp(0, tabs.length - 1);
-    // Pull tokens from the active theme so the shell honors light +
-    // dark mode. We use the brand navy for both idle + selected labels
-    // (matches the existing visual identity: blue tabs on the app bar).
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final navBackground =
-        isDark ? const Color(0xFF0E1426) : Colors.white;
-    final navIdle = isDark
-        ? const Color(0xFFB3BAD0)
-        : AppColors.navy.withValues(alpha: 0.75);
-    final navActive = AppColors.navy;
+    // Presentation tokens come from the active theme so selected icons
+    // remain readable in dark mode instead of using the light-mode navy.
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final navBackground = isDark ? AppColors.darkPage : Colors.white;
+    final navIdle = scheme.onSurfaceVariant;
+    final navActive = scheme.primary;
     final badgeBackground = navBackground;
     return Scaffold(
       body: IndexedStack(
         index: safeIndex,
         children: [for (final t in tabs) t.screen],
       ),
-      bottomNavigationBar: NavigationBar(
+      bottomNavigationBar: SafeArea(
+        top: false,
+        child: NavigationBar(
+        height: 78,
         selectedIndex: safeIndex,
         onDestinationSelected: (i) => setState(() => _index = i),
         backgroundColor: navBackground,
@@ -165,6 +166,7 @@ class _ShellScreenState extends State<ShellScreen> {
               label: t.label,
             ),
         ],
+        ),
       ),
     );
   }

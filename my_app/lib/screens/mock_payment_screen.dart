@@ -1,9 +1,30 @@
-/// SSLCOMMERZ-hosted checkout for EduCompass course enrollment.
+/// Gateway-based payment screen for EduCompass.
 ///
-/// The client sends only course_id. The Flask backend resolves the official
-/// price, creates the gateway session, validates callbacks and completes the
-/// enrollment. A deep link is only a return signal; this screen always checks
-/// the protected backend status endpoint before showing success.
+/// The previous fake bKash/Nagad/Rocket/Card form with the hard-coded
+/// OTP `123456` has been replaced by a thin wrapper around the Flask
+/// SSLCOMMERZ integration:
+///
+///   1. On entry we ask the backend which billing provider is active.
+///      If it is the free provider, the user is enrolled in-place
+///      without ever leaving the app.
+///   2. Otherwise the user taps **Pay with SSLCOMMERZ**. We POST to
+///      ``/payments/sslcommerz/session`` to mint a transaction id and
+///      resolve the gateway URL, then launch it via ``url_launcher``
+///      in ``externalApplication`` mode so the system browser (or the
+///      SSLCOMMERZ-hosted webview) handles the checkout.
+///   3. The user pays at the gateway. On success / fail / cancel the
+///      gateway redirects back to a tiny HTML page on our backend that
+///      bounces the browser to
+///        ``educompass://payment/return?transaction_id=<id>&status=<...>``.
+///      ``DeepLinkService`` re-emits those URIs as ``PaymentReturn``
+///      events; this screen matches them against the transaction id
+///      we minted and then calls
+///      ``GET /payments/status/<transaction_id>`` to confirm the row
+///      was actually promoted to ``validated``.
+///   4. The result is forwarded via ``Navigator.pop`` using the same
+///      contract the rest of the app already understands:
+///        ``{success, courseId, paymentMethod, transactionId}``
+///
 library;
 
 import 'dart:async';
@@ -19,24 +40,27 @@ import '../models.dart';
 import '../services/billing_provider.dart';
 import '../services/deep_link_service.dart';
 import '../widgets/design.dart';
-import 'payment_status_screen.dart';
 
 class MockPaymentScreen extends StatefulWidget {
   const MockPaymentScreen({
     super.key,
     required this.courseId,
     required this.courseName,
-    this.amount,
+    this.amount = 0,
     this.currencySymbol = '৳',
+    // Whether the course the user is enrolling into is actually free.
+    // When the course is paid but the backend reports the free billing
+    // provider (e.g. SSLCOMMERZ credentials are missing on the
+    // server) we MUST NOT silently enroll for free — that would let
+    // paying users get the course without paying. The screen uses
+    // this flag to surface a clear "gateway not configured" error
+    // instead.
     this.isCourseFree = false,
   });
 
   final String courseId;
   final String courseName;
-
-  /// Display-only hint from the course record. The backend response is the
-  /// authoritative amount and replaces this value as soon as a session exists.
-  final double? amount;
+  final double amount;
   final String currencySymbol;
   final bool isCourseFree;
 
@@ -44,154 +68,690 @@ class MockPaymentScreen extends StatefulWidget {
   State<MockPaymentScreen> createState() => _MockPaymentScreenState();
 }
 
-class _MockPaymentScreenState extends State<MockPaymentScreen>
-    with WidgetsBindingObserver {
+class _MockPaymentScreenState extends State<MockPaymentScreen> {
+  /// Maximum number of times we re-poll the status endpoint while we
+  /// wait for the gateway to confirm a redirect that the IPN hasn't
+  /// beaten us to yet.
+  static const int _statusPollMax = 5;
+  static const Duration _statusPollDelay = Duration(seconds: 1);
+  static const Duration _deepLinkTimeout = Duration(seconds: 60);
   static const String _pendingTxnKey = 'pending_sslc_transaction_id';
   static const String _pendingCourseKey = 'pending_sslc_course_id';
-  static const String _pendingCreatedKey = 'pending_sslc_created_at';
-  static const int _statusPollMax = 6;
-  static const Duration _statusPollDelay = Duration(seconds: 2);
 
-  StreamSubscription<PaymentReturn>? _deepLinkSubscription;
-  Timer? _pollTimer;
-  DeepLinkService? _deepLinks;
-
-  bool _providerLoading = true;
-  bool _busy = false;
-  bool _checkingStatus = false;
-  bool _showingStatus = false;
-  bool _awaitingReturn = false;
   String? _providerName;
   bool? _providerSandbox;
-  String? _error;
-  String? _pendingTransactionId;
-  double? _serverAmount;
-  String _serverCurrency = 'BDT';
+  bool _busy = false;
+  // Latest provider-info error, surfaced through the build tree so the
+  // user can see the message even if the screen is torn down before
+  // the post-await snack fires. Null when there is no error to show.
+  String? _providerErrorMessage;
+  StreamSubscription<PaymentReturn>? _deepLinkSub;
+  // Active poll-timer owned by `_pollStatusUntilSettled`. Held on the
+  // State so dispose() can cancel it; without this the binding flags
+  // "A Timer is still pending even after the widget tree was disposed"
+  // whenever the user navigates away during a pending-payment poll.
+  Timer? _pollTimer;
+
+  /// 60s deep-link wait timer owned by the state, not by the
+  /// closure inside `_attachDeepLinkListener`. Promoting it to an
+  /// instance field lets `dispose()` cancel it when the widget is
+  /// torn down before the timer fires — otherwise the Timer leaks
+  /// past the State lifecycle and trips
+  /// `TestWidgetsFlutterBinding._verifyInvariants`
+  /// ("A Timer is still pending even after the widget tree was
+  /// disposed").
+  Timer? _deepLinkTimer;
+
+  /// Completer the deep-link handler awaits; disposing the widget
+  /// before the redirect arrives must complete it so the await
+  /// unwinds and the test framework doesn't see a hanging future.
+  Completer<void>? _waitForDeepLink;
+
+  /// Cached `ScaffoldMessengerState` resolved once during the first
+  /// build. Reusing this captured reference for every snack call
+  /// avoids re-walking the element tree after `dispose()`, which is
+  /// when the original crash happened — `ScaffoldMessenger.of(
+  /// context)` triggered "Looking up a deactivated widget's ancestor
+  /// is unsafe" on devices where the user navigated away while the
+  /// `paymentProviderInfo` request was still in flight.
+  ScaffoldMessengerState? _messenger;
+
+  /// Captured `DeepLinkService` resolved in `didChangeDependencies`.
+  /// Belt-and-braces: if the screen was ever mounted without the
+  /// `wrapWithProviders` wrapper (stale build / misconfigured route),
+  /// `Provider<DeepLinkService>` is missing and `context.read` throws.
+  /// Caching lets the start() call degrade gracefully.
+  DeepLinkService? _deepLinks;
 
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addObserver(this);
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-      unawaited(_loadProvider());
-      unawaited(_restorePendingTransaction());
-    });
+    _refreshProviderInfo();
+    unawaited(_resumePendingTransaction());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_deepLinks != null) return;
-    _deepLinks = context.read<DeepLinkService>();
-    unawaited(_deepLinks!.start());
-    _deepLinkSubscription = _deepLinks!.paymentReturnStream.listen(
-      _onPaymentReturn,
-      onError: (_) {},
-    );
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed &&
-        _pendingTransactionId != null &&
-        !_showingStatus) {
-      unawaited(_verifyAndShow(_pendingTransactionId!));
+    // Resolve the messenger and the deep-link service once we know
+    // the inherited widget tree is stable. Doing this here (rather
+    // than in initState) makes sure `Provider.of` does not run
+    // before the element tree has finished mounting.
+    _messenger = ScaffoldMessenger.maybeOf(context);
+    // Capture the deep-link service. `context.read` would throw
+    // "Could not find the correct Provider<DeepLinkService>" if a
+    // caller forgot to wrap the route with `wrapWithProviders`; we
+    // tolerate that and leave `_deepLinks` null so the rest of the
+    // flow degrades cleanly (the timeout-based polling fallback is
+    // still wired up).
+    final dl = context.read<DeepLinkService?>();
+    if (_deepLinks == null && dl != null) {
+      _deepLinks = dl;
+      // Make sure the deep-link stream is attached (no-op if already
+      // started by the app shell).
+      unawaited(_deepLinks!.start());
     }
   }
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
+    _deepLinkTimer?.cancel();
+    _deepLinkTimer = null;
     _pollTimer?.cancel();
-    _deepLinkSubscription?.cancel();
+    _pollTimer = null;
+    _deepLinkSub?.cancel();
+    _deepLinkSub = null;
+    final wait = _waitForDeepLink;
+    if (wait != null && !wait.isCompleted) wait.complete();
+    _waitForDeepLink = null;
     super.dispose();
   }
 
-  Future<void> _loadProvider() async {
+  Future<void> _refreshProviderInfo() async {
+    // `mounted` here is the State getter — touching `context` after
+    // the State has been unmounted throws "This widget has been
+    // unmounted" (which is *not* what `context.mounted` catches).
+    if (!mounted) return;
+    final api = context.read<ApiClient>();
     try {
-      final info = await context.read<ApiClient>().paymentProviderInfo();
+      final info = await api.paymentProviderInfo();
       if (!mounted) return;
-      final provider = info['provider']?.toString().trim().toLowerCase();
+      final provider = info['provider']?.toString();
+      final sandbox = info['sandbox'] == true;
+      // The backend reports either the SSLCOMMERZ provider name or
+      // `free`. The abstraction layer mirrors those names so the UI
+      // and the network stay in sync — never compare raw strings
+      // against hard-coded literals here.
+      final usesFree = provider == null ||
+          provider == BillingConfig.freeProviderName;
       setState(() {
-        _providerName = provider;
-        _providerSandbox = info['sandbox'] == true;
-        _providerLoading = false;
-        if (!widget.isCourseFree &&
-            (provider == null ||
-                provider.isEmpty ||
-                provider == BillingConfig.freeProviderName)) {
-          _error = 'SSLCOMMERZ is not configured on the server.';
-        } else {
-          _error = null;
-        }
+        _providerName = usesFree ? BillingConfig.freeProviderName : provider;
+        _providerSandbox = sandbox;
+        _providerErrorMessage = null;
       });
+      // Misconfiguration guard: when the user is paying for a paid
+      // course but the backend reports the free provider, the gateway
+      // is unconfigured (typically `SSLC_STORE_ID` / `SSLC_STORE_PASSWORD`
+      // missing on Render). Surface a clear error instead of silently
+      // enrolling for free — that would let anyone bypass payment.
+      if (usesFree && !widget.isCourseFree) {
+        _showSnack(
+          'Payment gateway is not configured on the server. '
+          'Please contact support.',
+        );
+      }
     } on ApiException catch (e) {
       if (!mounted) return;
+      // Treat an introspection failure as the free provider so the
+      // user can still enrol — same behaviour as the original code,
+      // just with the explicit constant.
+      final errMessage = widget.isCourseFree
+          ? 'Provider info unavailable (${e.message}).'
+          : 'Payment gateway is unreachable (${e.message}). '
+              'Please contact support.';
       setState(() {
-        _providerLoading = false;
-        _error = e.message;
+        _providerName = BillingConfig.freeProviderName;
+        _providerErrorMessage = errMessage;
       });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _providerLoading = false;
-        _error = 'Could not load the payment provider.';
-      });
+      // Still surface the snack for the live screen so the user
+      // gets immediate feedback; the build-tree copy (`_providerErrorMessage`)
+      // is there for the case where this fires after the screen is
+      // already gone.
+      _showSnack(errMessage);
     }
   }
 
-  Future<void> _restorePendingTransaction() async {
-    final prefs = await SharedPreferences.getInstance();
-    final transactionId = prefs.getString(_pendingTxnKey)?.trim() ?? '';
-    final courseId = prefs.getString(_pendingCourseKey)?.trim() ?? '';
-    if (!mounted || transactionId.isEmpty || courseId != widget.courseId) return;
-    setState(() {
-      _pendingTransactionId = transactionId;
-      _awaitingReturn = true;
-    });
+  /// Whether the configured provider is the free stub. In that case we
+  /// skip the gateway entirely and enroll directly.
+  bool get _isFreeProvider =>
+      _providerName == null ||
+      _providerName == BillingConfig.freeProviderName;
 
-    final coldReturn = _deepLinks?.consumeInitialPaymentReturn();
-    if (coldReturn != null && coldReturn.transactionId == transactionId) {
-      await _verifyAndShow(transactionId);
-      return;
-    }
-    await _verifyAndShow(transactionId, poll: false);
-  }
+  /// Resolve the [BillingProvider] implementation that this screen
+  /// should drive. The factory honours the build-time
+  /// `--dart-define=USE_MOCK_PAYMENT` flag — which is **false** by
+  /// default in production builds — so paid courses always flow
+  /// through [SslCommerzBillingProvider] unless the developer
+  /// explicitly opts in.
+  BillingProvider _billingProvider(ApiClient api) =>
+      billingProviderFactory(api);
 
   Future<void> _savePendingTransaction(String transactionId) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_pendingTxnKey, transactionId);
     await prefs.setString(_pendingCourseKey, widget.courseId);
-    await prefs.setString(
-      _pendingCreatedKey,
-      DateTime.now().toUtc().toIso8601String(),
-    );
   }
 
   Future<void> _clearPendingTransaction() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_pendingTxnKey);
     await prefs.remove(_pendingCourseKey);
-    await prefs.remove(_pendingCreatedKey);
-    if (mounted) {
-      setState(() {
-        _pendingTransactionId = null;
-        _awaitingReturn = false;
+  }
+
+  Future<void> _resumePendingTransaction() async {
+    final prefs = await SharedPreferences.getInstance();
+    final pendingCourse = prefs.getString(_pendingCourseKey) ?? '';
+    final pendingTxn = prefs.getString(_pendingTxnKey) ?? '';
+    debugPrint(
+      '[MockPaymentScreen] resume check: txn=$pendingTxn course=$pendingCourse '
+      'want=${widget.courseId}',
+    );
+    if (pendingTxn.isEmpty || pendingCourse != widget.courseId) return;
+
+    // Re-check `mounted` after each `await` so we never read from a
+    // `context` whose element tree has been deactivated. The
+    // analyzer's `use_build_context_synchronously` rule wants this
+    // check adjacent to every post-await `context` use.
+    if (!mounted) return;
+    // `api` is a Provider-scoped singleton and is safe to capture here.
+    final api = context.read<ApiClient>();
+    debugPrint('[MockPaymentScreen] resume: polling status for $pendingTxn');
+    final status = await _pollStatusUntilSettled(api, pendingTxn);
+    debugPrint(
+      '[MockPaymentScreen] resume: poll returned ${status?.transactionId} '
+      '${status?.status}',
+    );
+    if (!mounted) return;
+    if (status == null || status.isPending) {
+      _showSnack('Pending payment was not confirmed yet. You can retry.');
+      return;
+    }
+    await _clearPendingTransaction();
+    if (!mounted) return;
+    if (status.isValid) {
+      _popResult(
+        transactionId: pendingTxn,
+        success: true,
+        method: status.paymentMethod ?? 'sslcommerz',
+      );
+      // The resume path skips `_confirmAndPop`/`_handleReturn`, so
+      // the escalation into [EnrollmentProvider] would otherwise be
+      // dropped — the user would see "Paid" in the snack but the
+      // course would never appear in "My Courses". Mirror the
+      // happy-path behaviour explicitly.
+      await _escalateEnrollment(
+        transactionId: pendingTxn,
+        paymentMethod: status.paymentMethod ?? 'sslcommerz',
+      );
+      return;
+    }
+    if (status.isReviewRequired) {
+      _showSnack(
+        'Payment is under review. Enrollment will be updated after review.',
+      );
+      _popResult(
+        transactionId: pendingTxn,
+        success: false,
+        method: status.paymentMethod ?? 'sslcommerz',
+      );
+      return;
+    }
+    _showSnack('Previous payment did not complete. Please retry.');
+  }
+
+  Future<void> _startCheckout() async {
+    // Hard guard against duplicate taps. Even though the FilledButton
+    // is disabled while `_busy` is true, the OS can deliver two taps
+    // faster than the first setState runs (especially on low-end
+    // devices or with the button rendered in a list). Treat the
+    // guard as load-bearing rather than decorative.
+    if (_busy) return;
+    if (!mounted) return;
+    final api = context.read<ApiClient>();
+    final deepLinks = _deepLinks;
+    if (deepLinks == null) {
+      // The screen was mounted without `wrapWithProviders`. Degrade
+      // gracefully: skip the deep-link path and let the polling
+      // fallback resolve the result.
+      _finishWithFailure(
+        transactionId: '',
+        method: BillingConfig.sslcommerzProviderName,
+        message: 'Deep-link service is not available in this build.',
+      );
+      return;
+    }
+    final billing = _billingProvider(api);
+
+    setState(() => _busy = true);
+
+    try {
+      // Route session creation through the BillingProvider abstraction
+      // rather than calling ApiClient directly. This keeps a single
+      // source of truth for "where do paid courses go?" — production
+      // builds always reach the SSLCOMMERZ endpoint unless the
+      // developer passes `--dart-define=USE_MOCK_PAYMENT=true`.
+      final session = await billing.createSession(courseId: widget.courseId);
+
+      // Free-provider path: the backend (or the in-memory mock) may
+      // mark the session as already validated when no gateway is
+      // involved. We still always re-confirm via the status endpoint
+      // before declaring success, because the deep-link is just a
+      // UX hint — see the comment in `_confirmAndPop`.
+      //
+      // Misconfiguration guard: when the course IS paid but the
+      // backend reports the session as already validated, the gateway
+      // is unconfigured on the server (`SSLC_STORE_ID` /
+      // `SSLC_STORE_PASSWORD` missing on Render) — the backend is
+      // returning the free-provider response for a paid course. Treat
+      // that as a hard failure rather than silently enrolling for
+      // free, which would let a paying user bypass payment.
+      if (session.status?.toUpperCase() == 'VALIDATED') {
+        if (!widget.isCourseFree) {
+          _finishWithFailure(
+            transactionId: session.transactionId,
+            method: BillingConfig.freeProviderName,
+            message:
+                'Payment gateway is not configured on the server. '
+                'Please contact support.',
+          );
+          return;
+        }
+        await _clearPendingTransaction();
+        final confirmed = await _confirmAndPop(api, session.transactionId);
+        if (confirmed) {
+          await _escalateEnrollment(
+            transactionId: session.transactionId,
+            paymentMethod: BillingConfig.freeProviderName,
+          );
+        }
+        return;
+      }
+
+      if (session.gatewayPageUrl.isEmpty) {
+        _finishWithFailure(
+          transactionId: session.transactionId,
+          method: BillingConfig.sslcommerzProviderName,
+          message: 'Gateway URL missing in backend response.',
+        );
+        return;
+      }
+
+      await _savePendingTransaction(session.transactionId);
+
+      // 2. Listen for the matching deep-link before launching the
+      // browser, so we never miss the redirect. The listener
+      // drives the flow directly so we don't depend on a Completer
+      // whose continuation races with subscription cancellation in
+      // tests using a fake clock.
+      _deepLinkSub?.cancel();
+      var handled = false;
+      // Cancellable deep-link wait — the listener cancels the
+      // timer as soon as a redirect arrives, otherwise the timer
+      // fires and we fall back to polling the backend status.
+      // The completer is owned by the State so dispose() can
+      // resolve it (otherwise the await keeps the Future alive,
+      // holding on to the timer's closure and the stream
+      // subscription that the listener relies on).
+      _deepLinkTimer?.cancel();
+      final waitCompleter = _waitForDeepLink = Completer<void>();
+      void markHandled() {
+        if (handled) return;
+        handled = true;
+        _deepLinkTimer?.cancel();
+        _deepLinkTimer = null;
+        if (!waitCompleter.isCompleted) waitCompleter.complete();
+      }
+
+      _deepLinkSub = deepLinks.paymentReturnStream
+          .where(
+            (p) =>
+                p.transactionId == session.transactionId ||
+                p.transactionId.isEmpty,
+          )
+          .listen((p) {
+            debugPrint(
+              '[MockPaymentScreen] deep-link received: ${p.status} '
+              'tx=${p.transactionId}',
+            );
+            if (handled) return;
+            unawaited(_handleReturn(api, session.transactionId, p));
+            markHandled();
+          });
+
+      final launched = await _launchExternal(session.gatewayPageUrl);
+      debugPrint(
+        '[MockPaymentScreen] launchUrl returned: $launched, '
+        'waiting for deep-link',
+      );
+      if (!launched) {
+        await _deepLinkSub?.cancel();
+        _deepLinkSub = null;
+        _finishWithFailure(
+          transactionId: session.transactionId,
+          method: BillingConfig.sslcommerzProviderName,
+          message: 'Could not open the SSLCOMMERZ checkout page.',
+        );
+        return;
+      }
+
+      // 3. Wait for the deep-link (or fall back to polling). The
+      // listener above calls markHandled() once a redirect
+      // arrives, so this future resolves either when the listener
+      // completes or when the timer fires. We keep the timer on
+      // the State so dispose() can cancel it when the widget
+      // tree is torn down early (otherwise it leaks past the
+      // TestWidgetsFlutterBinding assertion).
+      _deepLinkTimer?.cancel();
+      _deepLinkTimer = Timer(_deepLinkTimeout, () {
+        if (handled) return;
+        debugPrint('[MockPaymentScreen] deep-link timeout, polling');
+        unawaited(() async {
+          if (handled) return;
+          final polled = await _pollStatusUntilSettled(
+            api,
+            session.transactionId,
+          );
+          if (handled) return;
+          // When polling finds no settled row, the deep-link slot is
+          // already too late to drive the result. Synthesise a
+          // return signal so the handler treats this branch the same
+          // as a redirect that omitted the `status` query (i.e.
+          // fall through to the authoritative backend status call).
+          await _handleReturn(
+            api,
+            session.transactionId,
+            PaymentReturn(
+              transactionId: polled?.transactionId.isNotEmpty == true
+                  ? polled!.transactionId
+                  : session.transactionId,
+                  status: 'unknown',
+                  sourceUri: Uri.parse('educompass://payment/return'),
+                ),
+          );
+          markHandled();
+        }());
+        if (!handled) markHandled();
       });
+
+      try {
+        await waitCompleter.future;
+      } finally {
+        _deepLinkTimer?.cancel();
+        _deepLinkTimer = null;
+        await _deepLinkSub?.cancel();
+        _deepLinkSub = null;
+        _waitForDeepLink = null;
+      }
+    } on ApiException catch (e) {
+      _finishWithFailure(
+        transactionId: '',
+        method: 'sslcommerz',
+        message: e.message,
+      );
+    } catch (e) {
+      _finishWithFailure(
+        transactionId: '',
+        method: 'sslcommerz',
+        message: 'Unexpected error: $e',
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _busy = false);
+      }
     }
   }
 
-  void _onPaymentReturn(PaymentReturn event) {
-    final active = _pendingTransactionId;
-    if (active == null || active.isEmpty) return;
-    if (event.transactionId.isNotEmpty && event.transactionId != active) return;
-    // event.status is deliberately ignored. The backend status is authoritative.
-    unawaited(_verifyAndShow(active));
+  /// Apply the result of either the deep-link or the polling fallback.
+  /// Called directly from the stream listener so we never depend on a
+  /// Completer continuation racing with subscription cancellation.
+  Future<void> _handleReturn(
+    ApiClient api,
+    String transactionId,
+    PaymentReturn ret,
+  ) async {
+    debugPrint('[MockPaymentScreen] handler branch: ret=${ret.status}');
+    // The deep link is only a signal. The backend status endpoint is authoritative.
+    final billing = _billingProvider(api);
+    final deepLinkStatus = ret.status.toUpperCase();
+    if (deepLinkStatus == 'FAILED' || deepLinkStatus == 'CANCELLED') {
+      final verified = await billing.getStatus(transactionId);
+      await _clearPendingTransaction();
+      if (verified.isFailure) {
+        _finishWithFailure(
+          transactionId: transactionId,
+          method: verified.paymentMethod ??
+              BillingConfig.sslcommerzProviderName,
+          message: verified.normalizedStatus == 'CANCELLED'
+              ? 'Payment was cancelled at the gateway.'
+              : 'Gateway declined the payment.',
+        );
+        return;
+      }
+    }
+    final escalated = await _confirmAndPop(api, transactionId);
+    if (escalated) {
+      // Only refresh the local enrollment provider when the backend
+      // confirmed a real, completed enrollment. REVIEW_REQUIRED and
+      // the various failure paths all return `false` here and skip
+      // this branch — the user MUST NOT see a half-paid course in
+      // "My Courses".
+      await _escalateEnrollment(
+        transactionId: transactionId,
+        paymentMethod: BillingConfig.sslcommerzProviderName,
+      );
+    }
   }
 
-  Future<bool> _launchExternal(String url) {
-    return UrlLauncherPlatform.instance.launchUrl(
+  Future<SslCommerzPaymentStatus?> _pollStatusUntilSettled(
+    ApiClient api,
+    String transactionId,
+  ) async {
+    SslCommerzPaymentStatus? last;
+    for (var i = 0; i < _statusPollMax; i++) {
+      // Use an owned Timer instead of `Future.delayed` so dispose()
+      // can cancel any in-flight wait. Without this the test binding
+      // flags a "Timer is still pending" assertion when the widget
+      // tree is torn down mid-poll (e.g. a screen remount in a
+      // test or the user navigating away during a pending
+      // payment).
+      final completer = Completer<void>();
+      final timer = Timer(_statusPollDelay, () {
+        if (!completer.isCompleted) completer.complete();
+      });
+      _pollTimer = timer;
+      try {
+        await completer.future;
+      } finally {
+        timer.cancel();
+        if (identical(_pollTimer, timer)) _pollTimer = null;
+      }
+      // The widget may have been disposed while we were waiting.
+      if (!mounted) return last;
+      try {
+        final status = await api.getSslCommerzPaymentStatus(transactionId);
+        last = status;
+        if (!status.isPending) return status;
+      } catch (_) {
+        // Keep polling — backend callbacks may not have landed yet.
+      }
+    }
+    return last;
+  }
+
+  /// Drives the final outcome of a payment flow. Returns `true` when
+  /// the backend confirmed a validated, completed enrollment — that
+  /// is the only case where the caller should escalate into
+  /// [EnrollmentProvider]. All other outcomes (review, failure,
+  /// pending-timeout) return `false` so the caller does NOT refresh
+  /// the enrollment provider; doing so would pollute the user's
+  /// "My Courses" list with courses whose payment is still in
+  /// review or has failed.
+  Future<bool> _confirmAndPop(ApiClient api, String transactionId) async {
+    // Always go through the protected backend status endpoint —
+    // the deep-link query string is just a hint that the user
+    // bounced back, not proof of payment.
+    var status = await api.getSslCommerzPaymentStatus(transactionId);
+    if (status.isPending) {
+      final polled = await _pollStatusUntilSettled(api, transactionId);
+      if (polled != null) {
+        status = polled;
+      }
+    }
+
+    if (status.isValid) {
+      await _clearPendingTransaction();
+      _popResult(
+        transactionId: transactionId,
+        success: true,
+        method: status.paymentMethod ?? BillingConfig.sslcommerzProviderName,
+      );
+      return true;
+    }
+
+    if (status.isReviewRequired) {
+      await _clearPendingTransaction();
+      _finishWithFailure(
+        transactionId: transactionId,
+        method: status.paymentMethod ?? BillingConfig.sslcommerzProviderName,
+        message:
+            'Payment is under review. Enrollment will be enabled after review.',
+      );
+      return false;
+    }
+
+    if (status.isFailure) {
+      await _clearPendingTransaction();
+      _finishWithFailure(
+        transactionId: transactionId,
+        method: status.paymentMethod ?? BillingConfig.sslcommerzProviderName,
+        message: 'Gateway reported ${status.normalizedStatus}.',
+      );
+      return false;
+    }
+
+    _finishWithFailure(
+      transactionId: transactionId,
+      method: BillingConfig.sslcommerzProviderName,
+      message: 'Payment stayed pending too long. Please retry.',
+    );
+    return false;
+  }
+
+  /// Pushes a confirmed enrollment to the Flask backend and asks
+  /// [EnrollmentProvider] to refresh its remote snapshot. Called
+  /// ONLY when the backend has reported
+  /// `status == validated && enrollment_completed == true` —
+  /// REVIEW_REQUIRED / FAILED / CANCELLED / pending-timeout outcomes
+  /// deliberately skip this path so unconfirmed courses never land
+  /// in "My Courses".
+  Future<void> _escalateEnrollment({
+    required String transactionId,
+    required String paymentMethod,
+  }) async {
+    if (!mounted) return;
+    final enrollments = context.read<EnrollmentProvider>();
+    await enrollments.pushRemote(
+      courseId: widget.courseId,
+      paymentMethod: paymentMethod,
+      transactionId: transactionId,
+      paymentStatus: 'completed',
+    );
+    // Trigger the Firestore → prefs merge so a second device that
+    // doesn't have this enrollment locally picks it up. The
+    // subscription is owned by `_EnrollmentRemoteSync` at the root,
+    // so `refreshFromRemote` is idempotent.
+    enrollments.refreshFromRemote();
+  }
+
+  Future<void> _freeEnrol() async {
+    // Hard guard: never let the user enroll for free when the course
+    // is paid. The backend reports the free billing provider when the
+    // SSLCOMMERZ credentials are missing on the server; that's a
+    // server-side misconfiguration, not a reason to bypass payment.
+    // Without this guard a paying user could end up enrolled without
+    // ever paying, which would be a billing bypass.
+    if (!widget.isCourseFree) {
+      _showSnack(
+        'Payment gateway is not configured on the server. '
+        'Please contact support.',
+      );
+      return;
+    }
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      _popResult(
+        transactionId: 'FREE-${DateTime.now().millisecondsSinceEpoch}',
+        success: true,
+        method: 'free',
+      );
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  void _finishWithFailure({
+    required String transactionId,
+    required String method,
+    required String message,
+  }) {
+    if (!mounted) return;
+    setState(() => _busy = false);
+    _showSnack(message);
+    _popResult(transactionId: transactionId, success: false, method: method);
+  }
+
+  void _popResult({
+    required String transactionId,
+    required bool success,
+    required String method,
+  }) {
+    if (!mounted) return;
+    unawaited(_clearPendingTransaction());
+    Navigator.pop(context, {
+      'success': success,
+      'courseId': widget.courseId,
+      'paymentMethod': method,
+      'transactionId': transactionId,
+    });
+  }
+
+  void _showSnack(String message) {
+    // Two layers of guard:
+    //   * `mounted` is the State getter. Reading `context` after
+    //     `dispose()` throws "This widget has been unmounted, so the
+    //     State no longer has a context" — `context.mounted` does
+    //     NOT catch that case (it only triggers when the *element*
+    //     is deactivated but the State is still associated with
+    //     it). Always check `mounted` first.
+    //   * The captured `_messenger` is the `ScaffoldMessengerState`
+    //     resolved during `didChangeDependencies`. Reusing it skips
+    //     the `ScaffoldMessenger.of(context)` ancestor lookup that
+    //     was crashing with "Looking up a deactivated widget's
+    //     ancestor is unsafe" when the user navigated away while a
+    //     post-await snack fired.
+    if (!mounted) return;
+    final messenger = _messenger;
+    if (messenger == null) return;
+    messenger.showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  String get _formattedAmount =>
+      '${widget.currencySymbol}${widget.amount.toStringAsFixed(2)}';
+
+  Future<bool> _launchExternal(String url) async {
+    final platform = UrlLauncherPlatform.instance;
+    return platform.launchUrl(
       url,
       const LaunchOptions(
         mode: PreferredLaunchMode.externalApplication,
@@ -200,229 +760,54 @@ class _MockPaymentScreenState extends State<MockPaymentScreen>
     );
   }
 
-  Future<void> _startCheckout() async {
-    if (_busy || _checkingStatus) return;
-    setState(() {
-      _busy = true;
-      _error = null;
-    });
-    try {
-      final api = context.read<ApiClient>();
-      final session = await api.createSslCommerzSession(
-        courseId: widget.courseId,
-      );
-      if (!mounted) return;
-
-      if (session.transactionId.trim().isEmpty) {
-        throw const ApiException(
-          502,
-          'The server returned an invalid transaction reference.',
-          code: 'INVALID_PAYMENT_SESSION',
-        );
-      }
-
-      setState(() {
-        _pendingTransactionId = session.transactionId;
-        _serverAmount = session.amount ?? _serverAmount;
-        _serverCurrency = session.currency ?? _serverCurrency;
-        _providerSandbox = session.mode == 'sandbox' || _providerSandbox == true;
-        _awaitingReturn = true;
-      });
-      await _savePendingTransaction(session.transactionId);
-
-      if ((session.status ?? '').toUpperCase() == 'VALIDATED') {
-        await _verifyAndShow(session.transactionId);
-        return;
-      }
-
-      final gatewayUrl = session.gatewayUrl.trim();
-      if (!gatewayUrl.startsWith('https://')) {
-        throw const ApiException(
-          502,
-          'The gateway did not return a secure checkout URL.',
-          code: 'INVALID_GATEWAY_URL',
-        );
-      }
-      final launched = await _launchExternal(gatewayUrl);
-      if (!launched) {
-        throw const ApiException(
-          0,
-          'Could not open the SSLCOMMERZ checkout page.',
-          code: 'CHECKOUT_LAUNCH_FAILED',
-        );
-      }
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Could not start the payment checkout.');
-      }
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
-  Future<SslCommerzPaymentStatus> _fetchSettledStatus(
-    String transactionId, {
-    required bool poll,
-  }) async {
-    final api = context.read<ApiClient>();
-    var status = await api.getSslCommerzPaymentStatus(transactionId);
-    if (!poll || !status.isPending) return status;
-
-    for (var attempt = 0; attempt < _statusPollMax; attempt++) {
-      await _wait(_statusPollDelay);
-      if (!mounted) return status;
-      status = await api.getSslCommerzPaymentStatus(transactionId);
-      if (!status.isPending) break;
-    }
-    return status;
-  }
-
-  Future<void> _wait(Duration duration) async {
-    final completer = Completer<void>();
-    final timer = Timer(duration, completer.complete);
-    _pollTimer = timer;
-    try {
-      await completer.future;
-    } finally {
-      timer.cancel();
-      if (identical(_pollTimer, timer)) _pollTimer = null;
-    }
-  }
-
-  Future<void> _verifyAndShow(
-    String transactionId, {
-    bool poll = true,
-  }) async {
-    if (_checkingStatus || _showingStatus || !mounted) return;
-    setState(() {
-      _checkingStatus = true;
-      _error = null;
-    });
-
-    try {
-      var latest = await _fetchSettledStatus(transactionId, poll: poll);
-      if (!mounted) return;
-      setState(() {
-        _serverAmount = latest.amount ?? _serverAmount;
-        _serverCurrency = latest.currency ?? _serverCurrency;
-        _showingStatus = true;
-      });
-
-      final completed = await Navigator.push<bool>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => PaymentStatusScreen(
-            api: context.read<ApiClient>(),
-            initialStatus: latest,
-            courseName: widget.courseName,
-            onStatusChanged: (updated) {
-              latest = updated;
-              if (!mounted) return;
-              setState(() {
-                _serverAmount = updated.amount ?? _serverAmount;
-                _serverCurrency = updated.currency ?? _serverCurrency;
-              });
-            },
-          ),
-        ),
-      );
-      if (!mounted) return;
-
-      if (completed == true) {
-        await _clearPendingTransaction();
-        context.read<EnrollmentProvider>().refreshFromRemote();
-        if (!mounted) return;
-        Navigator.pop<Map<String, dynamic>>(context, {
-          'success': true,
-          'courseId': widget.courseId,
-          'paymentMethod': latest.cardType ??
-              latest.paymentMethod ??
-              BillingConfig.sslcommerzProviderName,
-          'transactionId': latest.transactionId,
-          'amount': latest.amount,
-          'currency': latest.currency,
-        });
-        return;
-      }
-
-      if (latest.isFailure) {
-        await _clearPendingTransaction();
-      }
-    } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
-    } catch (_) {
-      if (mounted) {
-        setState(() => _error = 'Could not verify the payment status.');
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _checkingStatus = false;
-          _showingStatus = false;
-        });
-      }
-    }
-  }
-
-  String get _displayAmount {
-    final amount = _serverAmount ?? widget.amount;
-    if (amount == null || amount <= 0) return 'Confirmed securely by server';
-    final prefix = _serverCurrency == 'BDT'
-        ? widget.currencySymbol
-        : '$_serverCurrency ';
-    return '$prefix${amount.toStringAsFixed(2)}';
-  }
-
-  String get _buttonLabel {
-    final amount = _serverAmount ?? widget.amount;
-    if (amount == null || amount <= 0) return 'Continue to secure checkout';
-    return 'Pay $_displayAmount';
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final paidProviderUnavailable = !widget.isCourseFree &&
-        !_providerLoading &&
-        (_providerName == null ||
-            _providerName!.isEmpty ||
-            _providerName == BillingConfig.freeProviderName);
-    final disabled = _busy ||
-        _checkingStatus ||
-        _providerLoading ||
-        paidProviderUnavailable;
+    final free = _isFreeProvider;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Course Payment')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(Spacing.lg),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: EdgeInsets.fromLTRB(
+            Spacing.lg,
+            Spacing.lg,
+            Spacing.lg,
+            Spacing.xxl + MediaQuery.paddingOf(context).bottom,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               HeroBanner(
+                key: const Key('payment_total_due'),
                 eyebrow: 'PAYMENT',
                 title: widget.courseName,
-                subtitle: 'Total due: $_displayAmount',
+                subtitle: 'Total due $_formattedAmount',
                 icon: Icons.receipt_long_rounded,
               ),
-              if (_error != null) ...[
+              if (_providerErrorMessage != null) ...[
                 const SizedBox(height: Spacing.md),
+                // Inline error card so the user sees the problem even
+                // when the screen was reopened after the post-await
+                // snack fired.
                 EduCard(
+                  key: const Key('provider_error_banner'),
                   color: scheme.errorContainer,
+                  border: true,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.error_outline_rounded,
-                          color: scheme.onErrorContainer),
+                      Icon(
+                        Icons.error_outline_rounded,
+                        color: scheme.onErrorContainer,
+                      ),
                       const SizedBox(width: Spacing.sm),
                       Expanded(
                         child: Text(
-                          _error!,
-                          style: theme.textTheme.bodyMedium?.copyWith(
+                          _providerErrorMessage!,
+                          style: theme.textTheme.bodySmall?.copyWith(
                             color: scheme.onErrorContainer,
                             fontWeight: FontWeight.w600,
                           ),
@@ -434,6 +819,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen>
               ],
               const SizedBox(height: Spacing.lg),
               EduCard(
+                key: const Key('payment_provider_summary'),
                 border: true,
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,59 +827,57 @@ class _MockPaymentScreenState extends State<MockPaymentScreen>
                     Text(
                       'Billing provider',
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: Spacing.xs),
                     Text(
-                      widget.isCourseFree
-                          ? 'This course will be enrolled directly by the server.'
-                          : 'You will be redirected to SSLCOMMERZ for secure checkout.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      free
+                          ? 'No payment is required for this course.'
+                          : 'You will be redirected to SSLCOMMERZ to complete payment.',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: Spacing.lg),
-                    Row(
-                      children: [
-                        Icon(
-                          widget.isCourseFree
-                              ? Icons.workspace_premium_rounded
-                              : Icons.lock_outline_rounded,
-                          color: scheme.primary,
-                        ),
-                        const SizedBox(width: Spacing.sm),
-                        Expanded(
-                          child: Text(
-                            widget.isCourseFree
-                                ? 'Free enrollment'
-                                : (_providerLoading
-                                    ? 'Checking provider…'
-                                    : 'Pay with SSLCOMMERZ'),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
+                    const SizedBox(height: Spacing.md),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Wrap(
+                          spacing: Spacing.sm,
+                          runSpacing: Spacing.sm,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Icon(
+                              free
+                                  ? Icons.workspace_premium_rounded
+                                  : Icons.lock_outline_rounded,
+                              color: scheme.primary,
                             ),
-                          ),
-                        ),
-                        if (!widget.isCourseFree && _providerSandbox == true)
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: Spacing.sm,
-                              vertical: Spacing.xs,
-                            ),
-                            decoration: BoxDecoration(
-                              color: scheme.tertiaryContainer,
-                              borderRadius: Radii.pill,
-                            ),
-                            child: Text(
-                              'SANDBOX',
-                              style: theme.textTheme.labelSmall?.copyWith(
-                                color: scheme.onTertiaryContainer,
-                                fontWeight: FontWeight.w800,
+                            ConstrainedBox(
+                              constraints: BoxConstraints(
+                                maxWidth: constraints.maxWidth - 48,
+                              ),
+                              child: Text(
+                                free ? 'Free enrollment' : 'Pay with SSLCOMMERZ',
+                                key: free
+                                    ? const Key('free_enrollment_label')
+                                    : null,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
                             ),
-                          ),
-                      ],
+                            if (!free && _providerSandbox == true)
+                              Pill(
+                                text: 'SANDBOX',
+                                icon: Icons.science_outlined,
+                                color: scheme.tertiary,
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
@@ -505,57 +889,50 @@ class _MockPaymentScreenState extends State<MockPaymentScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      _awaitingReturn ? 'Waiting for confirmation' : 'Checkout',
+                      free ? 'Confirm enrollment' : 'Checkout',
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: Spacing.sm),
                     Text(
-                      _awaitingReturn
-                          ? 'Complete the payment in your browser. EduCompass will verify it automatically when you return.'
-                          : 'The backend confirms the official price and creates a protected checkout session.',
-                      style: theme.textTheme.bodyMedium?.copyWith(
+                      free
+                          ? 'You can enrol in this course without paying. The backend will record your enrollment immediately.'
+                          : 'Tap the button below to open the SSLCOMMERZ sandbox checkout in your browser. After paying, you will be bounced back to the app.',
+                      style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
-                        height: 1.45,
                       ),
                     ),
-                    const SizedBox(height: Spacing.lg),
-                    FilledButton.icon(
-                      onPressed: disabled
+                    const SizedBox(height: Spacing.md),
+                    SizedBox(
+                      width: double.infinity,
+                      child: FilledButton.icon(
+                      key: free
+                          ? const Key('free_enrollment_cta')
+                          : const Key('payment_primary_cta'),
+                      onPressed: _busy
                           ? null
-                          : (_awaitingReturn && _pendingTransactionId != null
-                              ? () => _verifyAndShow(_pendingTransactionId!)
-                              : _startCheckout),
-                      icon: _busy || _checkingStatus
+                          : (free ? _freeEnrol : _startCheckout),
+                      icon: _busy
                           ? const SizedBox(
-                              width: 18,
                               height: 18,
+                              width: 18,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
                           : Icon(
-                              _awaitingReturn
-                                  ? Icons.refresh_rounded
+                              free
+                                  ? Icons.check_circle_outline_rounded
                                   : Icons.open_in_new_rounded,
                             ),
                       label: Text(
-                        _checkingStatus
-                            ? 'Verifying payment…'
-                            : _awaitingReturn
-                                ? 'Check payment status'
-                                : _buttonLabel,
+                        free
+                            ? 'Enrol for free'
+                            : (_busy
+                                  ? 'Opening gateway…'
+                                  : 'Pay $_formattedAmount'),
+                      ),
                       ),
                     ),
-                    if (_error != null) ...[
-                      const SizedBox(height: Spacing.sm),
-                      Center(
-                        child: TextButton.icon(
-                          onPressed: _providerLoading ? null : _loadProvider,
-                          icon: const Icon(Icons.refresh_rounded),
-                          label: const Text('Retry provider check'),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
@@ -564,14 +941,16 @@ class _MockPaymentScreenState extends State<MockPaymentScreen>
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   Icon(
-                    Icons.verified_user_outlined,
-                    size: 16,
+                    Icons.info_outline_rounded,
+                    size: 14,
                     color: scheme.onSurfaceVariant,
                   ),
                   const SizedBox(width: Spacing.xs),
                   Flexible(
                     child: Text(
-                      'Course access is granted only after secure server validation.',
+                      free
+                          ? 'Free courses do not call the gateway.'
+                          : 'Complete checkout in the secure SSLCOMMERZ page, then return to EduCompass.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,

@@ -14,6 +14,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../services/firebase_auth_service.dart';
+import '../widgets/design.dart';
 
 class EmailVerificationScreen extends StatefulWidget {
   const EmailVerificationScreen({
@@ -210,61 +211,152 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
     return Scaffold(
       appBar: AppBar(
         title: const Text('Verify your email'),
         automaticallyImplyLeading: false,
       ),
       body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const Icon(
-                Icons.mark_email_unread_outlined,
-                size: 72,
-                color: Colors.blueGrey,
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Check your inbox',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'We sent a verification link to:\n${widget.email}',
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'This screen will update automatically once you tap '
-                'the verification link. You can keep using the app '
-                'in the meantime.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              padding: const EdgeInsets.all(Spacing.lg),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minHeight: constraints.maxHeight - (Spacing.lg * 2),
+                ),
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 520),
+                    child: EduCard(
+                      border: true,
+                      padding: const EdgeInsets.all(Spacing.xl),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Align(
+                            child: Container(
+                              width: 88,
+                              height: 88,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: scheme.primary.withValues(alpha: 0.12),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: scheme.primary.withValues(alpha: 0.24),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.mark_email_unread_outlined,
+                                size: 44,
+                                color: scheme.primary,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.lg),
+                          Text(
+                            'Check your inbox',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                          Text(
+                            'We sent a verification link to',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: scheme.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.xs),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: Spacing.md,
+                              vertical: Spacing.sm,
+                            ),
+                            decoration: BoxDecoration(
+                              color: scheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(Radii.md),
+                            ),
+                            child: Text(
+                              widget.email,
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: scheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.lg),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: scheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: Spacing.sm),
+                              Expanded(
+                                child: Text(
+                                  'EduCompass checks automatically. After you tap '
+                                  'the link, return to the app and you will be '
+                                  'taken forward without another button.',
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: scheme.onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: Spacing.xl),
+                          SizedBox(
+                            width: double.infinity,
+                            child: OutlinedButton.icon(
+                              onPressed: (_sending || _resendSeconds > 0)
+                                  ? null
+                                  : _resendEmail,
+                              icon: _sending
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.refresh_rounded),
+                              label: Text(
+                                _resendSeconds > 0
+                                    ? 'Resend in $_resendSeconds seconds'
+                                    : 'Resend verification email',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: Spacing.sm),
+                          TextButton.icon(
+                            onPressed: _signOut,
+                            icon: const Icon(Icons.switch_account_outlined),
+                            label: const Text('Use another account'),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              const SizedBox(height: 32),
-              TextButton(
-                onPressed:
-                    (_sending || _resendSeconds > 0) ? null : _resendEmail,
-                child: Text(
-                  _resendSeconds > 0
-                      ? 'Resend in $_resendSeconds seconds'
-                      : 'Resend verification email',
-                ),
-              ),
-              TextButton(
-                onPressed: _signOut,
-                child: const Text('Use another account'),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

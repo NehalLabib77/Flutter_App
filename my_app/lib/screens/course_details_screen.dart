@@ -170,9 +170,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       return;
     }
     final parsedAmount = _parseAmount(c.price);
-    final double? amount = c.isFree
-        ? 0.0
-        : (parsedAmount > 0 ? parsedAmount : null);
+    final amount = c.isFree ? 0.0 : (parsedAmount > 0 ? parsedAmount : 0.01);
     if (!c.isFree) {
       final result = await Navigator.push<Map<String, dynamic>>(
         context,
@@ -339,7 +337,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           Positioned.fill(
             child: SingleChildScrollView(
               controller: _scroll,
-              padding: const EdgeInsets.only(bottom: 120),
+              padding: EdgeInsets.only(
+                bottom: 132 + MediaQuery.paddingOf(context).bottom,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -500,7 +500,7 @@ class _HeroImage extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final url = course.imageUrl ?? '';
-    final radius = BorderRadius.circular(Radii.lg);
+    final radius = BorderRadius.circular(Radii.xl);
     return ClipRRect(
       borderRadius: radius,
       child: AspectRatio(
@@ -562,37 +562,45 @@ class _PillRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Pill(
-          text: providerLabel,
-          icon: Icons.school_rounded,
-          color: scheme.primary,
+        Expanded(
+          child: Row(
+            children: [
+              Flexible(
+                child: Pill(
+                  text: providerLabel,
+                  icon: Icons.school_rounded,
+                  color: scheme.primary,
+                ),
+              ),
+              const SizedBox(width: Spacing.sm),
+              Container(
+                padding: const EdgeInsets.all(7),
+                decoration: BoxDecoration(
+                  color: scheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(Radii.sm),
+                  border: Border.all(
+                    color: scheme.outlineVariant.withValues(alpha: 0.55),
+                  ),
+                ),
+                child: Icon(
+                  Icons.bookmark_outline_rounded,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
         ),
-        const SizedBox(width: Spacing.sm),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: Spacing.sm,
-            vertical: 3,
-          ),
-          decoration: BoxDecoration(
-            color: scheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(Radii.sm),
-          ),
-          child: Icon(
-            Icons.bookmark_outline_rounded,
-            size: 16,
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const Spacer(),
         if (onShare != null)
           IconButton(
             tooltip: 'Share',
+            constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
             onPressed: onShare,
             icon: Icon(Icons.ios_share_rounded, color: scheme.onSurface),
           ),
-        const SizedBox(width: Spacing.xs),
         IconButton(
           tooltip: isFavorite ? 'Remove favorite' : 'Add favorite',
+          constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
           onPressed: onFavorite,
           icon: Icon(
             isFavorite
@@ -636,6 +644,8 @@ class _TitleBlock extends StatelessWidget {
         const SizedBox(height: Spacing.xs),
         Text(
           meta.join(' • '),
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: scheme.onSurfaceVariant,
             fontWeight: FontWeight.w500,
@@ -702,7 +712,7 @@ class _PriceRow extends StatelessWidget {
         ? 'Free for everyone'
         : ((course.price ?? '').trim().isNotEmpty
             ? course.price!.trim()
-            : 'price confirmed at checkout');
+            : 'one-time');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -846,58 +856,140 @@ class _AboutCard extends StatelessWidget {
 // What you will learn card
 // ---------------------------------------------------------------------------
 
-class _SkillsCard extends StatelessWidget {
+class _SkillsCard extends StatefulWidget {
   const _SkillsCard({required this.skills});
   final List<String> skills;
+
+  @override
+  State<_SkillsCard> createState() => _SkillsCardState();
+}
+
+class _SkillsCardState extends State<_SkillsCard> {
+  final ScrollController _skillsScroll = ScrollController();
+
+  @override
+  void dispose() {
+    _skillsScroll.dispose();
+    super.dispose();
+  }
+
+  Widget _skillRow(BuildContext context, String skill) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 24,
+          height: 24,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: scheme.primary.withValues(alpha: 0.12),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.check_rounded, size: 16, color: scheme.primary),
+        ),
+        const SizedBox(width: Spacing.sm),
+        Expanded(
+          child: Text(
+            skill,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              height: 1.35,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final scrollable = widget.skills.length > 6;
+
+    final list = ListView.separated(
+      controller: _skillsScroll,
+      primary: false,
+      shrinkWrap: !scrollable,
+      physics: scrollable
+          ? const ClampingScrollPhysics()
+          : const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
+      itemCount: widget.skills.length,
+      separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
+      itemBuilder: (context, index) => _skillRow(
+        context,
+        widget.skills[index],
+      ),
+    );
+
     return EduCard(
+      border: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(Icons.lightbulb_outline_rounded, color: scheme.primary),
               const SizedBox(width: Spacing.md),
               Expanded(
-                child: Text(
-                  'What you will learn',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'What you will learn',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (scrollable) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        'Scroll inside this box to view every skill',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              Text(
-                'skills',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: scheme.primary,
-                  fontWeight: FontWeight.w700,
-                ),
+              const SizedBox(width: Spacing.sm),
+              Pill(
+                text: '${widget.skills.length} skills',
+                icon: Icons.checklist_rounded,
               ),
             ],
           ),
           const SizedBox(height: Spacing.md),
-          for (var i = 0; i < skills.length; i++) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Icon(Icons.check_rounded, size: 18, color: scheme.primary),
-                const SizedBox(width: Spacing.sm),
-                Expanded(
-                  child: Text(
-                    skills[i],
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(
+              horizontal: Spacing.md,
+              vertical: Spacing.sm,
             ),
-            if (i != skills.length - 1) const SizedBox(height: Spacing.sm),
-          ],
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(Radii.md),
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.65),
+              ),
+            ),
+            child: scrollable
+                ? SizedBox(
+                    height: 236,
+                    child: Scrollbar(
+                      controller: _skillsScroll,
+                      thumbVisibility: true,
+                      radius: const Radius.circular(8),
+                      child: list,
+                    ),
+                  )
+                : list,
+          ),
         ],
       ),
     );
@@ -1027,7 +1119,7 @@ class _SimilarCard extends StatelessWidget {
     return SizedBox(
       width: 168,
       child: Material(
-        color: scheme.surface,
+        color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(Radii.lg),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
@@ -1035,7 +1127,13 @@ class _SimilarCard extends StatelessWidget {
             AppRoutes.courseDetails,
             arguments: course.id,
           ),
-          child: Padding(
+          child: Container(
+            decoration: BoxDecoration(
+              border: Border.all(
+                color: scheme.outlineVariant.withValues(alpha: 0.55),
+              ),
+              borderRadius: BorderRadius.circular(Radii.lg),
+            ),
             padding: const EdgeInsets.all(Spacing.sm),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

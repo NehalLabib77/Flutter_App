@@ -71,7 +71,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         child: user.favorites.isEmpty
             ? _empty(theme, user.loadingFavorites)
             : ListView.separated(
-                padding: const EdgeInsets.all(Spacing.md),
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.md,
+                  Spacing.md,
+                  Spacing.md,
+                  Spacing.xxl,
+                ),
                 itemCount: user.favorites.length,
                 separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
                 itemBuilder: (_, i) {
@@ -100,7 +105,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       skills: c.skills,
                       rating: c.rating,
                       isFree: c.isFree,
-                      thumbnail: CourseThumbnail(course: c, size: 64),
+                      thumbnail: CourseThumbnail(course: c, size: 72),
                       trailing: IconButton(
                         tooltip: 'Remove from favorites',
                         icon: Icon(

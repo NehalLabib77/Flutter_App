@@ -117,6 +117,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               Icons.explore_rounded,
@@ -124,13 +125,17 @@ class _HomeScreenState extends State<HomeScreen> {
               size: 22,
             ),
             SizedBox(width: Spacing.xs),
-            Text(
-              'EduCompass',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w700,
-                fontSize: 19,
-                letterSpacing: 0.1,
+            Flexible(
+              child: Text(
+                'EduCompass',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  letterSpacing: 0.1,
+                ),
               ),
             ),
           ],
@@ -168,7 +173,13 @@ class _HomeScreenState extends State<HomeScreen> {
           ]);
         },
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: Spacing.md),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            Spacing.md,
+            0,
+            Spacing.xl,
+          ),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
@@ -261,6 +272,12 @@ class _Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
+    final width = MediaQuery.sizeOf(context).width;
+    final cardWidth = (width - 48).clamp(278.0, 340.0).toDouble();
+    final railHeight = MediaQuery.textScalerOf(context)
+        .scale(178)
+        .clamp(178.0, 218.0)
+        .toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -285,7 +302,7 @@ class _Section extends StatelessWidget {
         // answer intrinsic-dimension queries), which used to crash the
         // frame with a 2px RenderFlex overflow on small screens.
         SizedBox(
-          height: 168,
+          height: railHeight,
           child: courses.isEmpty
               ? _EmptyOrLoading(
                   loading: loading,
@@ -300,7 +317,7 @@ class _Section extends StatelessWidget {
                   itemBuilder: (_, i) {
                     final c = courses[i];
                     return SizedBox(
-                      width: 320,
+                      width: cardWidth,
                       child: CourseRowCard(
                         title: c.name,
                         provider: c.provider,
@@ -309,7 +326,7 @@ class _Section extends StatelessWidget {
                         skills: c.skills,
                         rating: c.rating,
                         isFree: c.isFree,
-                        thumbnail: CourseThumbnail(course: c, size: 64),
+                        thumbnail: CourseThumbnail(course: c, size: 72),
                         trailing: c.url != null && c.url!.isNotEmpty
                             ? IconButton(
                                 tooltip: 'Open in browser',

@@ -182,17 +182,6 @@ class LearningPath {
 /// casing the current backend version emitted. The original field is
 /// retained for backwards compatibility with older deserialisation
 /// code that used `gatewayPageUrl` directly.
-double? _paymentDouble(Object? raw) {
-  if (raw == null) return null;
-  if (raw is num) return raw.toDouble();
-  final text = raw.toString().trim().replaceAll(',', '');
-  if (text.isEmpty) return null;
-  final direct = double.tryParse(text);
-  if (direct != null) return direct;
-  final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(text);
-  return match == null ? null : double.tryParse(match.group(0)!);
-}
-
 class SslCommerzSession {
   SslCommerzSession({
     required this.transactionId,
@@ -273,7 +262,7 @@ class SslCommerzSession {
       provider: session['provider']?.toString(),
       sessionKey: session['session_key']?.toString(),
       currency: session['currency']?.toString(),
-      amount: _paymentDouble(session['amount']),
+      amount: (session['amount'] as num?)?.toDouble(),
       courseId: session['course_id']?.toString(),
       mode: pickMode(session),
     );
@@ -355,8 +344,7 @@ class SslCommerzPaymentStatus {
 
   bool get isReviewRequired => normalizedStatus == 'REVIEW_REQUIRED';
 
-  bool get isPending =>
-      normalizedStatus == 'PENDING' || normalizedStatus == 'INITIATED';
+  bool get isPending => normalizedStatus == 'PENDING';
 
   bool get isFailure =>
       normalizedStatus == 'FAILED' ||
@@ -390,9 +378,9 @@ class SslCommerzPaymentStatus {
                   '')
               .toString(),
       status: (payment['status'] ?? json['status'] ?? 'pending').toString(),
-      amount: _paymentDouble(payment['amount']),
+      amount: (payment['amount'] as num?)?.toDouble(),
       currency: payment['currency']?.toString(),
-      paymentMethod: (payment['payment_method'] ?? payment['card_type'])?.toString(),
+      paymentMethod: payment['payment_method']?.toString(),
       enrolled: payment['enrolled'] == true || json['enrolled'] == true,
       enrollmentStatus:
           (payment['enrollment_status'] ?? json['enrollment_status'])

@@ -59,7 +59,12 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
       body: ids.isEmpty
           ? const _EmptyState()
           : ListView.separated(
-              padding: const EdgeInsets.all(Spacing.md),
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.md,
+                Spacing.md,
+                Spacing.md,
+                Spacing.xxl,
+              ),
               itemCount: ids.length,
               separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
               itemBuilder: (_, i) {
@@ -124,6 +129,7 @@ class _EmptyState extends StatelessWidget {
         ),
         const SizedBox(height: Spacing.lg),
         EduCard(
+          border: true,
           padding: const EdgeInsets.symmetric(
             horizontal: Spacing.lg,
             vertical: Spacing.xl,

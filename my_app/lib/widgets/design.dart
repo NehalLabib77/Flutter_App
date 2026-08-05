@@ -98,7 +98,7 @@ class EduCard extends StatelessWidget {
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(Spacing.lg),
-    this.borderRadius = const BorderRadius.all(Radius.circular(Radii.lg)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(Radii.xl)),
     this.color,
     this.onTap,
     this.elevation = 0,
@@ -117,21 +117,28 @@ class EduCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    final bg = color ?? scheme.surfaceContainerHighest;
-    final shape = RoundedRectangleBorder(borderRadius: borderRadius);
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = color ?? scheme.surfaceContainerHigh;
+    final showBorder = border || isDark;
+    final shape = RoundedRectangleBorder(
+      borderRadius: borderRadius,
+      side: showBorder
+          ? BorderSide(
+              color: scheme.outlineVariant.withValues(
+                alpha: isDark ? 0.72 : 0.52,
+              ),
+              width: 1,
+            )
+          : BorderSide.none,
+    );
     final card = Card(
       elevation: elevation,
       color: bg,
-      surfaceTintColor: scheme.surfaceTint,
-      shape: border
-          ? shape.copyWith(
-              side: BorderSide(
-                color: scheme.outlineVariant.withValues(alpha: 0.6),
-                width: 1,
-              ),
-            )
-          : shape,
+      surfaceTintColor: Colors.transparent,
+      shadowColor: Colors.black.withValues(alpha: isDark ? 0.22 : 0.08),
+      shape: shape,
       margin: EdgeInsets.zero,
       clipBehavior: Clip.antiAlias,
       child: Padding(padding: padding, child: child),
@@ -141,7 +148,13 @@ class EduCard extends StatelessWidget {
       color: Colors.transparent,
       borderRadius: borderRadius,
       clipBehavior: Clip.antiAlias,
-      child: InkWell(onTap: onTap, borderRadius: borderRadius, child: card),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: borderRadius,
+        splashColor: scheme.primary.withValues(alpha: 0.10),
+        highlightColor: scheme.primary.withValues(alpha: 0.05),
+        child: card,
+      ),
     );
   }
 }
@@ -203,14 +216,18 @@ class SectionHeader extends StatelessWidget {
               children: [
                 Text(
                   title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
                   Text(
                     subtitle!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: scheme.onSurfaceVariant,
                     ),
@@ -300,11 +317,11 @@ class HeroBanner extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Material(
       color: Colors.transparent,
-      borderRadius: const BorderRadius.all(Radius.circular(Radii.lg)),
+      borderRadius: const BorderRadius.all(Radius.circular(Radii.xl)),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: onTap,
-        borderRadius: const BorderRadius.all(Radius.circular(Radii.lg)),
+        borderRadius: const BorderRadius.all(Radius.circular(Radii.xl)),
         child: Ink(
           decoration: BoxDecoration(
             gradient: LinearGradient(
@@ -472,15 +489,17 @@ class EduSearchBar extends StatelessWidget {
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.lg),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(color: scheme.outlineVariant),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.lg),
-          borderSide: BorderSide.none,
+          borderSide: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.85),
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.lg),
-          borderSide: BorderSide(color: scheme.primary, width: 1.5),
+          borderSide: BorderSide(color: scheme.primary, width: 1.6),
         ),
       ),
     );
@@ -538,6 +557,7 @@ class CourseRowCard extends StatelessWidget {
     return EduCard(
       onTap: onTap,
       padding: padding,
+      border: true,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -558,8 +578,8 @@ class CourseRowCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          height: 1.2,
+                          fontWeight: FontWeight.w800,
+                          height: 1.22,
                         ),
                       ),
                     ),
@@ -672,6 +692,7 @@ class ProfileHeader extends StatelessWidget {
         : '?';
     return EduCard(
       padding: const EdgeInsets.all(Spacing.lg),
+      border: true,
       child: Row(
         children: [
           Container(
@@ -815,31 +836,43 @@ class Pill extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accent = color ?? theme.colorScheme.primary;
-    return Container(
-      padding: EdgeInsets.symmetric(
-        horizontal: dense ? Spacing.sm : Spacing.md,
-        vertical: dense ? 3 : 6,
-      ),
-      decoration: BoxDecoration(
-        color: accent.withValues(alpha: 0.14),
-        borderRadius: BorderRadius.circular(Radii.sm),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (icon != null) ...[
-            Icon(icon, size: 14, color: accent),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            text,
-            style: theme.textTheme.labelSmall?.copyWith(
-              color: accent,
-              fontWeight: FontWeight.w700,
-              letterSpacing: 0.2,
-            ),
+    final maxWidth = MediaQuery.sizeOf(context).width * 0.58;
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: maxWidth),
+      child: Container(
+        padding: EdgeInsets.symmetric(
+          horizontal: dense ? Spacing.sm : Spacing.md,
+          vertical: dense ? 4 : 7,
+        ),
+        decoration: BoxDecoration(
+          color: accent.withValues(alpha: 0.14),
+          borderRadius: BorderRadius.circular(Radii.sm),
+          border: Border.all(
+            color: accent.withValues(alpha: 0.16),
+            width: 1,
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (icon != null) ...[
+              Icon(icon, size: 14, color: accent),
+              const SizedBox(width: 4),
+            ],
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: accent,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.15,
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

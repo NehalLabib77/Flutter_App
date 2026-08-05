@@ -38,14 +38,12 @@ class DeepLinkService {
   final AppLinks _appLinks;
   final StreamController<Uri> _all = StreamController<Uri>.broadcast();
   bool _started = false;
-  StreamSubscription<Uri>? _platformSubscription;
 
   /// Cold-start URI captured before the first listener attaches. We
   /// stash it here so a caller that asks for it on the very first
   /// build (before the broadcast stream has anyone listening) still
   /// gets to see it. Cleared by [consumeInitialVerificationCode].
-  Uri? _pendingVerificationInitial;
-  Uri? _pendingPaymentInitial;
+  Uri? _pendingInitial;
 
   DeepLinkService({AppLinks? appLinks})
       : _appLinks = appLinks ?? AppLinks();
@@ -74,20 +72,11 @@ class DeepLinkService {
   /// AuthWrapper on first build so a user who tapped the link on a
   /// cold-installed app still gets bounced straight into the shell.
   String? consumeInitialVerificationCode() {
-    final initial = _pendingVerificationInitial;
-    _pendingVerificationInitial = null;
+    final initial = _pendingInitial;
+    _pendingInitial = null;
     if (initial == null) return null;
+    if (!_isVerificationReturn(initial)) return null;
     return _extractOobCode(initial);
-  }
-
-  /// Returns a payment return that launched the app before the payment
-  /// screen attached to the broadcast stream. Consuming verification does
-  /// not discard this URI, and vice versa.
-  PaymentReturn? consumeInitialPaymentReturn() {
-    final initial = _pendingPaymentInitial;
-    _pendingPaymentInitial = null;
-    if (initial == null) return null;
-    return _parsePaymentReturn(initial);
   }
 
   /// Initialise the platform channel listener. Idempotent — safe to
@@ -98,8 +87,7 @@ class DeepLinkService {
     _started = true;
     try {
       // Warm path: listen for URIs while the app is in the foreground.
-      _platformSubscription =
-          _appLinks.uriLinkStream.listen(_safeEmit, onError: _handleError);
+      _appLinks.uriLinkStream.listen(_safeEmit, onError: _handleError);
     } catch (e) {
       _handleError(e);
     }
@@ -112,11 +100,7 @@ class DeepLinkService {
         // Also stash it on the instance so a synchronous caller on the
         // first frame (AuthWrapper) can read it before any listener
         // attaches to the broadcast stream.
-        if (_isVerificationReturn(initial)) {
-          _pendingVerificationInitial = initial;
-        } else if (_isPaymentReturn(initial)) {
-          _pendingPaymentInitial = initial;
-        }
+        _pendingInitial = initial;
         _safeEmit(initial);
       }
     } catch (e) {
@@ -125,8 +109,6 @@ class DeepLinkService {
   }
 
   Future<void> dispose() async {
-    await _platformSubscription?.cancel();
-    _platformSubscription = null;
     if (!_all.isClosed) await _all.close();
   }
 

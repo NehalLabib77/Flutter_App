@@ -108,29 +108,16 @@ class ApiClient {
       );
     }
 
-    if (response.statusCode >= 200 && response.statusCode < 300) {
-      // Most EduCompass endpoints use {success, data}; the payment
-      // blueprint intentionally returns a plain JSON object. Support both
-      // without changing either API contract.
-      if (body.containsKey('success')) {
-        if (body['success'] == true) {
-          final data = body['data'];
-          if (data is Map<String, dynamic>) return data;
-          return {'value': data};
-        }
-      } else {
-        return body;
-      }
+    if (response.statusCode >= 200 &&
+        response.statusCode < 300 &&
+        body['success'] == true) {
+      final data = body['data'];
+      if (data is Map<String, dynamic>) return data;
+      return {'value': data};
     }
 
-    final message = (
-      body['message'] ??
-      body['detail'] ??
-      body['error_description'] ??
-      body['error'] ??
-      'Request failed'
-    ).toString();
-    final code = (body['error_code'] ?? body['code'] ?? body['error'])?.toString();
+    final message = (body['message'] ?? 'Request failed').toString();
+    final code = body['error_code']?.toString();
     throw ApiException(response.statusCode, message, code: code);
   }
 
@@ -286,10 +273,11 @@ class ApiClient {
     if (resp != null && resp.body.isNotEmpty) {
       try {
         final decoded = jsonDecode(resp.body);
-        final encoded = jsonEncode(ApiConfig.redact(decoded));
-        final preview = encoded.substring(0, encoded.length.clamp(0, 2000));
         // ignore: avoid_print
-        print('$tag   response body (sanitised): $preview');
+        print(
+          '$tag   response body (sanitised): '
+          '${jsonEncode(ApiConfig.redact(decoded)).substring(0, resp.body.length.clamp(0, 2000))}',
+        );
       } catch (_) {
         // ignore: avoid_print
         print(

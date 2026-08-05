@@ -96,7 +96,13 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       body: RefreshIndicator(
         onRefresh: _refreshPersonalized,
         child: ListView(
-          padding: const EdgeInsets.symmetric(vertical: Spacing.sm),
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          padding: const EdgeInsets.fromLTRB(
+            0,
+            Spacing.sm,
+            0,
+            Spacing.xl,
+          ),
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(
@@ -152,7 +158,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
                     isFree: c.isFree,
                     reason: c.reasons.isEmpty ? null : c.reasons.first,
                     score: c.finalScore,
-                    thumbnail: CourseThumbnail(course: c, size: 64),
+                    thumbnail: CourseThumbnail(course: c, size: 72),
                     onTap: () => _open(context, c.id),
                   ),
                 ),
@@ -200,6 +206,7 @@ class _GoalCard extends StatelessWidget {
     final theme = Theme.of(context);
     return EduCard(
       padding: const EdgeInsets.all(Spacing.lg),
+      border: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -257,24 +264,55 @@ class _ErrorBanner extends StatelessWidget {
     final theme = Theme.of(context);
     return EduCard(
       padding: const EdgeInsets.all(Spacing.md),
-      child: Row(
-        children: [
-          Icon(Icons.cloud_off_rounded, color: theme.colorScheme.error),
-          const SizedBox(width: Spacing.md),
-          Expanded(
-            child: Text(
-              message,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: theme.textTheme.bodySmall,
+      color: theme.colorScheme.errorContainer,
+      border: true,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 330;
+          final messageWidget = Text(
+            message,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onErrorContainer,
             ),
-          ),
-          TextButton.icon(
+          );
+          final retry = TextButton.icon(
             onPressed: onRetry,
             icon: const Icon(Icons.refresh_rounded),
             label: const Text('Retry'),
-          ),
-        ],
+          );
+          if (compact) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.cloud_off_rounded,
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                    const SizedBox(width: Spacing.sm),
+                    Expanded(child: messageWidget),
+                  ],
+                ),
+                Align(alignment: Alignment.centerRight, child: retry),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Icon(
+                Icons.cloud_off_rounded,
+                color: theme.colorScheme.onErrorContainer,
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(child: messageWidget),
+              retry,
+            ],
+          );
+        },
       ),
     );
   }
@@ -291,6 +329,8 @@ class _IntroLine extends StatelessWidget {
     final theme = Theme.of(context);
     return Text(
       'Describe a goal or let your favourites drive the picks.',
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
       style: theme.textTheme.bodySmall?.copyWith(
         color: theme.colorScheme.onSurfaceVariant,
       ),
@@ -304,7 +344,6 @@ class _PersonalizedList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final user = context.watch<UserProvider>();
-    final api = context.read<ApiClient>();
     if (user.loadingPersonalized && user.personalized.isEmpty) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: Spacing.xl),
@@ -314,21 +353,10 @@ class _PersonalizedList extends StatelessWidget {
     if (user.personalized.isEmpty) {
       final error = user.personalizedError;
       if (error != null) {
-        return Column(
-          children: [
-            _ErrorBanner(
-              message: error,
-              onRetry: () => context.read<UserProvider>().loadPersonalized(),
-            ),
-            const SizedBox(height: Spacing.sm),
-            Text(
-              'API: ${api.baseUrl}',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        );
+          return _ErrorBanner(
+            message: error,
+            onRetry: () => context.read<UserProvider>().loadPersonalized(),
+          );
       }
       return const EmptyState(
         icon: Icons.tips_and_updates_outlined,
@@ -349,7 +377,7 @@ class _PersonalizedList extends StatelessWidget {
               isFree: c.isFree,
               reason: c.reasons.isEmpty ? null : c.reasons.first,
               score: c.finalScore,
-              thumbnail: CourseThumbnail(course: c, size: 64),
+              thumbnail: CourseThumbnail(course: c, size: 72),
               onTap: () => Navigator.of(
                 context,
               ).pushNamed(AppRoutes.courseDetails, arguments: c.id),

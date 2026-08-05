@@ -63,13 +63,13 @@ class _AuthPalette {
   );
 
   static const _AuthPalette dark = _AuthPalette(
-    canvas: Color(0xFF0B1020),
-    paper: Color(0xFF131A2E),
-    ink: Color(0xFFF1F5FF),
-    inkSoft: Color(0xFFB3BAD0),
-    hairline: Color(0xFF2A3554),
-    accent: AppColors.seed,
-    accentDeep: Color(0xFF7AA2E8),
+    canvas: AppColors.darkPage,
+    paper: AppColors.darkCard,
+    ink: AppColors.darkTextPrimary,
+    inkSoft: AppColors.darkTextSecondary,
+    hairline: AppColors.darkBorder,
+    accent: Color(0xFF4E76BD),
+    accentDeep: AppColors.blueBright,
     danger: Color(0xFFE8837B),
     bandLight: Color(0xFF182544),
     bandMid: Color(0xFF1F2D55),
@@ -181,13 +181,15 @@ class AuthScaffold extends StatelessWidget {
             top: false,
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final compact = constraints.maxWidth < 380;
+                final horizontal = compact ? 16.0 : 24.0;
                 return SingleChildScrollView(
                   keyboardDismissBehavior:
                       ScrollViewKeyboardDismissBehavior.onDrag,
                   padding: EdgeInsets.fromLTRB(
-                    24,
-                    28,
-                    24,
+                    horizontal,
+                    compact ? 20 : 28,
+                    horizontal,
                     28 + MediaQuery.viewInsetsOf(context).bottom,
                   ),
                   child: Align(
@@ -217,6 +219,7 @@ class _PaperCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final compact = MediaQuery.sizeOf(context).width < 380;
     return Container(
       decoration: BoxDecoration(
         color: palette.paper,
@@ -235,7 +238,12 @@ class _PaperCard extends StatelessWidget {
           ),
         ],
       ),
-      padding: const EdgeInsets.fromLTRB(28, 32, 28, 28),
+      padding: EdgeInsets.fromLTRB(
+        compact ? 20 : 28,
+        compact ? 24 : 32,
+        compact ? 20 : 28,
+        compact ? 22 : 28,
+      ),
       child: child,
     );
   }
@@ -380,18 +388,22 @@ class _InsetFieldState extends State<InsetField> {
               color: _focused ? palette.accentDeep : palette.inkSoft,
             ),
             const SizedBox(width: 8),
-            Text(
-              widget.label.toUpperCase(),
-              style: TextStyle(
-                color: hasError
-                    ? palette.danger
-                    : (_focused ? palette.accentDeep : palette.inkSoft),
-                fontWeight: FontWeight.w600,
-                fontSize: 11,
-                letterSpacing: 1.4,
+            Expanded(
+              child: Text(
+                widget.label.toUpperCase(),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: hasError
+                      ? palette.danger
+                      : (_focused ? palette.accentDeep : palette.inkSoft),
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  letterSpacing: 1.4,
+                ),
               ),
             ),
-            const Spacer(),
+            const SizedBox(width: 8),
             if (showObscureToggle)
               GestureDetector(
                 onTap: () => setState(() => _showPassword = !_showPassword),
@@ -544,13 +556,17 @@ class AuthPrimaryButton extends StatelessWidget {
                       children: [
                         Icon(icon, color: Colors.white, size: 18),
                         const SizedBox(width: 10),
-                        Text(
+                        Flexible(
+                          child: Text(
                           label.toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.w700,
                             letterSpacing: 2,
                             fontSize: 13.5,
+                          ),
                           ),
                         ),
                       ],

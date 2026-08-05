@@ -45,7 +45,11 @@ class CourseThumbnail extends StatelessWidget {
         child: CachedNetworkImage(
           imageUrl: url,
           fit: BoxFit.cover,
-          fadeInDuration: const Duration(milliseconds: 220),
+          alignment: Alignment.center,
+          fadeInDuration: const Duration(milliseconds: 180),
+          fadeOutDuration: const Duration(milliseconds: 90),
+          useOldImageOnUrlChange: true,
+          filterQuality: FilterQuality.medium,
           placeholder: (_, _) => _EnhancedPlaceholder(
             size: size,
             course: course,
@@ -121,7 +125,7 @@ class _EnhancedPlaceholder extends StatelessWidget {
             child: Text(
               initials,
               maxLines: 1,
-              overflow: TextOverflow.clip,
+              overflow: TextOverflow.ellipsis,
               softWrap: false,
               style: theme.textTheme.labelSmall?.copyWith(
                 color: scheme.onPrimaryContainer,
