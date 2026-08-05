@@ -718,7 +718,7 @@ def recommendations_query():
 
 @bp.post("/recommendations/personalized")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def recommendations_personalized():
     adapter = current_app.extensions["educompass_model"]
     user = current_user()
@@ -762,7 +762,7 @@ def recommendations_filters():
 
 @bp.get("/me/favorites")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def favorites_list():
     user = current_user()
     if user is None:
@@ -785,7 +785,7 @@ def favorites_list():
 
 @bp.post("/me/favorites")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def favorites_add():
     user = current_user()
     if user is None:
@@ -806,7 +806,7 @@ def favorites_add():
 
 @bp.delete("/me/favorites/<course_id>")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def favorites_remove(course_id):
     user = current_user()
     if user is None:
@@ -820,7 +820,7 @@ def favorites_remove(course_id):
 
 @bp.get("/me/history")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def history_list():
     user = current_user()
     if user is None:
@@ -836,7 +836,7 @@ def history_list():
 
 @bp.post("/me/history")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def history_add():
     user = current_user()
     if user is None:
@@ -853,7 +853,7 @@ def history_add():
 
 @bp.get("/me/progress")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def progress_list():
     user = current_user()
     if user is None:
@@ -869,7 +869,7 @@ def progress_list():
 
 @bp.put("/me/progress/<course_id>")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def progress_update(course_id):
     user = current_user()
     if user is None:
@@ -911,7 +911,7 @@ def progress_update(course_id):
 
 @bp.get("/me/enrollments")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def enrollments_list():
     user = current_user()
     if user is None:
@@ -926,7 +926,7 @@ def enrollments_list():
 
 @bp.post("/me/enrollments")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def enrollments_add():
     """Upsert an enrollment. Idempotent on (user_id, course_id)."""
     user = current_user()
@@ -967,7 +967,7 @@ def enrollments_add():
 
 @bp.delete("/me/enrollments/<course_id>")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def enrollments_remove(course_id):
     user = current_user()
     if user is None:
@@ -1053,7 +1053,7 @@ def learning_path_detail(path_id):
 
 @bp.get("/learning-paths/<path_id>/progress")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def learning_path_progress(path_id):
     user = current_user()
     if user is None:
@@ -1070,7 +1070,7 @@ def learning_path_progress(path_id):
 
 @bp.put("/learning-paths/<path_id>/progress")
 @jwt_required()
-@verified_user_required()
+@verified_user_required
 def learning_path_progress_update(path_id):
     user = current_user()
     if user is None:
