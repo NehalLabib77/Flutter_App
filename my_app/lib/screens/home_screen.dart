@@ -1,9 +1,9 @@
 // Home screen — first tab of the bottom-nav shell.
 //
 // Layout, top-to-bottom:
-//   1. AppBar (title + optional "Sign in" for guests).
+//   1. AppBar (theme-driven navy with brand mark + optional "Sign in" CTA).
 //   2. HeroBanner greeting that adapts to signed-in vs guest.
-//   3. SearchBar (routes to search / browse screen).
+//   3. EduSearchBar (routes the query to the "For you" goal-search).
 //   4. SectionHeader + horizontal rail of CourseRowCard for "Popular right now".
 //   5. SectionHeader + horizontal rail of CourseRowCard for "Top rated".
 //
@@ -19,7 +19,6 @@ import '../app_state.dart';
 import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
-import '../theme.dart';
 import '../widgets/design.dart';
 import 'login_screen.dart';
 
@@ -116,12 +115,7 @@ class _HomeScreenState extends State<HomeScreen> {
         : 'What will you learn today?';
 
     return Scaffold(
-      backgroundColor: AppColors.pageBg,
       appBar: AppBar(
-        backgroundColor: AppColors.navy,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        scrolledUnderElevation: 0,
         title: const Row(
           children: [
             Icon(
@@ -149,10 +143,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 onPressed: () => Navigator.of(
                   context,
                 ).push(MaterialPageRoute(builder: (_) => const LoginScreen())),
-                icon: const Icon(Icons.login_rounded, size: 18, color: Colors.white),
+                icon: const Icon(
+                  Icons.login_rounded,
+                  size: 18,
+                  color: Colors.white,
+                ),
                 label: const Text(
                   'Sign in',
-                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
                 style: TextButton.styleFrom(foregroundColor: Colors.white),
               ),

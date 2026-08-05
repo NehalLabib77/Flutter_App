@@ -15,16 +15,72 @@ import 'package:flutter/services.dart';
 import '../theme.dart';
 
 /// Palette anchors. AppBar uses [AppColors.seed]; the body uses muted,
-/// paper-like tones so the two regions stay distinct.
+/// paper-like tones so the two regions stay distinct. In dark mode the
+/// canvas / paper / ink / hairline invert so the editorial chrome reads
+/// on top of the dark Material scaffold without blinding the user.
 class _AuthPalette {
-  static const Color canvas = Color(0xFFF3F5FA);
-  static const Color paper = Color(0xFFFFFFFF);
-  static const Color ink = Color(0xFF0E1B33);
-  static const Color inkSoft = Color(0xFF4F5B73);
-  static const Color hairline = Color(0xFFE2E7F1);
-  static const Color accent = AppColors.seed;
-  static const Color accentDeep = Color(0xFF155CC1);
-  static const Color danger = Color(0xFFB3261E);
+  final Color canvas;
+  final Color paper;
+  final Color ink;
+  final Color inkSoft;
+  final Color hairline;
+  final Color accent;
+  final Color accentDeep;
+  final Color danger;
+  final Color bandLight;
+  final Color bandMid;
+  final Color bandDark;
+  final Color shadow;
+
+  const _AuthPalette({
+    required this.canvas,
+    required this.paper,
+    required this.ink,
+    required this.inkSoft,
+    required this.hairline,
+    required this.accent,
+    required this.accentDeep,
+    required this.danger,
+    required this.bandLight,
+    required this.bandMid,
+    required this.bandDark,
+    required this.shadow,
+  });
+
+  static const _AuthPalette light = _AuthPalette(
+    canvas: Color(0xFFF3F5FA),
+    paper: Color(0xFFFFFFFF),
+    ink: Color(0xFF0E1B33),
+    inkSoft: Color(0xFF4F5B73),
+    hairline: Color(0xFFE2E7F1),
+    accent: AppColors.seed,
+    accentDeep: Color(0xFF155CC1),
+    danger: Color(0xFFB3261E),
+    bandLight: Color(0xFFEBF1FB),
+    bandMid: Color(0xFFDDE7F7),
+    bandDark: Color(0xFFEAF0F9),
+    shadow: Color(0x141B3F8C),
+  );
+
+  static const _AuthPalette dark = _AuthPalette(
+    canvas: Color(0xFF0B1020),
+    paper: Color(0xFF131A2E),
+    ink: Color(0xFFF1F5FF),
+    inkSoft: Color(0xFFB3BAD0),
+    hairline: Color(0xFF2A3554),
+    accent: AppColors.seed,
+    accentDeep: Color(0xFF7AA2E8),
+    danger: Color(0xFFE8837B),
+    bandLight: Color(0xFF182544),
+    bandMid: Color(0xFF1F2D55),
+    bandDark: Color(0xFF14203C),
+    shadow: Color(0x66000000),
+  );
+
+  /// Picks the palette for the active [Brightness]. Default to light
+  /// when no context is available (e.g. in painters without BuildContext).
+  factory _AuthPalette.of(BuildContext context) =>
+      Theme.of(context).brightness == Brightness.dark ? dark : light;
 }
 
 /// Wraps the screen in the AppBar + body styling used by every auth page.
@@ -43,16 +99,20 @@ class AuthScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
+    final palette = _AuthPalette.of(context);
     return Scaffold(
-      backgroundColor: _AuthPalette.canvas,
+      backgroundColor: palette.canvas,
       // Blue AppBar with a hairline so it doesn't bleed into the body.
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(64),
         child: Container(
-          decoration: const BoxDecoration(
-            color: _AuthPalette.accent,
+          decoration: BoxDecoration(
+            color: palette.accent,
             border: Border(
-              bottom: BorderSide(color: Color(0x9915305A), width: 1),
+              bottom: BorderSide(
+                color: Colors.black.withValues(alpha: 0.18),
+                width: 1,
+              ),
             ),
           ),
           child: SafeArea(
@@ -78,8 +138,8 @@ class AuthScaffold extends StatelessWidget {
                       ),
                       Text(
                         title,
-                        style: const TextStyle(
-                          color: Color(0xCCE6F0FF),
+                        style: TextStyle(
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontWeight: FontWeight.w400,
                           letterSpacing: 0.2,
                           fontSize: 12,
@@ -97,17 +157,21 @@ class AuthScaffold extends StatelessWidget {
       body: Stack(
         children: [
           // Diagonal band that runs from top-right to bottom-left.
-          Positioned.fill(child: CustomPaint(painter: _DiagonalBandPainter())),
+          Positioned.fill(
+            child: CustomPaint(painter: _DiagonalBandPainter(palette)),
+          ),
           // Background compass mark — oversized and very faint.
           Positioned(
             right: -120,
             top: media.size.height * 0.42,
             child: IgnorePointer(
               child: Opacity(
-                opacity: 0.06,
+                opacity: Theme.of(context).brightness == Brightness.dark
+                    ? 0.08
+                    : 0.06,
                 child: CustomPaint(
                   size: const Size(360, 360),
-                  painter: _BigCompassPainter(),
+                  painter: _BigCompassPainter(palette),
                 ),
               ),
             ),
@@ -130,7 +194,7 @@ class AuthScaffold extends StatelessWidget {
                     alignment: Alignment.centerRight,
                     child: ConstrainedBox(
                       constraints: const BoxConstraints(maxWidth: 460),
-                      child: _PaperCard(child: child),
+                      child: _PaperCard(palette: palette, child: child),
                     ),
                   ),
                 );
@@ -147,26 +211,27 @@ class AuthScaffold extends StatelessWidget {
 /// We intentionally avoid [Card] so the radius + shadow don't match the
 /// rest of the app.
 class _PaperCard extends StatelessWidget {
+  final _AuthPalette palette;
   final Widget child;
-  const _PaperCard({required this.child});
+  const _PaperCard({required this.palette, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: _AuthPalette.paper,
+        color: palette.paper,
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(22),
           topRight: Radius.circular(22),
           bottomLeft: Radius.circular(6),
           bottomRight: Radius.circular(22),
         ),
-        border: Border.all(color: _AuthPalette.hairline),
-        boxShadow: const [
+        border: Border.all(color: palette.hairline),
+        boxShadow: [
           BoxShadow(
-            color: Color(0x141B3F8C),
+            color: palette.shadow,
             blurRadius: 24,
-            offset: Offset(0, 12),
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -192,17 +257,18 @@ class AuthHeading extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _AuthPalette.of(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            Container(width: 28, height: 2, color: _AuthPalette.accent),
+            Container(width: 28, height: 2, color: palette.accent),
             const SizedBox(width: 10),
             Text(
               kicker.toUpperCase(),
-              style: const TextStyle(
-                color: _AuthPalette.accentDeep,
+              style: TextStyle(
+                color: palette.accentDeep,
                 fontSize: 11,
                 fontWeight: FontWeight.w700,
                 letterSpacing: 2.4,
@@ -213,8 +279,8 @@ class AuthHeading extends StatelessWidget {
         const SizedBox(height: 16),
         Text(
           title,
-          style: const TextStyle(
-            color: _AuthPalette.ink,
+          style: TextStyle(
+            color: palette.ink,
             fontSize: 28,
             fontWeight: FontWeight.w700,
             height: 1.1,
@@ -224,14 +290,14 @@ class AuthHeading extends StatelessWidget {
         const SizedBox(height: 10),
         Text(
           body,
-          style: const TextStyle(
-            color: _AuthPalette.inkSoft,
+          style: TextStyle(
+            color: palette.inkSoft,
             fontSize: 13.5,
             height: 1.45,
           ),
         ),
         const SizedBox(height: 22),
-        Container(height: 1, color: _AuthPalette.hairline),
+        Container(height: 1, color: palette.hairline),
       ],
     );
   }
@@ -292,14 +358,15 @@ class _InsetFieldState extends State<InsetField> {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _AuthPalette.of(context);
     final errorText = (widget.validator ?? _noValidator)(
       widget.controller.text,
     );
     final hasError = errorText != null;
     final showObscureToggle = widget.obscure;
     final underlineColor = hasError
-        ? _AuthPalette.danger
-        : (_focused ? _AuthPalette.accent : _AuthPalette.hairline);
+        ? palette.danger
+        : (_focused ? palette.accent : palette.hairline);
     final underlineWidth = (_focused || hasError) ? 2.0 : 1.0;
 
     return Column(
@@ -310,17 +377,15 @@ class _InsetFieldState extends State<InsetField> {
             Icon(
               widget.icon,
               size: 16,
-              color: _focused ? _AuthPalette.accentDeep : _AuthPalette.inkSoft,
+              color: _focused ? palette.accentDeep : palette.inkSoft,
             ),
             const SizedBox(width: 8),
             Text(
               widget.label.toUpperCase(),
               style: TextStyle(
                 color: hasError
-                    ? _AuthPalette.danger
-                    : (_focused
-                          ? _AuthPalette.accentDeep
-                          : _AuthPalette.inkSoft),
+                    ? palette.danger
+                    : (_focused ? palette.accentDeep : palette.inkSoft),
                 fontWeight: FontWeight.w600,
                 fontSize: 11,
                 letterSpacing: 1.4,
@@ -333,9 +398,7 @@ class _InsetFieldState extends State<InsetField> {
                 child: Text(
                   _showPassword ? 'HIDE' : 'SHOW',
                   style: TextStyle(
-                    color: _focused
-                        ? _AuthPalette.accentDeep
-                        : _AuthPalette.inkSoft,
+                    color: _focused ? palette.accentDeep : palette.inkSoft,
                     fontWeight: FontWeight.w700,
                     fontSize: 10.5,
                     letterSpacing: 1.6,
@@ -355,10 +418,10 @@ class _InsetFieldState extends State<InsetField> {
           validator: widget.validator,
           textInputAction: widget.textInputAction,
           onFieldSubmitted: widget.onSubmitted,
-          cursorColor: _AuthPalette.accentDeep,
+          cursorColor: palette.accentDeep,
           cursorWidth: 1.4,
-          style: const TextStyle(
-            color: _AuthPalette.ink,
+          style: TextStyle(
+            color: palette.ink,
             fontSize: 16,
             fontWeight: FontWeight.w500,
             letterSpacing: 0.1,
@@ -385,7 +448,7 @@ class _InsetFieldState extends State<InsetField> {
         Text(
           hasError ? errorText : (widget.helper ?? ''),
           style: TextStyle(
-            color: hasError ? _AuthPalette.danger : _AuthPalette.inkSoft,
+            color: hasError ? palette.danger : palette.inkSoft,
             fontSize: 11.5,
             height: 1.3,
           ),
@@ -419,6 +482,7 @@ class AuthPrimaryButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _AuthPalette.of(context);
     final disabled = onPressed == null || busy;
     return Opacity(
       opacity: disabled ? 0.55 : 1,
@@ -431,17 +495,17 @@ class AuthPrimaryButton extends StatelessWidget {
           highlightColor: const Color(0x22FFFFFF),
           child: Ink(
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [_AuthPalette.accent, _AuthPalette.accentDeep],
+                colors: [palette.accent, palette.accentDeep],
               ),
               borderRadius: BorderRadius.circular(10),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x331F6FEB),
+                  color: palette.accentDeep.withValues(alpha: 0.35),
                   blurRadius: 14,
-                  offset: Offset(0, 8),
+                  offset: const Offset(0, 8),
                 ),
               ],
             ),
@@ -456,9 +520,9 @@ class AuthPrimaryButton extends StatelessWidget {
                     bottom: 0,
                     child: Container(
                       width: 4,
-                      decoration: const BoxDecoration(
-                        color: Color(0x66FFFFFF),
-                        borderRadius: BorderRadius.only(
+                      decoration: BoxDecoration(
+                        color: Colors.white.withValues(alpha: 0.40),
+                        borderRadius: const BorderRadius.only(
                           topLeft: Radius.circular(10),
                           bottomLeft: Radius.circular(10),
                         ),
@@ -517,13 +581,14 @@ class AuthFootnoteLink extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final palette = _AuthPalette.of(context);
     return Center(
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           Text(
             prefix,
-            style: const TextStyle(color: _AuthPalette.inkSoft, fontSize: 13),
+            style: TextStyle(color: palette.inkSoft, fontSize: 13),
           ),
           const SizedBox(width: 6),
           GestureDetector(
@@ -531,15 +596,15 @@ class AuthFootnoteLink extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 border: Border(
-                  bottom: BorderSide(color: _AuthPalette.accent, width: 1.4),
+                  bottom: BorderSide(color: palette.accent, width: 1.4),
                 ),
               ),
               child: Text(
                 linkLabel,
-                style: const TextStyle(
-                  color: _AuthPalette.accentDeep,
+                style: TextStyle(
+                  color: palette.accentDeep,
                   fontWeight: FontWeight.w700,
                   fontSize: 13,
                 ),
@@ -606,18 +671,21 @@ class _CompassPainter extends CustomPainter {
 /// Huge background compass used as a watermark — same geometry, just larger
 /// and rendered very faint.
 class _BigCompassPainter extends CustomPainter {
+  final _AuthPalette palette;
+  _BigCompassPainter(this.palette);
+
   @override
   void paint(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
     final r = size.shortestSide / 2;
     final paint = Paint()
-      ..color = _AuthPalette.accentDeep
+      ..color = palette.accentDeep
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6;
     canvas.drawCircle(c, r * 0.95, paint);
     canvas.drawCircle(c, r * 0.62, paint..strokeWidth = 1.0);
     final tickPaint = Paint()
-      ..color = _AuthPalette.accentDeep
+      ..color = palette.accentDeep
       ..strokeWidth = 1.2;
     const twoPi = 6.283185307179586;
     for (var i = 0; i < 24; i++) {
@@ -645,13 +713,17 @@ class _BigCompassPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BigCompassPainter oldDelegate) =>
+      oldDelegate.palette != palette;
 }
 
 class _DiagonalBandPainter extends CustomPainter {
+  final _AuthPalette palette;
+  _DiagonalBandPainter(this.palette);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint1 = Paint()..color = const Color(0xFFEBF1FB);
+    final paint1 = Paint()..color = palette.bandLight;
     final path = Path()
       ..moveTo(size.width, 0)
       ..lineTo(size.width, size.height * 0.55)
@@ -659,7 +731,7 @@ class _DiagonalBandPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path, paint1);
 
-    final paint2 = Paint()..color = const Color(0xFFDDE7F7);
+    final paint2 = Paint()..color = palette.bandMid;
     final path2 = Path()
       ..moveTo(size.width, size.height * 0.55)
       ..lineTo(size.width * 0.62, size.height * 0.55)
@@ -667,7 +739,7 @@ class _DiagonalBandPainter extends CustomPainter {
       ..close();
     canvas.drawPath(path2, paint2);
 
-    final paint3 = Paint()..color = const Color(0xFFEAF0F9);
+    final paint3 = Paint()..color = palette.bandDark;
     final path3 = Path()
       ..moveTo(0, size.height)
       ..lineTo(size.width * 0.45, size.height)
@@ -677,5 +749,6 @@ class _DiagonalBandPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _DiagonalBandPainter oldDelegate) =>
+      oldDelegate.palette != palette;
 }

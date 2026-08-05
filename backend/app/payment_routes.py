@@ -68,6 +68,17 @@ _GATEWAY_VALUE_A = "value_a"
 _GATEWAY_VALUE_B = "value_b"
 _GATEWAY_STATUS = "status"
 
+_MIN_SSLC_AMOUNT = Decimal("10.00")
+_MAX_SSLC_AMOUNT = Decimal("500000.00")
+
+# Only these non-sensitive gateway fields may be retained for support.
+_SAFE_GATEWAY_PAYLOAD_KEYS = {
+    "status", "failedreason", "tran_id", "val_id", "amount",
+    "currency", "currency_type", "APIConnect", "bank_tran_id",
+    "card_type", "risk_level", "risk_title", "value_a", "value_b",
+    "value_c", "value_d",
+}
+
 
 def _to_decimal(value: object) -> Decimal | None:
     try:
@@ -109,15 +120,22 @@ def _current_user() -> User | None:
 
 
 def _transaction_id(user_id: int, course_id: str) -> str:
-    clean = re.sub(r"[^A-Za-z0-9]", "", course_id or "")[:16] or "COURSE"
-    raw = f"EC{user_id}{int(time.time())}{clean}{uuid.uuid4().hex[:8]}"
-    return raw[:72].upper()
+    """Generate a unique SSLCOMMERZ-compatible transaction id.
+
+    SSLCOMMERZ limits ``tran_id`` to 30 characters. User/course ownership is
+    stored in the Payment row and value_a/value_b; it is not encoded into the
+    externally visible id.
+    """
+    stamp = int(time.time() * 1000)
+    return f"EC{stamp}{uuid.uuid4().hex[:10]}"[:30].upper()
 
 
 def _callback_urls() -> tuple[str, str, str, str]:
     base = (current_app.config.get("PUBLIC_BASE_URL") or "").strip().rstrip("/")
     if not base:
         base = request.host_url.rstrip("/")
+    if current_app.config.get("PAYMENT_MODE", "sandbox").lower() != "sandbox" and not base.startswith("https://"):
+        raise RuntimeError("PUBLIC_BASE_URL must be an HTTPS URL in live mode.")
     return (
         f"{base}/api/v1/payments/sslcommerz/success",
         f"{base}/api/v1/payments/sslcommerz/fail",
@@ -146,24 +164,39 @@ def _render_callback_html(transaction_id: str, status: str, message: str):
     )
     final_status = _deep_link_status(status)
     deep_link = f"{app_return}?{urlencode({'transaction_id': transaction_id, 'status': final_status})}"
-    payload = html.escape(message)
-    title = html.escape(final_status.replace("_", " ").title())
-    safe_link = html.escape(deep_link)
-    content = (
-        "<!doctype html><html><head><meta charset='utf-8'>"
-        "<meta name='viewport' content='width=device-width,initial-scale=1'>"
-        f"<title>EduCompass Payment {title}</title>"
-        "<style>body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:#f8fafc;color:#0f172a;}"
-        ".wrap{max-width:420px;margin:12vh auto;padding:24px;border-radius:16px;background:#ffffff;"
-        "box-shadow:0 10px 25px rgba(15,23,42,.08);text-align:center;}"
-        "button{margin-top:14px;padding:10px 16px;border:none;border-radius:10px;background:#0ea5e9;color:#fff;font-weight:600;}"
-        "</style></head><body><div class='wrap'>"
-        f"<h2>{title}</h2><p>{payload}</p>"
-        f"<button onclick=\"window.location.href='{safe_link}'\">Return to EduCompass</button>"
-        "</div><script>setTimeout(function(){window.location.href='"
-        + safe_link
-        + "';},1200);</script></body></html>"
-    )
+    safe_message = html.escape(message)
+    safe_title = html.escape(final_status.replace("_", " ").title())
+    safe_transaction = html.escape(transaction_id or "Unavailable")
+    safe_link = html.escape(deep_link, quote=True)
+    javascript_link = json.dumps(deep_link)
+    success = final_status == PAYMENT_STATUS_VALIDATED
+    accent = "#16a36a" if success else "#c46a17"
+    icon = "✓" if success else "!"
+    content = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>EduCompass Payment {safe_title}</title>
+  <style>
+    *{{box-sizing:border-box}} body{{margin:0;background:#f4f7fb;color:#132238;font-family:Inter,Segoe UI,Arial,sans-serif}}
+    main{{min-height:100vh;display:grid;place-items:center;padding:24px}}
+    section{{width:min(100%,430px);background:#fff;border:1px solid #dbe5f1;border-radius:24px;padding:30px;box-shadow:0 18px 45px rgba(24,55,96,.12);text-align:center}}
+    .icon{{width:68px;height:68px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center;background:{accent}18;border:2px solid {accent};color:{accent};font-size:36px;font-weight:800}}
+    h1{{margin:0 0 10px;font-size:26px}} p{{margin:0;color:#5d6c80;line-height:1.55}}
+    dl{{margin:24px 0;text-align:left;display:grid;grid-template-columns:92px 1fr;gap:10px}} dt{{color:#6b7a90}} dd{{margin:0;overflow-wrap:anywhere;font-weight:650}}
+    a{{display:block;background:#1f4f8c;color:#fff;text-decoration:none;padding:14px 18px;border-radius:14px;font-weight:750}}
+    small{{display:block;margin-top:14px;color:#7a8798}}
+  </style>
+</head>
+<body><main><section>
+  <div class="icon">{icon}</div><h1>{safe_title}</h1><p>{safe_message}</p>
+  <dl><dt>Status</dt><dd>{safe_title}</dd><dt>Reference</dt><dd>{safe_transaction}</dd></dl>
+  <a href="{safe_link}">Return to EduCompass</a>
+  <small>The app will open automatically.</small>
+</section></main>
+<script>setTimeout(function(){{window.location.href={javascript_link};}},900);</script>
+</body></html>"""
     return content, 200, {"Content-Type": "text/html; charset=utf-8"}
 
 
@@ -191,6 +224,27 @@ def _resolve_course(course_id: str) -> dict | None:
     return row if isinstance(row, dict) else None
 
 
+def _sandbox_default_price() -> Decimal | None:
+    if current_app.config.get("PAYMENT_MODE", "sandbox").lower() != "sandbox":
+        return None
+    raw = (current_app.config.get("SANDBOX_DEFAULT_COURSE_PRICE_BDT") or "").strip()
+    if not raw:
+        return None
+    amount = _to_decimal(raw)
+    if amount is None or amount < _MIN_SSLC_AMOUNT or amount > _MAX_SSLC_AMOUNT:
+        log.warning("Ignoring invalid SANDBOX_DEFAULT_COURSE_PRICE_BDT configuration.")
+        return None
+    return amount
+
+
+def _price_or_sandbox_fallback(reason: str) -> tuple[Decimal | None, bool, str | None]:
+    fallback = _sandbox_default_price()
+    if fallback is not None:
+        log.info("Using sandbox default course price because source price is %s.", reason)
+        return fallback, False, "sandbox_default"
+    return None, False, reason
+
+
 def _resolve_course_price(course: dict) -> tuple[Decimal | None, bool, str | None]:
     is_free = bool(course.get("is_free") is True)
     if is_free:
@@ -198,7 +252,7 @@ def _resolve_course_price(course: dict) -> tuple[Decimal | None, bool, str | Non
 
     raw_price = course.get("price")
     if raw_price is None:
-        return None, False, "missing"
+        return _price_or_sandbox_fallback("missing")
 
     if isinstance(raw_price, (int, float, Decimal)):
         amount = _to_decimal(raw_price)
@@ -212,7 +266,7 @@ def _resolve_course_price(course: dict) -> tuple[Decimal | None, bool, str | Non
 
     text = str(raw_price).strip()
     if not text:
-        return None, False, "missing"
+        return _price_or_sandbox_fallback("missing")
     # Only honour the "free" keyword when ``is_free`` is explicitly set
     # on the course record. Otherwise a stray string like "free-for-you"
     # would silently downgrade the price to zero and bypass the
@@ -221,7 +275,7 @@ def _resolve_course_price(course: dict) -> tuple[Decimal | None, bool, str | Non
         return Decimal("0.00"), True, None
     match = re.search(r"-?\d+(?:[.,]\d{1,2})?", text)
     if match is None:
-        return None, False, "unsupported"
+        return _price_or_sandbox_fallback("unsupported")
     amount = _to_decimal(match.group(0).replace(",", "."))
     if amount is None:
         return None, False, "invalid"
@@ -385,8 +439,18 @@ def _mark_validation_failed(payment: Payment, reason: str) -> None:
 
 
 def _store_gateway_payload(payment: Payment, payload: dict) -> None:
+    """Store only allow-listed, non-sensitive gateway metadata.
+
+    Customer fields, credentials, card numbers and raw request bodies are never
+    persisted. The structured Payment columns remain the source of truth.
+    """
+    safe = {
+        key: payload.get(key)
+        for key in _SAFE_GATEWAY_PAYLOAD_KEYS
+        if key in payload and payload.get(key) not in {None, ""}
+    }
     try:
-        payment.gateway_payload = json.dumps(payload, default=str)
+        payment.gateway_payload = json.dumps(safe, default=str)
     except (ValueError, TypeError):
         payment.gateway_payload = "{}"
 
@@ -610,6 +674,9 @@ def create_sslcommerz_session():
             "gateway_url": None,
             "status": PAYMENT_STATUS_VALIDATED,
             "mode": (current_app.config.get("PAYMENT_MODE") or "sandbox").lower(),
+            "course_id": course_id,
+            "amount": "0.00",
+            "currency": "BDT",
             "enrollment_completed": bool(payment.enrollment_completed),
         }), 200
 
@@ -618,6 +685,13 @@ def create_sslcommerz_session():
             "Paid course amount must be greater than zero.",
             status=400,
             code="INVALID_COURSE_PRICE",
+        )
+
+    if amount < _MIN_SSLC_AMOUNT or amount > _MAX_SSLC_AMOUNT:
+        return _json_error(
+            "SSLCOMMERZ course price must be between BDT 10.00 and BDT 500,000.00.",
+            status=400,
+            code="UNSUPPORTED_PAYMENT_AMOUNT",
         )
 
     provider = get_billing_provider()
@@ -633,16 +707,33 @@ def create_sslcommerz_session():
         .order_by(Payment.created_at.desc())
         .first()
     )
-    if existing_payment is not None and existing_payment.status in {
-        PAYMENT_STATUS_INITIATED,
-        PAYMENT_STATUS_PENDING,
-    }:
+    existing_amount = (
+        _to_decimal(existing_payment.amount) if existing_payment is not None else None
+    )
+    if (
+        existing_payment is not None
+        and existing_payment.status == PAYMENT_STATUS_PENDING
+        and existing_payment.gateway_url
+        and existing_amount == amount
+        and _MIN_SSLC_AMOUNT <= existing_amount <= _MAX_SSLC_AMOUNT
+    ):
         return jsonify({
             "transaction_id": existing_payment.transaction_id,
             "gateway_url": existing_payment.gateway_url,
             "status": PAYMENT_STATUS_PENDING,
             "mode": (current_app.config.get("PAYMENT_MODE") or "sandbox").lower(),
+            "course_id": existing_payment.course_id,
+            "amount": f"{existing_amount:.2f}",
+            "currency": existing_payment.currency or "BDT",
         }), 200
+    if (
+        existing_payment is not None
+        and existing_payment.status in {PAYMENT_STATUS_INITIATED, PAYMENT_STATUS_PENDING}
+    ):
+        # A stale/invalid pending row must not be reused after the server-side
+        # course price changes or a previous session failed to get a URL.
+        existing_payment.status = PAYMENT_STATUS_INITIATION_FAILED
+        db.session.commit()
 
     transaction_id = _transaction_id(user.id, course_id)
     payment = Payment(
@@ -656,28 +747,38 @@ def create_sslcommerz_session():
     db.session.add(payment)
     db.session.commit()
 
-    success_url, fail_url, cancel_url, ipn_url = _callback_urls()
-    session = provider.create_session(
-        user_id=user.id,
-        course_id=course_id,
-        course_name=str(course.get("course_name") or course_id),
-        amount=str(amount),
-        currency="BDT",
-        transaction_id=transaction_id,
-        success_url=success_url,
-        fail_url=fail_url,
-        cancel_url=cancel_url,
-        ipn_url=ipn_url,
-        customer={
-            "name": user.full_name,
-            "email": user.email,
-            "phone": user.phone_number or "01700000000",
-        },
-        value_a=str(user.id),
-        value_b=str(course_id),
-        value_c="educompass",
-        value_d=transaction_id,
-    )
+    try:
+        success_url, fail_url, cancel_url, ipn_url = _callback_urls()
+        session = provider.create_session(
+            user_id=user.id,
+            course_id=course_id,
+            course_name=str(course.get("course_name") or course_id),
+            amount=str(amount),
+            currency="BDT",
+            transaction_id=transaction_id,
+            success_url=success_url,
+            fail_url=fail_url,
+            cancel_url=cancel_url,
+            ipn_url=ipn_url,
+            customer={
+                "name": user.full_name,
+                "email": user.email,
+                "phone": user.phone_number or "01700000000",
+            },
+            value_a=str(user.id),
+            value_b=str(course_id),
+            value_c="educompass",
+            value_d=transaction_id,
+        )
+    except Exception:  # noqa: BLE001 -- return a safe gateway error
+        log.exception("SSLCOMMERZ session creation raised for transaction_id=%s", transaction_id)
+        payment.status = PAYMENT_STATUS_INITIATION_FAILED
+        db.session.commit()
+        return _json_error(
+            "Could not initiate payment session.",
+            status=502,
+            code="GATEWAY_SESSION_FAILED",
+        )
 
     _store_gateway_payload(payment, session.get("raw") or {})
     if not session.get("ok"):
@@ -699,6 +800,9 @@ def create_sslcommerz_session():
         "gateway_url": payment.gateway_url,
         "status": PAYMENT_STATUS_PENDING,
         "mode": (current_app.config.get("PAYMENT_MODE") or "sandbox").lower(),
+        "course_id": course_id,
+        "amount": f"{amount:.2f}",
+        "currency": "BDT",
     }), 200
 
 
@@ -768,12 +872,15 @@ def sslcommerz_fail():
     payload = _request_payload()
     transaction_id = (payload.get("tran_id") or "").strip()
     payment = Payment.query.filter_by(transaction_id=transaction_id).first() if transaction_id else None
-    if payment is not None and payment.status not in _SECURE_LOCKED_STATUSES:
-        payment.status = PAYMENT_STATUS_FAILED
-        payment.enrollment_completed = False
-        _store_gateway_payload(payment, payload)
-        db.session.commit()
-    return _render_callback_html(transaction_id, PAYMENT_STATUS_FAILED, "Payment failed. You can retry from EduCompass.")
+    final_status = PAYMENT_STATUS_FAILED
+    if payment is not None:
+        if payment.status not in _SECURE_LOCKED_STATUSES:
+            payment.status = PAYMENT_STATUS_FAILED
+            payment.enrollment_completed = False
+            _store_gateway_payload(payment, payload)
+            db.session.commit()
+        final_status = payment.status
+    return _render_callback_html(transaction_id, final_status, "Payment failed. You can retry from EduCompass.")
 
 
 @payment_bp.route("/sslcommerz/cancel", methods=["GET", "POST"])
@@ -787,12 +894,15 @@ def sslcommerz_cancel():
     payload = _request_payload()
     transaction_id = (payload.get("tran_id") or "").strip()
     payment = Payment.query.filter_by(transaction_id=transaction_id).first() if transaction_id else None
-    if payment is not None and payment.status not in _SECURE_LOCKED_STATUSES:
-        payment.status = PAYMENT_STATUS_CANCELLED
-        payment.enrollment_completed = False
-        _store_gateway_payload(payment, payload)
-        db.session.commit()
-    return _render_callback_html(transaction_id, PAYMENT_STATUS_CANCELLED, "Payment cancelled. Returning to EduCompass.")
+    final_status = PAYMENT_STATUS_CANCELLED
+    if payment is not None:
+        if payment.status not in _SECURE_LOCKED_STATUSES:
+            payment.status = PAYMENT_STATUS_CANCELLED
+            payment.enrollment_completed = False
+            _store_gateway_payload(payment, payload)
+            db.session.commit()
+        final_status = payment.status
+    return _render_callback_html(transaction_id, final_status, "Payment cancelled. Returning to EduCompass.")
 
 
 @payment_bp.get("/sslcommerz/status/<transaction_id>")
@@ -820,6 +930,7 @@ def sslcommerz_status(transaction_id: str):
         "currency": payment.currency,
         "validated": bool(payment.validated),
         "enrollment_completed": bool(payment.enrollment_completed),
+        "payment_method": payment.card_type or "SSLCOMMERZ",
         "card_type": payment.card_type,
         "bank_transaction_id": payment.bank_transaction_id,
         "risk_level": payment.risk_level,

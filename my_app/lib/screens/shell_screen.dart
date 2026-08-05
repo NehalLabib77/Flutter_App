@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import '../theme.dart';
 import '../widgets/design.dart';
 import 'favorites_screen.dart';
 import 'home_screen.dart';
@@ -121,11 +122,17 @@ class _ShellScreenState extends State<ShellScreen> {
     // Clamp the current index so a previously-selected Favorites tab doesn't
     // leave us on a phantom page after the user signs out.
     final safeIndex = _index.clamp(0, tabs.length - 1);
-    // Bottom nav: white background so it stands out against the blue app bar;
-    // icons + labels are blue (deep navy when idle, bright royal when selected).
-    const navBackground = Colors.white;
-    const navIdle = Color(0xFF1F47B8);
-    const navActive = Color(0xFF1565F6);
+    // Pull tokens from the active theme so the shell honors light +
+    // dark mode. We use the brand navy for both idle + selected labels
+    // (matches the existing visual identity: blue tabs on the app bar).
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final navBackground =
+        isDark ? const Color(0xFF0E1426) : Colors.white;
+    final navIdle = isDark
+        ? const Color(0xFFB3BAD0)
+        : AppColors.navy.withValues(alpha: 0.75);
+    final navActive = AppColors.navy;
+    final badgeBackground = navBackground;
     return Scaffold(
       body: IndexedStack(
         index: safeIndex,
@@ -135,7 +142,7 @@ class _ShellScreenState extends State<ShellScreen> {
         selectedIndex: safeIndex,
         onDestinationSelected: (i) => setState(() => _index = i),
         backgroundColor: navBackground,
-        indicatorColor: const Color(0xFF1565F6).withValues(alpha: 0.12),
+        indicatorColor: navActive.withValues(alpha: isDark ? 0.30 : 0.12),
         surfaceTintColor: Colors.transparent,
         labelTextStyle: WidgetStateProperty.resolveWith((states) {
           final selected = states.contains(WidgetState.selected);
@@ -152,6 +159,7 @@ class _ShellScreenState extends State<ShellScreen> {
                 t,
                 user.loadingPersonalized,
                 foreground: navIdle,
+                badgeBackground: badgeBackground,
               ),
               selectedIcon: Icon(t.icon, color: navActive),
               label: t.label,
@@ -168,11 +176,12 @@ class _ShellScreenState extends State<ShellScreen> {
     _TabItem tab,
     bool personalizedLoading, {
     required Color foreground,
+    required Color badgeBackground,
   }) {
     final icon = Icon(tab.icon, color: foreground);
     if (tab.label == 'For you' && personalizedLoading) {
       return Badge(
-        backgroundColor: Colors.white,
+        backgroundColor: badgeBackground,
         label: const SizedBox.shrink(),
         alignment: AlignmentDirectional.topEnd,
         offset: const Offset(-2, 2),
@@ -180,7 +189,7 @@ class _ShellScreenState extends State<ShellScreen> {
           icon: tab.icon,
           size: 24,
           iconSize: 14,
-          background: Colors.white,
+          background: badgeBackground,
           foreground: foreground,
         ),
       );

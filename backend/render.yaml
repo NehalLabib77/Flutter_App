@@ -45,16 +45,24 @@ services:
         value: sandbox
 
       - key: SSLC_STORE_ID
-        sync: true
+        sync: false
 
       - key: SSLC_STORE_PASSWORD
-        sync: true
+        sync: false
 
       - key: PUBLIC_BASE_URL
-        value: https://<educompass-backend-service>.onrender.com
+        value: https://educompass-api.onrender.com
 
       - key: APP_RETURN_URI
         value: educompass://payment/return
+
+      # Sandbox-only fallback for paid records whose source dataset has no
+      # numeric price. This is ignored in live mode.
+      - key: SANDBOX_DEFAULT_COURSE_PRICE_BDT
+        value: "10.00"
+
+      - key: USE_MOCK_PAYMENT
+        value: "false"
 
 databases:
   - name: educompass-db

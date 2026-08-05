@@ -23,7 +23,7 @@ import '../course_image.dart';
 import '../models.dart';
 import '../navigation.dart';
 import '../services/enrollment_service.dart';
-import '../theme.dart';
+
 import '../widgets/design.dart';
 import '../widgets/login_required.dart';
 import 'course_lessons_screen.dart';
@@ -170,7 +170,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       return;
     }
     final parsedAmount = _parseAmount(c.price);
-    final amount = c.isFree ? 0.0 : (parsedAmount > 0 ? parsedAmount : 0.01);
+    final double? amount = c.isFree
+        ? 0.0
+        : (parsedAmount > 0 ? parsedAmount : null);
     if (!c.isFree) {
       final result = await Navigator.push<Map<String, dynamic>>(
         context,
@@ -317,7 +319,6 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     final progress = user.progressFor(c.id).toDouble();
 
     return Scaffold(
-      backgroundColor: AppColors.pageBg,
       appBar: AppBar(
         title: Text(
           c.name,
@@ -701,7 +702,7 @@ class _PriceRow extends StatelessWidget {
         ? 'Free for everyone'
         : ((course.price ?? '').trim().isNotEmpty
             ? course.price!.trim()
-            : 'one-time');
+            : 'price confirmed at checkout');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1126,7 +1127,10 @@ class _BottomCTA extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.05),
+                color: Theme.of(context)
+                    .colorScheme
+                    .shadow
+                    .withValues(alpha: 0.12),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -1167,8 +1171,8 @@ class _BottomCTA extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     style: FilledButton.styleFrom(
-                      backgroundColor: AppColors.navy,
-                      foregroundColor: Colors.white,
+                      backgroundColor: Theme.of(context).colorScheme.primary,
+                      foregroundColor: Theme.of(context).colorScheme.onPrimary,
                       shape: const RoundedRectangleBorder(
                         borderRadius: Radii.pill,
                       ),

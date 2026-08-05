@@ -2090,3 +2090,60 @@ def test_logs_do_not_leak_credentials(
                 f"log record leaked {secret!r}: {record.getMessage()!r}"
             )
 
+
+
+def test_transaction_id_is_sslcommerz_compatible(client, auth_headers, fake_provider):
+    with _patch_course({"course_id": "course-with-a-very-long-identifier", "is_free": False, "price": "500"}):
+        res = client.post(
+            "/api/v1/payments/sslcommerz/session",
+            headers=auth_headers,
+            json={"course_id": "course-with-a-very-long-identifier"},
+        )
+    assert res.status_code == 200
+    transaction_id = res.get_json()["transaction_id"]
+    assert 1 <= len(transaction_id) <= 30
+    assert transaction_id.isalnum()
+
+
+def test_session_returns_server_authoritative_amount(client, auth_headers, fake_provider):
+    with _patch_course({"course_id": "course-priced", "is_free": False, "price": "BDT 750.50"}):
+        res = client.post(
+            "/api/v1/payments/sslcommerz/session",
+            headers=auth_headers,
+            json={"course_id": "course-priced"},
+        )
+    assert res.status_code == 200
+    body = res.get_json()
+    assert body["amount"] == "750.50"
+    assert body["currency"] == "BDT"
+    assert body["course_id"] == "course-priced"
+
+
+def test_missing_paid_price_can_use_explicit_sandbox_default(
+    client, app, auth_headers, fake_provider
+):
+    app.config["PAYMENT_MODE"] = "sandbox"
+    app.config["SANDBOX_DEFAULT_COURSE_PRICE_BDT"] = "10.00"
+    with _patch_course({"course_id": "course-no-price", "is_free": False, "price": None}):
+        res = client.post(
+            "/api/v1/payments/sslcommerz/session",
+            headers=auth_headers,
+            json={"course_id": "course-no-price"},
+        )
+    assert res.status_code == 200
+    assert res.get_json()["amount"] == "10.00"
+
+
+def test_sandbox_default_price_is_not_used_in_live_mode(
+    client, app, auth_headers, fake_provider
+):
+    app.config["PAYMENT_MODE"] = "live"
+    app.config["SANDBOX_DEFAULT_COURSE_PRICE_BDT"] = "10.00"
+    with _patch_course({"course_id": "course-no-live-price", "is_free": False, "price": None}):
+        res = client.post(
+            "/api/v1/payments/sslcommerz/session",
+            headers=auth_headers,
+            json={"course_id": "course-no-live-price"},
+        )
+    assert res.status_code == 400
+    assert res.get_json()["error"] == "INVALID_COURSE_PRICE"

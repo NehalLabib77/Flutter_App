@@ -595,3 +595,16 @@ def test_payload_does_not_leak_password_through_returned_dict():
     # convenience ``store_password`` field.
     assert "store_password" not in result
     assert "store_passwd" not in result
+
+def test_session_rejects_amount_below_sslcommerz_minimum():
+    provider, _ = _make_provider()
+    with pytest.raises(BillingInputError):
+        provider.create_session_result(**_session_kwargs(amount=Decimal("9.99")))
+
+
+def test_session_rejects_transaction_id_over_30_characters():
+    provider, _ = _make_provider()
+    with pytest.raises(BillingInputError):
+        provider.create_session_result(
+            **_session_kwargs(transaction_id="X" * 31)
+        )

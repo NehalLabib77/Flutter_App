@@ -381,17 +381,25 @@ class SslCommerzBillingProvider:
 
         amount = kwargs["amount"]
         amount_str = _format_amount(amount)
-        if amount_str == "0.00":
+        try:
+            normalized_amount = Decimal(amount_str)
+        except (InvalidOperation, ValueError) as exc:
+            raise BillingInputError("create_session received an invalid amount.") from exc
+        if normalized_amount < Decimal("10.00") or normalized_amount > Decimal("500000.00"):
             raise BillingInputError(
-                "create_session received an unparseable or zero amount."
+                "SSLCOMMERZ amount must be between BDT 10.00 and BDT 500,000.00."
             )
+
+        transaction_id = str(kwargs["transaction_id"]).strip()
+        if not transaction_id or len(transaction_id) > 30:
+            raise BillingInputError("SSLCOMMERZ transaction_id must be 1-30 characters.")
 
         payload: dict[str, str] = {
             "store_id": self.store_id,
             "store_passwd": self.store_password,
             "total_amount": amount_str,
             "currency": (kwargs.get("currency") or "BDT").strip().upper(),
-            "tran_id": str(kwargs["transaction_id"]),
+            "tran_id": transaction_id,
             "success_url": kwargs["success_url"],
             "fail_url": kwargs["fail_url"],
             "cancel_url": kwargs["cancel_url"],

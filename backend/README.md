@@ -120,3 +120,37 @@ curl -X POST http://127.0.0.1:5000/api/v1/auth/register `
 # should be there, and Firestore users/{uid} should hold the profile.
 ```
 
+
+## SSLCOMMERZ sandbox course payments
+
+The payment implementation is part of the existing Flask service and uses the
+same SQLAlchemy database as users and enrollments. It does **not** run a second
+FastAPI/Uvicorn service and does not create `payments.sqlite3` on Render.
+
+Required Render environment values:
+
+```text
+PAYMENT_MODE=sandbox
+SSLC_STORE_ID=<sandbox store id>
+SSLC_STORE_PASSWORD=<sandbox store password>
+PUBLIC_BASE_URL=https://educompass-api.onrender.com
+APP_RETURN_URI=educompass://payment/return
+USE_MOCK_PAYMENT=false
+SANDBOX_DEFAULT_COURSE_PRICE_BDT=10.00
+```
+
+`SANDBOX_DEFAULT_COURSE_PRICE_BDT` is optional and sandbox-only. It lets a
+course that is explicitly marked paid but has no numeric source price use a
+server-controlled BDT 10.00 test price. It is ignored in live mode. Leave it
+blank to reject missing prices.
+
+Merchant-panel IPN URL:
+
+```text
+https://educompass-api.onrender.com/api/v1/payments/sslcommerz/ipn
+```
+
+The Flutter app sends only `course_id`. The backend determines the amount,
+creates the session, validates transaction id/amount/currency/risk, and creates
+the enrollment idempotently. The deep link only returns the browser to the app;
+the protected status endpoint remains authoritative.

@@ -176,6 +176,13 @@ class Config:
     PAYMENT_HTTP_TIMEOUT_SECONDS = int(
         os.environ.get("PAYMENT_HTTP_TIMEOUT_SECONDS", "12")
     )
+    # Optional sandbox-only price used to test paid courses whose source
+    # dataset labels them as paid but does not contain a numeric price.
+    # It is never used in live mode and the Flutter client cannot override it.
+    SANDBOX_DEFAULT_COURSE_PRICE_BDT = _str(
+        os.environ.get("SANDBOX_DEFAULT_COURSE_PRICE_BDT"),
+        "",
+    )
 
 
 class DevelopmentConfig(Config):

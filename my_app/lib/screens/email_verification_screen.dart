@@ -239,12 +239,15 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
-              const Text(
+              Text(
                 'This screen will update automatically once you tap '
                 'the verification link. You can keep using the app '
                 'in the meantime.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 13, color: Colors.black54),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
               const SizedBox(height: 32),
               TextButton(
