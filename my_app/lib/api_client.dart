@@ -128,9 +128,20 @@ class ApiClient {
       }
     }
 
-    final message = (body['message'] ?? 'Request failed').toString();
+    var message = (body['message'] ?? 'Request failed').toString();
     final code =
         (body['error_code'] ?? body['error'] ?? body['code'])?.toString();
+
+    // A bearer token is issued only after the backend confirms email
+    // verification. Older backend deployments may still re-check Firebase on
+    // every request and can incorrectly return EMAIL_NOT_VERIFIED during a
+    // temporary Firebase Admin failure. Do not tell an already logged-in user
+    // to verify again; describe it as a session problem instead.
+    if (code == 'EMAIL_NOT_VERIFIED' && _cachedBearer != null) {
+      message = 'Your signed-in session could not be confirmed. '
+          'Please sign out and sign in again.';
+    }
+
     throw ApiException(response.statusCode, message, code: code);
   }
 

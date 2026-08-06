@@ -48,7 +48,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       if (!mounted) return;
       if (!_initialLoaded) {
         _initialLoaded = true;
-        context.read<UserProvider>().loadPersonalized();
+        if (context.read<AuthProvider>().isLoggedIn) {
+          context.read<UserProvider>().loadPersonalized();
+        }
       }
       // If we were launched with a prefilled query (e.g. from the
       // home-screen search bar) fire the goal search automatically so
@@ -86,8 +88,10 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     }
   }
 
-  Future<void> _refreshPersonalized() =>
-      context.read<UserProvider>().loadPersonalized();
+  Future<void> _refreshPersonalized() async {
+    if (!context.read<AuthProvider>().isLoggedIn) return;
+    await context.read<UserProvider>().loadPersonalized();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -343,6 +347,15 @@ class _PersonalizedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    if (!auth.isLoggedIn) {
+      return const EmptyState(
+        icon: Icons.person_outline_rounded,
+        message: 'Sign in to receive personalised picks from your interests '
+            'and favourites.',
+      );
+    }
+
     final user = context.watch<UserProvider>();
     if (user.loadingPersonalized && user.personalized.isEmpty) {
       return const Padding(
@@ -353,10 +366,10 @@ class _PersonalizedList extends StatelessWidget {
     if (user.personalized.isEmpty) {
       final error = user.personalizedError;
       if (error != null) {
-          return _ErrorBanner(
-            message: error,
-            onRetry: () => context.read<UserProvider>().loadPersonalized(),
-          );
+        return _ErrorBanner(
+          message: error,
+          onRetry: () => context.read<UserProvider>().loadPersonalized(),
+        );
       }
       return const EmptyState(
         icon: Icons.tips_and_updates_outlined,

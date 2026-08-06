@@ -7,6 +7,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../api_client.dart';
 import '../app_state.dart';
 import '../course_image.dart';
 import '../models.dart';
@@ -47,11 +48,16 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('"${c.name}" removed from favorites.')),
       );
-    } catch (e) {
+    } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not update favorites: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorites.')),
+      );
     }
   }
 
@@ -69,7 +75,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: RefreshIndicator(
         onRefresh: () async => context.read<UserProvider>().loadFavorites(),
         child: user.favorites.isEmpty
-            ? _empty(theme, user.loadingFavorites)
+            ? _empty(
+                theme,
+                user.loadingFavorites,
+                user.favoritesError,
+              )
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(
                   Spacing.md,
@@ -123,28 +133,45 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  Widget _empty(ThemeData theme, bool loading) {
+  Widget _empty(
+    ThemeData theme,
+    bool loading,
+    String? error,
+  ) {
     if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    // ListView lets the RefreshIndicator pull down on an empty screen.
+
+    // ListView keeps pull-to-refresh available for both error and empty
+    // states without introducing a nested scroll view.
     return ListView(
       children: [
         const SizedBox(height: 80),
-        EmptyState(
-          icon: Icons.favorite_border_rounded,
-          message: 'No favorites yet',
-          action: Padding(
-            padding: const EdgeInsets.only(top: Spacing.sm),
-            child: Text(
-              'Tap the heart on any course to save it for later.',
-              textAlign: TextAlign.center,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: theme.colorScheme.onSurfaceVariant,
+        if (error != null)
+          EmptyState(
+            icon: Icons.cloud_off_rounded,
+            message: error,
+            action: FilledButton.icon(
+              onPressed: () => context.read<UserProvider>().loadFavorites(),
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry'),
+            ),
+          )
+        else
+          EmptyState(
+            icon: Icons.favorite_border_rounded,
+            message: 'No favorites yet',
+            action: Padding(
+              padding: const EdgeInsets.only(top: Spacing.sm),
+              child: Text(
+                'Tap the heart on any course to save it for later.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
               ),
             ),
           ),
-        ),
       ],
     );
   }

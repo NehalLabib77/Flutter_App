@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../api_client.dart';
 import '../app.dart';
 import '../app_state.dart';
 import '../course_image.dart';
@@ -122,11 +123,16 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
           ),
         ),
       );
-    } catch (e) {
+    } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Could not update favorites: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(error.message)),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not update favorites.')),
+      );
     }
   }
 

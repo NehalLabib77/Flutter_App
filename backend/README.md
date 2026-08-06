@@ -109,6 +109,17 @@ $env:FIREBASE_WEB_API_KEY = "AIzaSy..."
 Optional Firestore defaults already match the Flutter `firebase_options.dart`
 in `my_app/` (project `educompass-b925e`).
 
+### Verified-session behaviour
+
+`POST /api/v1/auth/login` checks Firebase email verification before issuing
+EduCompass access and refresh tokens. After a token has been issued, protected
+features such as favourites, personalised recommendations, progress,
+enrollments, and payment status trust the signed JWT instead of querying
+Firebase Admin again on every request. This prevents a temporary Firebase Admin
+failure or stale verification response from blocking an already logged-in
+learner. Tokens issued by the current backend include an
+`email_verified: true` claim; legacy valid tokens remain compatible.
+
 ### Quick smoke test
 
 ```powershell

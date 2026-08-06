@@ -4,12 +4,12 @@
 ///
 ///  1. **Bootstrapping** — wait for [AuthProvider] to replay the
 ///     persisted JWT against `/auth/me`.
-///  2. **Firebase user present but `emailVerified == false`** — show
-///     the [EmailVerificationScreen]. The user can't reach the shell
-///     until they confirm their address; this is the single source of
-///     truth for that gate.
-///  3. **Otherwise** — let the [ShellScreen] decide. Guests (no JWT)
-///     and signed-in users (valid JWT) both land here.
+///  2. **Valid EduCompass JWT** — open [ShellScreen]. The backend issues
+///     this token only after Firebase email verification, so an already
+///     logged-in learner is treated as verified.
+///  3. **No JWT + unverified Firebase user** — show
+///     [EmailVerificationScreen] during the first registration flow.
+///  4. **Otherwise** — open the guest [ShellScreen].
 ///
 /// The previous implementation routed everyone straight to
 /// [ShellScreen]. We keep the guest-friendly behaviour and only
@@ -72,6 +72,20 @@ class _AuthContent extends StatelessWidget {
             body: Center(child: CircularProgressIndicator()),
           );
         }
+
+        // A persisted EduCompass JWT is issued only after the backend has
+        // confirmed Firebase email verification. Once that verified session
+        // exists, it is the authoritative app-login state. Do not send an
+        // already logged-in learner back through the Firebase verification
+        // gate because the local Firebase user can briefly be stale after an
+        // app restart or token refresh.
+        if (auth.isLoggedIn) {
+          return const ShellScreen();
+        }
+
+        // No EduCompass JWT yet. Keep observing Firebase so a newly
+        // registered, unverified user is still routed to the verification
+        // screen before their first successful backend login.
         return _AuthGate(firebaseAuthService: firebaseAuthService);
       },
     );

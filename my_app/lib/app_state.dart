@@ -221,6 +221,7 @@ class UserProvider extends ChangeNotifier {
   final Map<String, int> _progress = {};
   final Map<String, bool> _completed = {};
   bool _loadingFavorites = false;
+  String? _favoritesError;
   List<Course> _personalized = const [];
   bool _loadingPersonalized = false;
   String? _personalizedError;
@@ -228,6 +229,7 @@ class UserProvider extends ChangeNotifier {
   Set<String> get favoriteIds => _favoriteIds;
   List<Course> get favorites => _favorites;
   bool get loadingFavorites => _loadingFavorites;
+  String? get favoritesError => _favoritesError;
   List<Course> get personalized => _personalized;
   bool get loadingPersonalized => _loadingPersonalized;
   String? get personalizedError => _personalizedError;
@@ -236,10 +238,15 @@ class UserProvider extends ChangeNotifier {
 
   Future<void> loadFavorites() async {
     _loadingFavorites = true;
+    _favoritesError = null;
     notifyListeners();
     try {
       _favorites = await _api.favorites();
       _favoriteIds = _favorites.map((c) => c.id).toSet();
+    } on ApiException catch (error) {
+      _favoritesError = _authenticatedErrorMessage(error);
+    } catch (error) {
+      _favoritesError = _api.describeNetworkError(error);
     } finally {
       _loadingFavorites = false;
       notifyListeners();
@@ -247,16 +254,25 @@ class UserProvider extends ChangeNotifier {
   }
 
   Future<void> toggleFavorite(Course course) async {
-    if (_favoriteIds.contains(course.id)) {
-      await _api.removeFavorite(course.id);
-      _favoriteIds.remove(course.id);
-      _favorites = _favorites.where((c) => c.id != course.id).toList();
-    } else {
-      await _api.addFavorite(course.id);
-      _favoriteIds.add(course.id);
-      _favorites = [..._favorites, course];
+    try {
+      if (_favoriteIds.contains(course.id)) {
+        await _api.removeFavorite(course.id);
+        _favoriteIds.remove(course.id);
+        _favorites = _favorites.where((c) => c.id != course.id).toList();
+      } else {
+        await _api.addFavorite(course.id);
+        _favoriteIds.add(course.id);
+        _favorites = [..._favorites, course];
+      }
+      _favoritesError = null;
+      notifyListeners();
+    } on ApiException catch (error) {
+      throw ApiException(
+        error.statusCode,
+        _authenticatedErrorMessage(error),
+        code: error.code,
+      );
     }
-    notifyListeners();
   }
 
   int progressFor(String courseId) => _progress[courseId] ?? 0;
@@ -282,13 +298,22 @@ class UserProvider extends ChangeNotifier {
     try {
       _personalized = await _api.recommendPersonalized();
     } on ApiException catch (e) {
-      _personalizedError = e.message;
+      _personalizedError = _authenticatedErrorMessage(e);
     } catch (e) {
       _personalizedError = _api.describeNetworkError(e);
     } finally {
       _loadingPersonalized = false;
       notifyListeners();
     }
+  }
+
+
+  String _authenticatedErrorMessage(ApiException error) {
+    if (error.code == 'EMAIL_NOT_VERIFIED') {
+      return 'Your signed-in session could not be confirmed. '
+          'Please sign out and sign in again.';
+    }
+    return error.message;
   }
 
   Future<List<Course>> recommendByGoal(String query, {int limit = 10}) async {

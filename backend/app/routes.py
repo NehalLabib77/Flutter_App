@@ -17,6 +17,7 @@ from flask import Blueprint, current_app, jsonify, request
 from flask_jwt_extended import (
     create_access_token,
     create_refresh_token,
+    get_jwt,
     get_jwt_identity,
     jwt_required,
 )
@@ -103,32 +104,40 @@ def current_user() -> User | None:
 
 
 def verified_user_required(view_function):
-    """Decorator: require the caller to be signed in *and* verified.
+    """Require a valid EduCompass JWT issued after email verification.
 
-    Builds on top of ``jwt_required`` so any protected endpoint can be
-    gated by both at once. The user's ``firebase_uid`` is looked up in
-    Firebase Auth to confirm ``email_verified`` is true; if Firebase is
-    unreachable the request is rejected (fail closed) rather than
-    silently letting an unverified user through.
+    The login endpoint is the verification boundary: it checks Firebase's
+    ``email_verified`` flag before issuing either an access token or a
+    refresh token. Re-checking Firebase on every favourites,
+    recommendation, progress, enrollment, and payment request made valid
+    logged-in sessions fail whenever Firebase Admin is temporarily slow,
+    unavailable, or returning stale user data.
+
+    A valid signed JWT therefore represents a verified EduCompass session.
+    New tokens carry ``email_verified=True`` explicitly. Legacy tokens that
+    predate the claim remain accepted because they could only have been
+    issued by the same verified-only login route. A token that explicitly
+    carries ``email_verified=False`` is rejected.
     """
 
     @wraps(view_function)
     def wrapped_view(*args, **kwargs):
         user = current_user()
         if user is None:
-            return json_error("Account not found.", status=404,
-                              code="USER_NOT_FOUND")
-        uid = user.firebase_uid
-        if not uid:
             return json_error(
-                "This account is not linked to an identity provider.",
-                status=403, code="NO_FIREBASE_LINK",
+                "Account not found.",
+                status=404,
+                code="USER_NOT_FOUND",
             )
-        if not firebase_client.is_email_verified(uid):
+
+        claims = get_jwt()
+        if claims.get("email_verified") is False:
             return json_error(
-                "Verify your email before accessing this resource.",
-                status=403, code="EMAIL_NOT_VERIFIED",
+                "This session was created before email verification.",
+                status=403,
+                code="EMAIL_NOT_VERIFIED",
             )
+
         return view_function(*args, **kwargs)
 
     return wrapped_view
@@ -503,9 +512,9 @@ def login():
         db.session.commit()
 
     # 3. Email verification gate. We refuse to issue a JWT until the
-    #    user has confirmed the address — see
-    #    ``verified_user_required`` for the protected-endpoint side of
-    #    the same check.
+    #    user has confirmed the address. Protected endpoints then trust
+    #    that signed verified session instead of re-querying Firebase on
+    #    every request.
     if not firebase_client.is_email_verified(uid):
         # Best-effort: also send a fresh verification link so the user
         # doesn't have to dig out the original email. We swallow the
@@ -520,10 +529,20 @@ def login():
             status=403, code="EMAIL_NOT_VERIFIED",
         )
 
+    verified_claims = {
+        "email_verified": True,
+        "firebase_uid": uid,
+    }
     return json_ok({
         "user": user.to_dict(),
-        "access_token": create_access_token(identity=str(user.id)),
-        "refresh_token": create_refresh_token(identity=str(user.id)),
+        "access_token": create_access_token(
+            identity=str(user.id),
+            additional_claims=verified_claims,
+        ),
+        "refresh_token": create_refresh_token(
+            identity=str(user.id),
+            additional_claims=verified_claims,
+        ),
     })
 
 
@@ -597,7 +616,25 @@ def send_verification():
 @jwt_required(refresh=True)
 def refresh():
     identity = get_jwt_identity()
-    return json_ok({"access_token": create_access_token(identity=str(identity))})
+    claims = get_jwt()
+    if claims.get("email_verified") is False:
+        return json_error(
+            "This session was created before email verification.",
+            status=403,
+            code="EMAIL_NOT_VERIFIED",
+        )
+
+    additional_claims = {"email_verified": True}
+    firebase_uid = claims.get("firebase_uid")
+    if firebase_uid:
+        additional_claims["firebase_uid"] = firebase_uid
+
+    return json_ok({
+        "access_token": create_access_token(
+            identity=str(identity),
+            additional_claims=additional_claims,
+        ),
+    })
 
 
 @bp.get("/auth/me")

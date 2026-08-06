@@ -185,10 +185,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
                 border: true,
                 child: Column(
                   children: [
-                    _DetailRow(
-                      label: 'Course',
-                      value: widget.courseName,
-                    ),
+                    _DetailRow(label: 'Course', value: widget.courseName),
                     const Divider(height: Spacing.xl),
                     _DetailRow(
                       label: 'Transaction ID',
