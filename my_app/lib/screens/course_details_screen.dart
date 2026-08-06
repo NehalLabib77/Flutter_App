@@ -170,7 +170,11 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       return;
     }
     final parsedAmount = _parseAmount(c.price);
-    final amount = c.isFree ? 0.0 : (parsedAmount > 0 ? parsedAmount : 0.01);
+    // Never invent a client-side fallback amount for a paid course.
+    // The backend resolves and validates the official price. When the
+    // catalogue has no numeric price, the payment screen shows that the
+    // amount will be confirmed securely by the server.
+    final amount = c.isFree ? 0.0 : parsedAmount;
     if (!c.isFree) {
       final result = await Navigator.push<Map<String, dynamic>>(
         context,

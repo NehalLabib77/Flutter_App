@@ -80,6 +80,8 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
 
   String? _providerName;
   bool? _providerSandbox;
+  bool _providerLoading = true;
+  double? _confirmedAmount;
   bool _busy = false;
   // Latest provider-info error, surfaced through the build tree so the
   // user can see the message even if the screen is torn down before
@@ -168,64 +170,74 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
   }
 
   Future<void> _refreshProviderInfo() async {
-    // `mounted` here is the State getter — touching `context` after
-    // the State has been unmounted throws "This widget has been
-    // unmounted" (which is *not* what `context.mounted` catches).
     if (!mounted) return;
+
+    setState(() {
+      _providerLoading = true;
+      _providerErrorMessage = null;
+    });
+
     final api = context.read<ApiClient>();
+
     try {
       final info = await api.paymentProviderInfo();
       if (!mounted) return;
-      final provider = info['provider']?.toString();
+
+      final provider = info['provider']?.toString().trim().toLowerCase();
       final sandbox = info['sandbox'] == true;
-      // The backend reports either the SSLCOMMERZ provider name or
-      // `free`. The abstraction layer mirrors those names so the UI
-      // and the network stay in sync — never compare raw strings
-      // against hard-coded literals here.
-      final usesFree = provider == null ||
-          provider == BillingConfig.freeProviderName;
-      setState(() {
-        _providerName = usesFree ? BillingConfig.freeProviderName : provider;
-        _providerSandbox = sandbox;
-        _providerErrorMessage = null;
-      });
-      // Misconfiguration guard: when the user is paying for a paid
-      // course but the backend reports the free provider, the gateway
-      // is unconfigured (typically `SSLC_STORE_ID` / `SSLC_STORE_PASSWORD`
-      // missing on Render). Surface a clear error instead of silently
-      // enrolling for free — that would let anyone bypass payment.
-      if (usesFree && !widget.isCourseFree) {
-        _showSnack(
-          'Payment gateway is not configured on the server. '
-          'Please contact support.',
-        );
+
+      String? errorMessage;
+      if (!widget.isCourseFree &&
+          !BillingConfig.useMockPayment &&
+          provider != BillingConfig.sslcommerzProviderName) {
+        errorMessage =
+            'Payment gateway is not configured on the server. '
+            'Please contact support.';
       }
-    } on ApiException catch (e) {
-      if (!mounted) return;
-      // Treat an introspection failure as the free provider so the
-      // user can still enrol — same behaviour as the original code,
-      // just with the explicit constant.
-      final errMessage = widget.isCourseFree
-          ? 'Provider info unavailable (${e.message}).'
-          : 'Payment gateway is unreachable (${e.message}). '
-              'Please contact support.';
+
       setState(() {
-        _providerName = BillingConfig.freeProviderName;
-        _providerErrorMessage = errMessage;
+        _providerName = provider;
+        _providerSandbox = sandbox;
+        _providerLoading = false;
+        _providerErrorMessage = errorMessage;
       });
-      // Still surface the snack for the live screen so the user
-      // gets immediate feedback; the build-tree copy (`_providerErrorMessage`)
-      // is there for the case where this fires after the screen is
-      // already gone.
-      _showSnack(errMessage);
+
+      if (errorMessage != null) {
+        _showSnack(errorMessage);
+      }
+    } on ApiException catch (error) {
+      if (!mounted) return;
+
+      final message = widget.isCourseFree
+          ? 'Provider information is temporarily unavailable.'
+          : 'Payment gateway is unreachable (${error.message}). '
+              'Please try again.';
+
+      setState(() {
+        // A failed provider request must never be interpreted as a free
+        // provider for a paid course. Keep the provider unknown and block
+        // checkout until a retry succeeds.
+        _providerName = null;
+        _providerSandbox = null;
+        _providerLoading = false;
+        _providerErrorMessage = message;
+      });
+
+      _showSnack(message);
     }
   }
 
-  /// Whether the configured provider is the free stub. In that case we
-  /// skip the gateway entirely and enroll directly.
-  bool get _isFreeProvider =>
-      _providerName == null ||
-      _providerName == BillingConfig.freeProviderName;
+  /// Free enrollment is determined by the course itself, never by a failed
+  /// provider-info request. This prevents a paid course from silently falling
+  /// back to the free-enrollment UI when the network is unavailable.
+  bool get _isFreeProvider => widget.isCourseFree;
+
+  bool get _providerUnavailable {
+    if (widget.isCourseFree || BillingConfig.useMockPayment) return false;
+    if (_providerLoading) return false;
+    return _providerErrorMessage != null ||
+        _providerName != BillingConfig.sslcommerzProviderName;
+  }
 
   /// Resolve the [BillingProvider] implementation that this screen
   /// should drive. The factory honours the build-time
@@ -315,7 +327,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
     // faster than the first setState runs (especially on low-end
     // devices or with the button rendered in a list). Treat the
     // guard as load-bearing rather than decorative.
-    if (_busy) return;
+    if (_busy || _providerLoading) return;
+    if (_providerUnavailable) {
+      await _refreshProviderInfo();
+      return;
+    }
     if (!mounted) return;
     final api = context.read<ApiClient>();
     final deepLinks = _deepLinks;
@@ -341,6 +357,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
       // builds always reach the SSLCOMMERZ endpoint unless the
       // developer passes `--dart-define=USE_MOCK_PAYMENT=true`.
       final session = await billing.createSession(courseId: widget.courseId);
+
+      final serverAmount = session.amount;
+      if (mounted && serverAmount != null && serverAmount > 0) {
+        setState(() => _confirmedAmount = serverAmount);
+      }
 
       // Free-provider path: the backend (or the in-memory mock) may
       // mark the session as already validated when no gateway is
@@ -746,8 +767,24 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
     messenger.showSnackBar(SnackBar(content: Text(message)));
   }
 
-  String get _formattedAmount =>
-      '${widget.currencySymbol}${widget.amount.toStringAsFixed(2)}';
+  double? get _displayAmount {
+    final confirmed = _confirmedAmount;
+    if (confirmed != null && confirmed > 0) return confirmed;
+    if (widget.amount > 0) return widget.amount;
+    return null;
+  }
+
+  String get _formattedAmount {
+    final amount = _displayAmount;
+    if (amount == null) return 'server-confirmed amount';
+    return '${widget.currencySymbol}${amount.toStringAsFixed(2)}';
+  }
+
+  String get _totalDueLabel {
+    final amount = _displayAmount;
+    if (amount == null) return 'Amount confirmed securely by server';
+    return 'Total due ${widget.currencySymbol}${amount.toStringAsFixed(2)}';
+  }
 
   Future<bool> _launchExternal(String url) async {
     final platform = UrlLauncherPlatform.instance;
@@ -765,6 +802,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final free = _isFreeProvider;
+    final unavailable = _providerUnavailable;
 
     return Scaffold(
       appBar: AppBar(title: const Text('Course Payment')),
@@ -784,7 +822,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                 key: const Key('payment_total_due'),
                 eyebrow: 'PAYMENT',
                 title: widget.courseName,
-                subtitle: 'Total due $_formattedAmount',
+                subtitle: _totalDueLabel,
                 icon: Icons.receipt_long_rounded,
               ),
               if (_providerErrorMessage != null) ...[
@@ -834,7 +872,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                     Text(
                       free
                           ? 'No payment is required for this course.'
-                          : 'You will be redirected to SSLCOMMERZ to complete payment.',
+                          : _providerLoading
+                              ? 'Checking the payment gateway configuration…'
+                              : unavailable
+                                  ? 'The payment gateway is currently unavailable.'
+                                  : 'You will be redirected to SSLCOMMERZ to complete payment.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -850,7 +892,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                             Icon(
                               free
                                   ? Icons.workspace_premium_rounded
-                                  : Icons.lock_outline_rounded,
+                                  : unavailable
+                                      ? Icons.cloud_off_rounded
+                                      : _providerLoading
+                                          ? Icons.sync_rounded
+                                          : Icons.lock_outline_rounded,
                               color: scheme.primary,
                             ),
                             ConstrainedBox(
@@ -858,7 +904,13 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                                 maxWidth: constraints.maxWidth - 48,
                               ),
                               child: Text(
-                                free ? 'Free enrollment' : 'Pay with SSLCOMMERZ',
+                                free
+                                    ? 'Free enrollment'
+                                    : unavailable
+                                        ? 'Payment unavailable'
+                                        : _providerLoading
+                                            ? 'Checking gateway'
+                                            : 'Pay with SSLCOMMERZ',
                                 key: free
                                     ? const Key('free_enrollment_label')
                                     : null,
@@ -869,7 +921,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                                 ),
                               ),
                             ),
-                            if (!free && _providerSandbox == true)
+                            if (!free && !unavailable && _providerSandbox == true)
                               Pill(
                                 text: 'SANDBOX',
                                 icon: Icons.science_outlined,
@@ -889,7 +941,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      free ? 'Confirm enrollment' : 'Checkout',
+                      free
+                          ? 'Confirm enrollment'
+                          : unavailable
+                              ? 'Gateway connection'
+                              : 'Checkout',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -898,7 +954,11 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                     Text(
                       free
                           ? 'You can enrol in this course without paying. The backend will record your enrollment immediately.'
-                          : 'Tap the button below to open the SSLCOMMERZ sandbox checkout in your browser. After paying, you will be bounced back to the app.',
+                          : unavailable
+                              ? 'Retry the gateway check. Paid enrollment remains blocked until the server confirms SSLCOMMERZ is available.'
+                              : _providerLoading
+                                  ? 'Please wait while EduCompass checks the payment gateway.'
+                                  : 'Tap the button below to open the secure SSLCOMMERZ checkout in your browser. After paying, you will return to the app.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -910,10 +970,14 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                       key: free
                           ? const Key('free_enrollment_cta')
                           : const Key('payment_primary_cta'),
-                      onPressed: _busy
+                      onPressed: _busy || _providerLoading
                           ? null
-                          : (free ? _freeEnrol : _startCheckout),
-                      icon: _busy
+                          : free
+                              ? _freeEnrol
+                              : unavailable
+                                  ? _refreshProviderInfo
+                                  : _startCheckout,
+                      icon: _busy || _providerLoading
                           ? const SizedBox(
                               height: 18,
                               width: 18,
@@ -922,14 +986,25 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                           : Icon(
                               free
                                   ? Icons.check_circle_outline_rounded
-                                  : Icons.open_in_new_rounded,
+                                  : unavailable
+                                      ? Icons.refresh_rounded
+                                      : Icons.open_in_new_rounded,
                             ),
                       label: Text(
                         free
                             ? 'Enrol for free'
-                            : (_busy
-                                  ? 'Opening gateway…'
-                                  : 'Pay $_formattedAmount'),
+                            : _providerLoading
+                                ? 'Checking gateway…'
+                                : unavailable
+                                    ? 'Retry gateway'
+                                    : _busy
+                                        ? 'Opening gateway…'
+                                        : _displayAmount == null
+                                            ? 'Continue to SSLCOMMERZ'
+                                            : 'Pay $_formattedAmount',
+                        key: _busy && !free
+                            ? const Key('payment_loading_label')
+                            : null,
                       ),
                       ),
                     ),
@@ -950,7 +1025,9 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                     child: Text(
                       free
                           ? 'Free courses do not call the gateway.'
-                          : 'Complete checkout in the secure SSLCOMMERZ page, then return to EduCompass.',
+                          : unavailable
+                              ? 'Paid enrollment cannot continue until the gateway check succeeds.'
+                              : 'Complete checkout in the secure SSLCOMMERZ page, then return to EduCompass.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,

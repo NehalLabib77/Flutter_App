@@ -108,16 +108,29 @@ class ApiClient {
       );
     }
 
-    if (response.statusCode >= 200 &&
-        response.statusCode < 300 &&
-        body['success'] == true) {
-      final data = body['data'];
-      if (data is Map<String, dynamic>) return data;
-      return {'value': data};
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      final successFlag = body['success'];
+
+      // Most EduCompass endpoints use the standard
+      // {"success": true, "data": {...}} envelope.
+      if (successFlag == true) {
+        final data = body['data'];
+        if (data is Map<String, dynamic>) return data;
+        return {'value': data};
+      }
+
+      // Payment callbacks/provider routes intentionally return a plain
+      // JSON object so older clients and gateway tooling can consume
+      // them. Accept successful 2xx payloads that do not declare an
+      // explicit success flag.
+      if (successFlag == null) {
+        return body;
+      }
     }
 
     final message = (body['message'] ?? 'Request failed').toString();
-    final code = body['error_code']?.toString();
+    final code =
+        (body['error_code'] ?? body['error'] ?? body['code'])?.toString();
     throw ApiException(response.statusCode, message, code: code);
   }
 

@@ -250,6 +250,12 @@ class SslCommerzSession {
       return null;
     }
 
+    double? parseAmount(Object? raw) {
+      if (raw == null) return null;
+      if (raw is num) return raw.toDouble();
+      return double.tryParse(raw.toString().trim().replaceAll(',', ''));
+    }
+
     return SslCommerzSession(
       transactionId:
           (session['transaction_id'] ??
@@ -262,7 +268,7 @@ class SslCommerzSession {
       provider: session['provider']?.toString(),
       sessionKey: session['session_key']?.toString(),
       currency: session['currency']?.toString(),
-      amount: (session['amount'] as num?)?.toDouble(),
+      amount: parseAmount(session['amount']),
       courseId: session['course_id']?.toString(),
       mode: pickMode(session),
     );
@@ -370,6 +376,12 @@ class SslCommerzPaymentStatus {
       return DateTime.tryParse(s);
     }
 
+    double? parseAmount(Object? raw) {
+      if (raw == null) return null;
+      if (raw is num) return raw.toDouble();
+      return double.tryParse(raw.toString().trim().replaceAll(',', ''));
+    }
+
     return SslCommerzPaymentStatus(
       transactionId:
           (payment['transaction_id'] ??
@@ -378,7 +390,7 @@ class SslCommerzPaymentStatus {
                   '')
               .toString(),
       status: (payment['status'] ?? json['status'] ?? 'pending').toString(),
-      amount: (payment['amount'] as num?)?.toDouble(),
+      amount: parseAmount(payment['amount']),
       currency: payment['currency']?.toString(),
       paymentMethod: payment['payment_method']?.toString(),
       enrolled: payment['enrolled'] == true || json['enrolled'] == true,

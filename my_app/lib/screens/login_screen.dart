@@ -1,14 +1,5 @@
 /// Sign-in screen — Firebase email + password, gated on `emailVerified`,
 /// then exchanges the verified Firebase session for an EduCompass JWT.
-///
-/// The user can:
-///  * sign in with email + password;
-///  * if their email isn't verified yet, the screen surfaces a friendly
-///    message and lets AuthWrapper's `userChanges` stream route them to
-///    [EmailVerificationScreen] (the screen pushes itself, we do not
-///    push a duplicate here);
-///  * tap "Resend verification email" on the verification screen to ask
-///    Firebase to send a fresh link (cooldown handled by the screen).
 library;
 
 import 'package:flutter/material.dart';
@@ -22,7 +13,10 @@ import 'register_screen.dart';
 import 'shell_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key, this.firebaseAuthService});
+  const LoginScreen({
+    super.key,
+    this.firebaseAuthService,
+  });
 
   final FirebaseAuthService? firebaseAuthService;
 
@@ -48,35 +42,37 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  /// Exchange the verified Firebase session for the EduCompass JWT
-  /// and push the user into the shell. Extracted so the verification
-  /// screen can trigger the same completion path after the email is
-  /// verified.
   Future<void> _completePostVerificationLogin() async {
-    final auth = context.read<AuthProvider>();
+    final authProvider = context.read<AuthProvider>();
+
     try {
-      await auth.login(
+      await authProvider.login(
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
       );
-    } on ApiException catch (e) {
+    } on ApiException catch (error) {
       if (!mounted) return;
-      _showMessage(e.message);
+      _showMessage(error.message);
       return;
     }
+
     if (!mounted) return;
+
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(builder: (_) => const ShellScreen()),
-      (route) => false,
+      MaterialPageRoute<void>(
+        builder: (_) => const ShellScreen(),
+      ),
+      (_) => false,
     );
   }
 
   Future<void> _submit() async {
-    FocusScope.of(context).unfocus();
+    if (_submitting) return;
 
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return;
 
     setState(() => _submitting = true);
 
@@ -85,154 +81,166 @@ class _LoginScreenState extends State<LoginScreen> {
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
       );
-      // Verified! Exchange Firebase session for the EduCompass JWT so
-      // the API client can call protected routes.
+
+      if (!mounted) return;
       await _completePostVerificationLogin();
-    } on FirebaseAuthFailure catch (e) {
-      if (e.kind == FirebaseAuthFailureKind.emailNotVerified) {
-        // Keep the Firebase session alive (signInWithEmail did not
-        // sign it out) and let AuthWrapper's `userChanges` stream
-        // route to EmailVerificationScreen. We do NOT push the screen
-        // ourselves — that would race with the StreamBuilder tick
-        // and produce a double-navigation. We just stay put so the
-        // wrapper can take over.
-        if (!mounted) return;
-        _showMessage(e.message);
+    } on FirebaseAuthFailure catch (error) {
+      if (!mounted) return;
+
+      if (error.kind == FirebaseAuthFailureKind.emailNotVerified) {
+        // Keep the Firebase session alive. AuthWrapper observes the
+        // unverified user and opens EmailVerificationScreen.
+        _showMessage(error.message);
         return;
       }
-      _showMessage(e.message);
-    } catch (e) {
+
+      _showMessage(error.message);
+    } catch (_) {
+      if (!mounted) return;
       _showMessage('Sign in failed. Please try again.');
     } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
-  /// Resend the verification email without first signing in. Uses the
-  /// user's email + password as proof of account ownership so
-  /// Firebase will accept the OOB request.
   Future<void> _resendVerification() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (_submitting) return;
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    final form = _formKey.currentState;
+    if (form == null || !form.validate()) return;
+
     setState(() => _submitting = true);
+
     try {
       await _service.resendVerificationWithPassword(
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
       );
+
       if (!mounted) return;
       _showMessage(
         'Verification email has been sent again. Check your inbox.',
       );
-    } on FirebaseAuthFailure catch (e) {
+    } on FirebaseAuthFailure catch (error) {
       if (!mounted) return;
-      _showMessage(e.message);
-    } catch (e) {
+      _showMessage(error.message);
+    } catch (_) {
       if (!mounted) return;
-      _showMessage('Unable to resend verification email.');
+      _showMessage('Unable to resend the verification email.');
     } finally {
-      if (mounted) {
-        setState(() => _submitting = false);
-      }
+      if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  void _openRegistration() {
+    if (_submitting) return;
+
+    FocusManager.instance.primaryFocus?.unfocus();
+
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => RegisterScreen(
+          firebaseAuthService: _service,
+        ),
+      ),
+    );
   }
 
   void _showMessage(String message) {
     if (!mounted) return;
 
-    ScaffoldMessenger.of(context)
+    final messenger = ScaffoldMessenger.of(context);
+    messenger
       ..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            message,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      );
   }
 
   @override
   Widget build(BuildContext context) {
     return AuthScaffold(
       title: 'Sign in',
-      child: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            const AuthHeading(
-              kicker: 'Welcome back',
-              title: 'Sign in to continue',
-              body:
-                  'Use the email and password you used when you '
-                  'created your account.',
-            ),
-            InsetField(
-              controller: _emailCtrl,
-              label: 'Email',
-              icon: Icons.email_outlined,
-              keyboardType: TextInputType.emailAddress,
-              autofillHints: const [AutofillHints.email],
-              textInputAction: TextInputAction.next,
-              validator: _validateEmail,
-            ),
-            InsetField(
-              controller: _passwordCtrl,
-              label: 'Password',
-              icon: Icons.lock_outline,
-              obscure: true,
-              autofillHints: const [AutofillHints.password],
-              textInputAction: TextInputAction.done,
-              validator: _validatePassword,
-              onSubmitted: (_) => _submit(),
-            ),
-            AuthPrimaryButton(
-              label: _submitting ? 'Signing in' : 'Sign in',
-              icon: Icons.login_rounded,
-              busy: _submitting,
-              onPressed: _submitting ? null : _submit,
-            ),
-            const SizedBox(height: 6),
-            AuthFootnoteLink(
-              prefix: 'Didn\'t receive the verification email?',
-              linkLabel: 'Resend verification email',
-              onTap: _submitting ? () {} : _resendVerification,
-            ),
-            const SizedBox(height: 8),
-            AuthFootnoteLink(
-              prefix: "Don't have an account?",
-              linkLabel: 'Sign up',
-              onTap: _submitting
-                  ? () {}
-                  : () {
-                      Navigator.of(context).push(
-                        MaterialPageRoute(
-                          builder: (_) => RegisterScreen(
-                            firebaseAuthService: _service,
-                          ),
-                        ),
-                      );
-                    },
-            ),
-          ],
+      child: AutofillGroup(
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              const AuthHeading(
+                kicker: 'Welcome back',
+                title: 'Sign in to continue',
+                body:
+                    'Use the email and password you used when you '
+                    'created your account.',
+              ),
+              InsetField(
+                controller: _emailCtrl,
+                label: 'Email',
+                icon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                autofillHints: const [
+                  AutofillHints.username,
+                  AutofillHints.email,
+                ],
+                textInputAction: TextInputAction.next,
+                validator: _validateEmail,
+              ),
+              InsetField(
+                controller: _passwordCtrl,
+                label: 'Password',
+                icon: Icons.lock_outline,
+                obscure: true,
+                autofillHints: const [AutofillHints.password],
+                textInputAction: TextInputAction.done,
+                validator: _validatePassword,
+                onSubmitted: (_) {
+                  if (!_submitting) _submit();
+                },
+              ),
+              AuthPrimaryButton(
+                label: _submitting ? 'Signing in' : 'Sign in',
+                icon: Icons.login_rounded,
+                busy: _submitting,
+                onPressed: _submitting ? null : _submit,
+              ),
+              const SizedBox(height: 6),
+              AuthFootnoteLink(
+                prefix: 'Didn\'t receive the verification email?',
+                linkLabel: 'Resend verification email',
+                onTap: _submitting ? () {} : _resendVerification,
+              ),
+              const SizedBox(height: 8),
+              AuthFootnoteLink(
+                prefix: 'Don\'t have an account?',
+                linkLabel: 'Sign up',
+                onTap: _submitting ? () {} : _openRegistration,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// -----------------------------------------------------------------------------
-// Validators
-// -----------------------------------------------------------------------------
-
 String? _validateEmail(String? value) {
   final email = (value ?? '').trim();
 
-  if (email.isEmpty) {
-    return 'Email is required';
-  }
+  if (email.isEmpty) return 'Email is required';
 
   final pattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
-
-  if (!pattern.hasMatch(email)) {
-    return 'Please enter a valid email address';
-  }
+  if (!pattern.hasMatch(email)) return 'Please enter a valid email address';
 
   return null;
 }
@@ -240,13 +248,8 @@ String? _validateEmail(String? value) {
 String? _validatePassword(String? value) {
   final password = value ?? '';
 
-  if (password.isEmpty) {
-    return 'Password is required';
-  }
-
-  if (password.length < 8) {
-    return 'Password must be at least 8 characters';
-  }
+  if (password.isEmpty) return 'Password is required';
+  if (password.length < 8) return 'Password must be at least 8 characters';
 
   return null;
 }

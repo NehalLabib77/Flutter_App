@@ -100,10 +100,16 @@ class AuthScaffold extends StatelessWidget {
   Widget build(BuildContext context) {
     final media = MediaQuery.of(context);
     final palette = _AuthPalette.of(context);
+
     return Scaffold(
       backgroundColor: palette.canvas,
-      resizeToAvoidBottomInset: true,
-      // Blue AppBar with a hairline so it doesn't bleed into the body.
+
+      // Keep the auth card at its normal size when the keyboard opens.
+      // Android should pan the window to the focused field instead of
+      // asking Flutter to resize or scale the complete form.
+      resizeToAvoidBottomInset: false,
+
+      // Blue AppBar with a hairline so it does not bleed into the body.
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(60),
         child: Container(
@@ -130,6 +136,8 @@ class AuthScaffold extends StatelessWidget {
                     children: [
                       const Text(
                         'EduCompass',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -139,6 +147,8 @@ class AuthScaffold extends StatelessWidget {
                       ),
                       Text(
                         title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.85),
                           fontWeight: FontWeight.w400,
@@ -155,65 +165,79 @@ class AuthScaffold extends StatelessWidget {
           ),
         ),
       ),
-      body: Stack(
-        children: [
-          Positioned.fill(
-            child: CustomPaint(painter: _DiagonalBandPainter(palette)),
-          ),
-          Positioned(
-            right: -120,
-            top: media.size.height * 0.42,
-            child: IgnorePointer(
-              child: Opacity(
-                opacity: Theme.of(context).brightness == Brightness.dark
-                    ? 0.08
-                    : 0.06,
-                child: CustomPaint(
-                  size: const Size(360, 360),
-                  painter: _BigCompassPainter(palette),
-                ),
-              ),
-            ),
-          ),
-          SafeArea(
-            top: false,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final compactWidth = constraints.maxWidth < 380;
-                final horizontal = compactWidth ? 14.0 : 20.0;
-                final vertical = compactWidth ? 12.0 : 16.0;
-                final cardWidth = math.min(
-                  430.0,
-                  math.max(280.0, constraints.maxWidth - (horizontal * 2)),
-                );
 
-                // Auth forms stay on one screen with equal top/bottom space.
-                // BoxFit.scaleDown only activates on short displays or while
-                // the keyboard is open, preventing RenderFlex overflow
-                // without introducing a scroll view.
-                return Padding(
-                  padding: EdgeInsets.symmetric(
-                    horizontal: horizontal,
-                    vertical: vertical,
-                  ),
-                  child: Center(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.center,
-                      child: SizedBox(
-                        width: cardWidth,
-                        child: _PaperCard(
-                          palette: palette,
-                          child: child,
-                        ),
-                      ),
+      // Remove only the keyboard inset from descendants. This prevents any
+      // child widget from reacting to viewInsets.bottom and shrinking itself.
+      body: MediaQuery.removeViewInsets(
+        context: context,
+        removeBottom: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: CustomPaint(painter: _DiagonalBandPainter(palette)),
+              ),
+              Positioned(
+                right: -120,
+                top: media.size.height * 0.42,
+                child: IgnorePointer(
+                  child: Opacity(
+                    opacity: Theme.of(context).brightness == Brightness.dark
+                        ? 0.08
+                        : 0.06,
+                    child: CustomPaint(
+                      size: const Size(360, 360),
+                      painter: _BigCompassPainter(palette),
                     ),
                   ),
-                );
-              },
-            ),
+                ),
+              ),
+              SafeArea(
+                top: false,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compactWidth = constraints.maxWidth < 380;
+                    final horizontal = compactWidth ? 14.0 : 20.0;
+                    final vertical = compactWidth ? 10.0 : 16.0;
+                    final availableWidth = math.max(
+                      0.0,
+                      constraints.maxWidth - (horizontal * 2),
+                    );
+                    final cardWidth = math.min(430.0, availableWidth);
+
+                    return Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: horizontal,
+                        vertical: vertical,
+                      ),
+                      child: Center(
+                        // Do not use FittedBox, Transform.scale, or any
+                        // keyboard-dependent scale here. Those widgets caused
+                        // the complete login/register card to squeeze while
+                        // typing.
+                        child: ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: cardWidth,
+                          ),
+                          child: SizedBox(
+                            width: double.infinity,
+                            child: _PaperCard(
+                              palette: palette,
+                              child: child,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -336,6 +360,7 @@ class InsetField extends StatefulWidget {
   final void Function(String)? onSubmitted;
   final TextInputAction textInputAction;
   final List<String> autofillHints;
+  final TextCapitalization textCapitalization;
 
   const InsetField({
     super.key,
@@ -350,6 +375,7 @@ class InsetField extends StatefulWidget {
     this.onSubmitted,
     this.textInputAction = TextInputAction.next,
     this.autofillHints = const <String>[],
+    this.textCapitalization = TextCapitalization.none,
   });
 
   @override
@@ -440,6 +466,7 @@ class _InsetFieldState extends State<InsetField> {
           inputFormatters: widget.formatters,
           validator: widget.validator,
           textInputAction: widget.textInputAction,
+          textCapitalization: widget.textCapitalization,
           onFieldSubmitted: widget.onSubmitted,
           cursorColor: palette.accentDeep,
           cursorWidth: 1.4,
@@ -468,12 +495,19 @@ class _InsetFieldState extends State<InsetField> {
           color: underlineColor,
         ),
         const SizedBox(height: 3),
-        Text(
-          hasError ? errorText : (widget.helper ?? ''),
-          style: TextStyle(
-            color: hasError ? palette.danger : palette.inkSoft,
-            fontSize: 10.5,
-            height: 1.2,
+        // Reserve one line for helper/error text so validation messages do
+        // not change the total height of the form while the user is typing.
+        SizedBox(
+          height: 14,
+          child: Text(
+            hasError ? errorText : (widget.helper ?? ''),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              color: hasError ? palette.danger : palette.inkSoft,
+              fontSize: 10.5,
+              height: 1.2,
+            ),
           ),
         ),
         const SizedBox(height: 8),
