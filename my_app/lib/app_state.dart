@@ -132,6 +132,18 @@ class AuthProvider extends ChangeNotifier {
     return user;
   }
 
+
+  /// Reload the signed-in user from Flask. Preference updates mirror the
+  /// selected subjects/skills into the legacy interests table, so refreshing
+  /// here keeps ProfileHeader and any interest-aware UI immediately current.
+  Future<AppUser?> refreshUser() async {
+    if (_token == null) return _user;
+    final user = await _api.me();
+    _user = user;
+    notifyListeners();
+    return user;
+  }
+
   Future<void> _afterAuth(Map<String, dynamic> data) async {
     final token = (data['access_token'] ?? data['token'] ?? '').toString();
     if (token.isEmpty) {
@@ -393,8 +405,16 @@ class UserProvider extends ChangeNotifier {
     return error.message;
   }
 
-  Future<List<Course>> recommendByGoal(String query, {int limit = 10}) async {
-    return _api.recommendByGoal(query, limit: limit);
+  Future<List<Course>> recommendByGoal(
+    String query, {
+    int limit = 10,
+    LearningPreferences? preferences,
+  }) async {
+    return _api.recommendByGoal(
+      query,
+      limit: limit,
+      preferences: preferences,
+    );
   }
 
   Future<Course> courseDetail(String courseId) => _api.courseDetail(courseId);

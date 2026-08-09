@@ -48,18 +48,18 @@ class _AuthPalette {
   });
 
   static const _AuthPalette light = _AuthPalette(
-    canvas: Color(0xFFF3F5FA),
+    canvas: AppColors.pageBg,
     paper: Color(0xFFFFFFFF),
-    ink: Color(0xFF0E1B33),
-    inkSoft: Color(0xFF4F5B73),
-    hairline: Color(0xFFE2E7F1),
+    ink: AppColors.textPrimary,
+    inkSoft: AppColors.textSecondary,
+    hairline: AppColors.border,
     accent: AppColors.seed,
-    accentDeep: Color(0xFF155CC1),
-    danger: Color(0xFFB3261E),
-    bandLight: Color(0xFFEBF1FB),
-    bandMid: Color(0xFFDDE7F7),
-    bandDark: Color(0xFFEAF0F9),
-    shadow: Color(0x141B3F8C),
+    accentDeep: AppColors.navyDeep,
+    danger: AppColors.danger,
+    bandLight: Color(0xFFF0F2FF),
+    bandMid: Color(0xFFE4E8FF),
+    bandDark: Color(0xFFF3F6FB),
+    shadow: Color(0x123730A3),
   );
 
   static const _AuthPalette dark = _AuthPalette(
@@ -68,12 +68,12 @@ class _AuthPalette {
     ink: AppColors.darkTextPrimary,
     inkSoft: AppColors.darkTextSecondary,
     hairline: AppColors.darkBorder,
-    accent: Color(0xFF4E76BD),
-    accentDeep: AppColors.blueBright,
-    danger: Color(0xFFE8837B),
-    bandLight: Color(0xFF182544),
-    bandMid: Color(0xFF1F2D55),
-    bandDark: Color(0xFF14203C),
+    accent: AppColors.blueBright,
+    accentDeep: Color(0xFFB4BAFF),
+    danger: Color(0xFFFFB4AB),
+    bandLight: Color(0xFF151C35),
+    bandMid: Color(0xFF202751),
+    bandDark: Color(0xFF11182E),
     shadow: Color(0x66000000),
   );
 

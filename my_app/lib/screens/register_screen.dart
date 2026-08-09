@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../services/firebase_auth_service.dart';
 import 'auth_chrome.dart';
+import 'email_verification_screen.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -52,7 +53,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _submitting = true);
 
     try {
-      await _service.registerWithEmail(
+      final service = _service;
+      final session = await service.registerWithEmail(
         email: _emailCtrl.text.trim().toLowerCase(),
         password: _passwordCtrl.text,
         name: _nameCtrl.text.trim(),
@@ -60,9 +62,34 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
       if (!mounted) return;
 
-      _showMessage(
-        'Account created. Please check your inbox to verify your '
-        'email before signing in.',
+      final navigator = Navigator.of(context);
+      navigator.pushReplacement(
+        MaterialPageRoute<void>(
+          builder: (_) => EmailVerificationScreen(
+            email: session.email,
+            service: service,
+            onVerified: () async {
+              // Verification completes account creation, but does not log the
+              // learner into EduCompass. Start a clean login session so the
+              // backend can issue its verified JWT normally.
+              try {
+                await service.signOutCurrent();
+              } catch (_) {}
+              if (!navigator.mounted) return;
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                (_) => false,
+              );
+            },
+            onUseAnotherAccount: () {
+              if (!navigator.mounted) return;
+              navigator.pushAndRemoveUntil(
+                MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+                (_) => false,
+              );
+            },
+          ),
+        ),
       );
     } on FirebaseAuthFailure catch (error) {
       if (!mounted) return;

@@ -732,7 +732,13 @@ def preferences_get():
     user = current_user()
     if user is None:
         return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
-    return json_ok({"preferences": get_user_preferences(user.id)})
+    configured = (
+        UserPreference.query.filter_by(user_id=user.id).first() is not None
+    )
+    return json_ok({
+        "preferences": get_user_preferences(user.id),
+        "configured": configured,
+    })
 
 
 @bp.put("/me/preferences")
@@ -878,9 +884,24 @@ def recommendations_query():
     if not query:
         return json_error("Field 'query' is required.", code="MISSING_QUERY")
     limit = int_body(data, "top_n", 10, max_value=50)
-    items = adapter.recommend_query(query=query, limit=limit)
-    return json_ok({"query": query, "count": len(items),
-                    "recommendations": items})
+    preferences = normalize_preferences(data.get("preferences", {}))
+    if preferences_are_empty(preferences):
+        items = adapter.recommend_query(query=query, limit=limit)
+    else:
+        from .hybrid_ranker import rank_courses
+        items = rank_courses(
+            adapter,
+            preferences=preferences,
+            query_text=query,
+            limit=limit,
+            mode="goal",
+        )
+    return json_ok({
+        "query": query,
+        "count": len(items),
+        "preferences": preferences,
+        "recommendations": items,
+    })
 
 
 @bp.post("/recommendations/preferences")

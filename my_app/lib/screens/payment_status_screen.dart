@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../api_client.dart';
 import '../models.dart';
+import '../theme.dart';
 import '../widgets/design.dart';
 
 /// Authoritative payment result screen.
@@ -106,7 +107,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
   }
 
   Color _accent(ColorScheme scheme) {
-    if (_status.isValid) return const Color(0xFF1F9D68);
+    if (_status.isValid) return AppColors.success;
     if (_status.isReviewRequired) return scheme.tertiary;
     if (_status.isFailure) return scheme.error;
     return scheme.primary;

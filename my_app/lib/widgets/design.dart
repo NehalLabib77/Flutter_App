@@ -122,6 +122,7 @@ class EduCard extends StatelessWidget {
     final isDark = theme.brightness == Brightness.dark;
     final bg = color ?? scheme.surfaceContainerHigh;
     final showBorder = border || isDark;
+    final double effectiveElevation = elevation > 0 ? elevation : (isDark ? 0.0 : 1.0);
     final shape = RoundedRectangleBorder(
       borderRadius: borderRadius,
       side: showBorder
@@ -134,7 +135,7 @@ class EduCard extends StatelessWidget {
           : BorderSide.none,
     );
     final card = Card(
-      elevation: elevation,
+      elevation: effectiveElevation,
       color: bg,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.black.withValues(alpha: isDark ? 0.22 : 0.08),
@@ -324,12 +325,22 @@ class HeroBanner extends StatelessWidget {
         borderRadius: const BorderRadius.all(Radius.circular(Radii.xl)),
         child: Ink(
           decoration: BoxDecoration(
+            border: Border.all(
+              color: scheme.primary.withValues(alpha: 0.12),
+              width: 1,
+            ),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
                 scheme.primaryContainer,
-                Color.lerp(scheme.primaryContainer, scheme.surface, 0.55) ??
+                Color.lerp(
+                      scheme.primaryContainer,
+                      scheme.secondaryContainer,
+                      0.46,
+                    ) ??
+                    scheme.secondaryContainer,
+                Color.lerp(scheme.secondaryContainer, scheme.surface, 0.72) ??
                     scheme.surface,
               ],
             ),
@@ -482,14 +493,16 @@ class EduSearchBar extends StatelessWidget {
                           : null,
                     )),
         filled: true,
-        fillColor: scheme.surfaceContainerHigh,
+        fillColor: scheme.surfaceContainerHighest,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: Spacing.lg,
           vertical: Spacing.md,
         ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.lg),
-          borderSide: BorderSide(color: scheme.outlineVariant),
+          borderSide: BorderSide(
+            color: scheme.outlineVariant.withValues(alpha: 0.76),
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(Radii.lg),
@@ -585,20 +598,33 @@ class CourseRowCard extends StatelessWidget {
                     ),
                     if (isFree) ...[
                       const SizedBox(width: Spacing.sm),
-                      Pill(text: 'FREE', color: Colors.green.shade600),
+                      Pill(text: 'FREE', icon: Icons.check_circle_outline_rounded, color: AppColors.success),
                     ],
                   ],
                 ),
                 if (reason != null && reason!.isNotEmpty) ...[
                   const SizedBox(height: Spacing.xs),
-                  Text(
-                    reason!,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: scheme.primary,
-                      fontStyle: FontStyle.italic,
-                    ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.auto_awesome_rounded,
+                        size: 14,
+                        color: scheme.secondary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          reason!,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: scheme.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
                 if (metaParts.isNotEmpty) ...[
@@ -630,7 +656,7 @@ class CourseRowCard extends StatelessWidget {
                       Icon(
                         Icons.star_rounded,
                         size: 14,
-                        color: Colors.amber.shade700,
+                        color: AppColors.rating,
                       ),
                       const SizedBox(width: 2),
                       Text(
@@ -674,14 +700,18 @@ class ProfileHeader extends StatelessWidget {
     required this.email,
     this.interests = const [],
     this.busy = false,
+    this.switchingAccount = false,
     this.onEdit,
+    this.onSwitchAccount,
   });
 
   final String fullName;
   final String email;
   final List<String> interests;
   final bool busy;
+  final bool switchingAccount;
   final VoidCallback? onEdit;
+  final VoidCallback? onSwitchAccount;
 
   @override
   Widget build(BuildContext context) {
@@ -699,7 +729,11 @@ class ProfileHeader extends StatelessWidget {
             width: 52,
             height: 52,
             decoration: BoxDecoration(
-              color: scheme.primary,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [scheme.primary, scheme.secondary],
+              ),
               shape: BoxShape.circle,
             ),
             alignment: Alignment.center,
@@ -726,11 +760,47 @@ class ProfileHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(
-                  fullName,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        fullName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                    ),
+                    if (onSwitchAccount != null) ...[
+                      const SizedBox(width: Spacing.xs),
+                      TextButton.icon(
+                        style: TextButton.styleFrom(
+                          minimumSize: Size.zero,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: Spacing.sm,
+                            vertical: Spacing.xs,
+                          ),
+                          visualDensity: VisualDensity.compact,
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
+                        onPressed: (busy || switchingAccount)
+                            ? null
+                            : onSwitchAccount,
+                        icon: switchingAccount
+                            ? const SizedBox(
+                                width: 14,
+                                height: 14,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.switch_account_outlined, size: 17),
+                        label: Text(
+                          switchingAccount ? 'Switching…' : 'Switch',
+                          style: const TextStyle(fontSize: 12),
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 2),
                 Text(
@@ -756,9 +826,9 @@ class ProfileHeader extends StatelessWidget {
             ),
           ),
           if (onEdit != null)
-            IconButton(
+            IconButton.filledTonal(
               tooltip: 'Edit name',
-              icon: const Icon(Icons.edit_outlined),
+              icon: const Icon(Icons.edit_outlined, size: 19),
               onPressed: busy ? null : onEdit,
             ),
         ],
@@ -795,10 +865,19 @@ class EmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 36,
-            color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
+          Container(
+            width: 54,
+            height: 54,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primaryContainer,
+              shape: BoxShape.circle,
+            ),
+            alignment: Alignment.center,
+            child: Icon(
+              icon,
+              size: 27,
+              color: theme.colorScheme.onPrimaryContainer,
+            ),
           ),
           const SizedBox(height: Spacing.sm),
           Text(
@@ -845,9 +924,9 @@ class Pill extends StatelessWidget {
           vertical: dense ? 4 : 7,
         ),
         decoration: BoxDecoration(
-          color: accent.withValues(alpha: 0.14),
+          color: accent.withValues(alpha: 0.11),
           borderRadius: BorderRadius.circular(Radii.sm),
-          border: Border.all(color: accent.withValues(alpha: 0.16), width: 1),
+          border: Border.all(color: accent.withValues(alpha: 0.24), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -898,7 +977,7 @@ class StatChip extends StatelessWidget {
         vertical: Spacing.sm,
       ),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHigh,
+        color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(Radii.md),
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.4),

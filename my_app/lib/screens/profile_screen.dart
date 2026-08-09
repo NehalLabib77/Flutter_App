@@ -15,7 +15,9 @@ import '../app_state.dart';
 import '../models.dart';
 import '../theme.dart';
 import '../widgets/design.dart';
+import 'edit_preferences_screen.dart';
 import 'login_screen.dart';
+import 'order_history_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -25,9 +27,12 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
+  final _scaffoldKey = GlobalKey<ScaffoldState>();
   bool _loggingOut = false;
+  bool _switchingAccount = false;
   bool _savingProfile = false;
   bool _deletingAccount = false;
+  bool _savingPreferences = false;
 
   Future<void> _logout() async {
     setState(() => _loggingOut = true);
@@ -40,6 +45,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
         context,
       ).showSnackBar(SnackBar(content: Text(e.message)));
       setState(() => _loggingOut = false);
+    }
+  }
+
+
+  Future<void> _switchAccount() async {
+    if (_switchingAccount || _loggingOut) return;
+    setState(() => _switchingAccount = true);
+
+    // Capture the navigator before logout. AuthProvider.logout() notifies the
+    // root AuthWrapper and may dispose this Profile screen immediately.
+    final navigator = Navigator.of(context);
+    final auth = context.read<AuthProvider>();
+
+    try {
+      await auth.logout();
+      if (!navigator.mounted) return;
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute<void>(builder: (_) => const LoginScreen()),
+        (_) => false,
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not switch accounts. Try again.')),
+      );
+      setState(() => _switchingAccount = false);
     }
   }
 
@@ -199,6 +230,71 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).push(MaterialPageRoute(builder: (_) => const LoginScreen()));
   }
 
+
+  Future<void> _editPreferences() async {
+    if (_savingPreferences) return;
+    final current = context.read<PreferenceProvider>().preferences;
+    final updated = await Navigator.of(context).push<LearningPreferences>(
+      MaterialPageRoute(
+        builder: (_) => EditPreferencesScreen(initialPreferences: current),
+      ),
+    );
+    if (updated == null || !mounted) return;
+
+    setState(() => _savingPreferences = true);
+    final auth = context.read<AuthProvider>();
+    final preferenceProvider = context.read<PreferenceProvider>();
+    String? syncWarning;
+
+    try {
+      // Device-local persistence updates guest recommendations immediately.
+      await preferenceProvider.complete(updated);
+
+      // Signed-in users also persist the same profile server-side so the
+      // hybrid ranker and legacy interests table stay in sync.
+      if (auth.isLoggedIn) {
+        try {
+          await context.read<ApiClient>().savePreferences(updated);
+          await auth.refreshUser();
+        } on ApiException catch (e) {
+          syncWarning = e.message;
+        } catch (_) {
+          syncWarning = 'Could not sync preferences to your account.';
+        }
+      }
+
+      // Refresh every recommendation surface now; switching tabs after this
+      // shows the new ranking instead of waiting for an app restart.
+      await Future.wait([
+        context.read<CourseProvider>().loadPopular(preferences: updated),
+        context.read<CourseProvider>().loadTopRated(preferences: updated),
+        context.read<UserProvider>().loadPersonalized(
+          preferences: updated,
+          authenticated: auth.isLoggedIn,
+        ),
+      ]);
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            syncWarning == null
+                ? 'Preferences saved. Recommendations updated.'
+                : 'Preferences saved on this device. $syncWarning',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingPreferences = false);
+    }
+  }
+
+  void _openOrderHistory() {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const OrderHistoryScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
@@ -207,12 +303,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (user == null) {
       return Scaffold(
         appBar: AppBar(title: const Text('Profile')),
-        body: _GuestProfile(onSignIn: _signIn),
+        body: _GuestProfile(
+          onSignIn: _signIn,
+          onEditPreferences: _editPreferences,
+          preferencesBusy: _savingPreferences,
+        ),
       );
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      key: _scaffoldKey,
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          IconButton(
+            tooltip: 'Account menu',
+            onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
+            icon: const Icon(Icons.menu_rounded),
+          ),
+          const SizedBox(width: Spacing.xs),
+        ],
+      ),
+      endDrawer: _ProfileAccountDrawer(
+        user: user,
+        signingOut: _loggingOut,
+        deleting: _deletingAccount,
+        onOrderHistory: _openOrderHistory,
+        onEditPreferences: _editPreferences,
+        onSignOut: _logout,
+        onDeleteAccount: () => _deleteAccount(user),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(
           Spacing.md,
@@ -226,29 +346,196 @@ class _ProfileScreenState extends State<ProfileScreen> {
             email: user.email,
             interests: user.interests,
             busy: _savingProfile,
+            switchingAccount: _switchingAccount,
             onEdit: () => _editProfile(user),
+            onSwitchAccount: _switchAccount,
           ),
           const SizedBox(height: Spacing.lg),
+          _RecommendationPreferencesCard(
+            busy: _savingPreferences,
+            onEdit: _editPreferences,
+          ),
+          const SizedBox(height: Spacing.md),
           const _ThemeCard(),
           const SizedBox(height: Spacing.md),
           const _InfoCard(),
-          const SizedBox(height: Spacing.md),
-          _AccountActionCard(busy: _loggingOut, onSignOut: _logout),
-          const SizedBox(height: Spacing.md),
-          _DangerZoneCard(
-            busy: _deletingAccount,
-            disabled: _loggingOut,
-            onDelete: () => _deleteAccount(user),
-          ),
         ],
       ),
     );
   }
 }
 
+class _ProfileAccountDrawer extends StatelessWidget {
+  const _ProfileAccountDrawer({
+    required this.user,
+    required this.signingOut,
+    required this.deleting,
+    required this.onOrderHistory,
+    required this.onEditPreferences,
+    required this.onSignOut,
+    required this.onDeleteAccount,
+  });
+
+  final AppUser user;
+  final bool signingOut;
+  final bool deleting;
+  final VoidCallback onOrderHistory;
+  final VoidCallback onEditPreferences;
+  final VoidCallback onSignOut;
+  final VoidCallback onDeleteAccount;
+
+  void _afterClose(BuildContext context, VoidCallback action) {
+    Navigator.of(context).pop();
+    WidgetsBinding.instance.addPostFrameCallback((_) => action());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Drawer(
+      child: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              margin: const EdgeInsets.all(Spacing.md),
+              padding: const EdgeInsets.all(Spacing.lg),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [scheme.primary, scheme.secondary],
+                ),
+                borderRadius: BorderRadius.circular(Radii.xl),
+              ),
+              child: Row(
+                children: [
+                  CircleAvatar(
+                    radius: 26,
+                    backgroundColor: Colors.white.withValues(alpha: 0.16),
+                    child: Text(
+                      user.initials,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: Spacing.md),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          user.fullName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleMedium?.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          user.email,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: Colors.white.withValues(alpha: 0.82),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                Spacing.sm,
+                Spacing.lg,
+                Spacing.xs,
+              ),
+              child: Text(
+                'ACCOUNT',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: scheme.primary,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.receipt_long_outlined),
+              title: const Text('Order history'),
+              subtitle: const Text('View enrolled course payment details'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _afterClose(context, onOrderHistory),
+            ),
+            ListTile(
+              leading: const Icon(Icons.tune_rounded),
+              title: const Text('Edit preferences'),
+              subtitle: const Text('Update recommendation choices'),
+              trailing: const Icon(Icons.chevron_right_rounded),
+              onTap: () => _afterClose(context, onEditPreferences),
+            ),
+            const Divider(height: Spacing.lg),
+            ListTile(
+              leading: signingOut
+                  ? const SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.logout_rounded),
+              title: Text(signingOut ? 'Signing out…' : 'Sign out'),
+              onTap: signingOut ? null : () => _afterClose(context, onSignOut),
+            ),
+            const Spacer(),
+            const Divider(height: 1),
+            ListTile(
+              iconColor: scheme.error,
+              textColor: scheme.error,
+              leading: deleting
+                  ? SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: scheme.error,
+                      ),
+                    )
+                  : const Icon(Icons.delete_forever_outlined),
+              title: Text(deleting ? 'Deleting account…' : 'Delete account'),
+              subtitle: Text(
+                'Permanently remove your account',
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: scheme.onSurfaceVariant,
+                ),
+              ),
+              onTap: deleting
+                  ? null
+                  : () => _afterClose(context, onDeleteAccount),
+            ),
+            const SizedBox(height: Spacing.sm),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _GuestProfile extends StatelessWidget {
-  const _GuestProfile({required this.onSignIn});
+  const _GuestProfile({
+    required this.onSignIn,
+    required this.onEditPreferences,
+    required this.preferencesBusy,
+  });
   final VoidCallback onSignIn;
+  final VoidCallback onEditPreferences;
+  final bool preferencesBusy;
 
   @override
   Widget build(BuildContext context) {
@@ -263,6 +550,11 @@ class _GuestProfile extends StatelessWidget {
         const _GuestIdentityCard(),
         const SizedBox(height: Spacing.md),
         _GuestSignInCard(onSignIn: onSignIn),
+        const SizedBox(height: Spacing.md),
+        _RecommendationPreferencesCard(
+          busy: preferencesBusy,
+          onEdit: onEditPreferences,
+        ),
         const SizedBox(height: Spacing.md),
         const _ThemeCard(),
         const SizedBox(height: Spacing.md),
@@ -405,6 +697,112 @@ class _GuestSignInCard extends StatelessWidget {
               onPressed: onSignIn,
               icon: const Icon(Icons.login_rounded),
               label: const Text('Sign in'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+
+class _RecommendationPreferencesCard extends StatelessWidget {
+  const _RecommendationPreferencesCard({
+    required this.busy,
+    required this.onEdit,
+  });
+
+  final bool busy;
+  final VoidCallback onEdit;
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = context.watch<PreferenceProvider>().preferences;
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+
+    final summaryItems = <String>[
+      ...preferences.subjects.take(2),
+      ...preferences.skills.take(2),
+      if (preferences.level.isNotEmpty) preferences.level,
+      if (preferences.courseType.isNotEmpty) preferences.courseType,
+      if (preferences.pricePreference.isNotEmpty) preferences.pricePreference,
+    ];
+    final summary = preferences.isEmpty
+        ? 'No preferences selected yet. EduCompass will rely more on quality, popularity and your activity.'
+        : summaryItems.take(5).join(' • ');
+
+    return EduCard(
+      border: true,
+      padding: const EdgeInsets.all(Spacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'RECOMMENDATIONS',
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: scheme.primary,
+              letterSpacing: 1.4,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: Spacing.sm),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(Icons.tune_rounded, color: scheme.primary),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Recommendation preferences',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'Controls Popular right now, Top rated, By your goal and For you.',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: Spacing.md),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(Spacing.md),
+            decoration: BoxDecoration(
+              color: scheme.surfaceContainerHighest.withValues(alpha: 0.45),
+              borderRadius: BorderRadius.circular(Radii.lg),
+            ),
+            child: Text(
+              summary,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: scheme.onSurfaceVariant,
+                height: 1.35,
+              ),
+            ),
+          ),
+          const SizedBox(height: Spacing.md),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: busy ? null : onEdit,
+              icon: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.edit_rounded),
+              label: Text(busy ? 'Updating recommendations…' : 'Edit preferences'),
             ),
           ),
         ],

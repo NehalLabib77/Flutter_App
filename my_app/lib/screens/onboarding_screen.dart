@@ -260,6 +260,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   const SizedBox(width: Spacing.xs),
                   FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size(0, 48),
+                    ),
                     onPressed: _saving ? null : (isLast ? _finish : _next),
                     icon: _saving && isLast
                         ? const SizedBox(

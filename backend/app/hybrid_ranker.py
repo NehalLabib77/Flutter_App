@@ -282,6 +282,7 @@ def rank_courses(
     enrolled_ids: Iterable[str] | None = None,
     limit: int = 10,
     mode: str = "for_you",
+    query_text: str = "",
 ) -> list[dict[str, Any]]:
     from .model_loader import course_row_to_slim
 
@@ -289,7 +290,13 @@ def rank_courses(
     if n == 0 or limit <= 0:
         return []
 
-    query = _preference_query(preferences, interests)
+    preference_query = _preference_query(preferences, interests)
+    goal_query = _text(query_text)
+    # For goal searches, the learner's explicit goal remains the dominant
+    # semantic signal while stored preferences gently steer ties/relevance.
+    query = " ".join(
+        part for part in ([goal_query] * 4 + [preference_query]) if part
+    ).strip()
     content = _content_scores(adapter, query)
     pref = _preference_match_scores(adapter.courses_df, preferences)
     quality = _quality_scores(adapter.courses_df)
@@ -302,6 +309,8 @@ def rank_courses(
         final = 0.30 * content + 0.15 * pref + 0.15 * quality + 0.40 * popularity
     elif mode == "top_rated":
         final = 0.30 * content + 0.15 * pref + 0.45 * quality + 0.10 * popularity
+    elif mode == "goal":
+        final = 0.65 * content + 0.18 * pref + 0.10 * quality + 0.07 * popularity
     elif has_behavior:
         final = 0.45 * content + 0.20 * behavior + 0.15 * pref + 0.10 * quality + 0.10 * popularity
     else:

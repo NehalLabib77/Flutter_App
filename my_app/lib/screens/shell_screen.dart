@@ -123,7 +123,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
-    final navBackground = isDark ? AppColors.darkPage : Colors.white;
+    final navBackground = isDark ? AppColors.darkCard : AppColors.cardBg;
     final navIdle = scheme.onSurfaceVariant;
     final navActive = scheme.primary;
     final badgeBackground = navBackground;
@@ -135,7 +135,7 @@ class _ShellScreenState extends State<ShellScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: NavigationBar(
-          height: 72,
+          height: 74,
           selectedIndex: safeIndex,
           onDestinationSelected: (i) => setState(() => _index = i),
           backgroundColor: navBackground,

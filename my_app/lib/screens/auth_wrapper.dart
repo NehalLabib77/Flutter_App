@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../services/firebase_auth_service.dart';
 import 'email_verification_screen.dart';
+import 'login_screen.dart';
 import 'shell_screen.dart';
 
 class AuthWrapper extends StatelessWidget {
@@ -108,12 +109,31 @@ class _AuthGateState extends State<_AuthGate> {
   // the verification screen until the user signs out and back in.
   late final Stream<User?> _authStream;
   FirebaseAuthService? _serviceOverride;
+  bool _showLoginAfterVerification = false;
+  bool _routingVerifiedUser = false;
 
   @override
   void initState() {
     super.initState();
     _serviceOverride = widget.firebaseAuthService;
     _authStream = FirebaseAuth.instance.userChanges();
+  }
+
+  Future<void> _routeVerifiedUserToLogin(
+    FirebaseAuthService service,
+  ) async {
+    if (_routingVerifiedUser) return;
+    _routingVerifiedUser = true;
+    try {
+      await service.signOutCurrent();
+    } catch (_) {
+      // Best-effort: LoginScreen will establish a fresh Firebase session.
+    }
+    if (!mounted) return;
+    setState(() {
+      _showLoginAfterVerification = true;
+      _routingVerifiedUser = false;
+    });
   }
 
   Future<void> _applyVerificationCodeIfPresent(
@@ -161,15 +181,33 @@ class _AuthGateState extends State<_AuthGate> {
     return StreamBuilder<User?>(
       stream: _authStream,
       builder: (context, snapshot) {
+        if (_showLoginAfterVerification) {
+          return const LoginScreen();
+        }
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
         }
         final user = snapshot.data;
+        final service =
+            _serviceOverride ?? FirebaseAuthServiceFactory.instance;
+
+        // A Firebase account that has just become verified but has no
+        // EduCompass JWT must return to Login. This covers both normal
+        // verification and cold-start/deep-link verification.
+        if (user != null && user.emailVerified) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!mounted) return;
+            _routeVerifiedUserToLogin(service);
+          });
+          return const Scaffold(
+            body: Center(child: CircularProgressIndicator()),
+          );
+        }
+
         if (user != null && !user.emailVerified) {
-          final service =
-              _serviceOverride ?? FirebaseAuthServiceFactory.instance;
           // Kick off the cold-start oobCode apply after the first
           // frame so the stream listener has had time to attach.
           WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -180,19 +218,11 @@ class _AuthGateState extends State<_AuthGate> {
             email: user.email ?? '',
             service: service,
             onVerified: () {
-              // The stream may not emit for several seconds after
-              // emailVerified flips; force a rebuild so the gate
-              // drops the user straight into the shell as soon as
-              // the manual "I have verified my email" tap succeeds.
-              if (!mounted) return;
-              setState(() {});
+              _routeVerifiedUserToLogin(service);
             },
-            onUseAnotherAccount: () async {
-              try {
-                await service.signOutCurrent();
-              } catch (_) {}
+            onUseAnotherAccount: () {
               if (!mounted) return;
-              setState(() {});
+              setState(() => _showLoginAfterVerification = true);
             },
           );
         }

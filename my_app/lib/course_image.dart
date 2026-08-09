@@ -19,7 +19,7 @@ class CourseThumbnail extends StatelessWidget {
     super.key,
     required this.course,
     this.size = 72,
-    this.borderRadius = const BorderRadius.all(Radius.circular(10)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(14)),
   });
 
   final Course course;
@@ -82,7 +82,7 @@ class _EnhancedPlaceholder extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final base = scheme.primaryContainer;
-    final accent = scheme.primary;
+    final accent = scheme.secondary;
     final initials = _initialsFor(course.provider ?? course.name);
     return Container(
       width: size,

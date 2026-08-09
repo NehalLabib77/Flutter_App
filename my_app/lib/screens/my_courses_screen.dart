@@ -17,6 +17,7 @@ import 'package:provider/provider.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../theme.dart';
 import '../widgets/design.dart';
 
 class MyCoursesScreen extends StatefulWidget {
@@ -366,7 +367,7 @@ class _ProgressTrailing extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           if (completed)
-            Pill(text: 'DONE', color: Colors.green.shade600)
+            Pill(text: 'DONE', icon: Icons.check_circle_rounded, color: AppColors.success)
           else if (!loading)
             Text(
               '$progress%',

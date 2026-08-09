@@ -8,6 +8,7 @@ import '../api_client.dart';
 import '../app_state.dart';
 import '../models.dart';
 import '../navigation.dart';
+import '../theme.dart';
 import '../widgets/design.dart';
 
 class LearningPathDetailScreen extends StatefulWidget {
@@ -256,7 +257,7 @@ class _StepCard extends StatelessWidget {
                           const Pill(
                             text: 'Done',
                             icon: Icons.verified_rounded,
-                            color: Colors.green,
+                            color: AppColors.success,
                           ),
                         ] else
                           const Pill(text: 'Pending'),

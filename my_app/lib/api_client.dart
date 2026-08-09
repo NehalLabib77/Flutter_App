@@ -480,12 +480,14 @@ class ApiClient {
     String query, {
     int limit = 10,
     Map<String, String>? filters,
+    LearningPreferences? preferences,
   }) async {
     final data = await _post('/recommendations/query', {
       'query': query,
       'top_n': limit,
       'filters': filters ?? const {},
-    });
+      if (preferences != null) 'preferences': preferences.toJson(),
+    }, auth: false);
     return _mapCourses(data['recommendations']);
   }
 
@@ -510,6 +512,19 @@ class ApiClient {
       auth: false,
     );
     return _mapCourses(data['recommendations']);
+  }
+
+  /// Returns null when this signed-in account has never configured
+  /// recommendation preferences. An existing (even empty) preference row is
+  /// returned as [LearningPreferences] so users who intentionally cleared all
+  /// filters are not forced through onboarding again on every login.
+  Future<LearningPreferences?> accountPreferences() async {
+    final data = await _get('/me/preferences');
+    final configured = data['configured'] == true;
+    if (!configured) return null;
+    final raw = data['preferences'];
+    if (raw is! Map) return const LearningPreferences();
+    return LearningPreferences.fromJson(raw.cast<String, dynamic>());
   }
 
   Future<void> savePreferences(LearningPreferences preferences) async {
@@ -608,6 +623,18 @@ class ApiClient {
   Future<Map<String, dynamic>> paymentProviderInfo() async {
     final data = await _get('/payments/provider');
     return (data as Map).cast<String, dynamic>();
+  }
+
+  /// All completed enrollment orders for the signed-in user, newest first.
+  /// The backend joins the existing Enrollment and Payment rows and includes
+  /// the current course metadata for display.
+  Future<List<OrderHistoryItem>> orderHistory() async {
+    final data = await _get('/payments/history');
+    final raw = (data['orders'] as List?) ?? const [];
+    return raw
+        .whereType<Map>()
+        .map((m) => OrderHistoryItem.fromJson(m.cast<String, dynamic>()))
+        .toList();
   }
 
   /// Mints a new SSLCOMMERZ transaction and returns the gateway URL

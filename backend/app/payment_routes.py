@@ -911,6 +911,75 @@ def sslcommerz_cancel():
     return _render_callback_html(transaction_id, final_status, "Payment cancelled. Returning to EduCompass.")
 
 
+@payment_bp.get("/history")
+@jwt_required()
+def payment_history():
+    """Return enrolled-course order history for the current user.
+
+    Enrollment remains the source of truth for what the learner owns. Payment
+    details are joined in when available so old/free/manual enrollments still
+    appear rather than disappearing from order history.
+    """
+    user = _current_user()
+    if user is None:
+        return _json_error("JWT is required.", status=401, code="UNAUTHORIZED")
+
+    enrollments = (
+        Enrollment.query.filter_by(user_id=user.id)
+        .order_by(Enrollment.enrolled_at.desc())
+        .all()
+    )
+    orders = []
+    for enrollment in enrollments:
+        payment = (
+            Payment.query.filter_by(
+                user_id=user.id,
+                course_id=enrollment.course_id,
+            )
+            .order_by(Payment.created_at.desc())
+            .first()
+        )
+        amount = _to_decimal(payment.amount) if payment is not None else None
+        payment_status = (
+            payment.status if payment is not None else enrollment.payment_status
+        )
+        transaction_id = (
+            payment.transaction_id
+            if payment is not None
+            else enrollment.transaction_id
+        )
+        payment_method = (
+            (payment.card_type or "SSLCOMMERZ")
+            if payment is not None
+            else (enrollment.payment_method or "EduCompass")
+        )
+        orders.append({
+            "course_id": enrollment.course_id,
+            "course": _resolve_course(enrollment.course_id),
+            "transaction_id": transaction_id or "",
+            "payment_method": payment_method,
+            "payment_status": payment_status or "completed",
+            "amount": f"{amount:.2f}" if amount is not None else None,
+            "currency": payment.currency if payment is not None else "BDT",
+            "validated": bool(payment.validated) if payment is not None else True,
+            "enrollment_completed": True,
+            "card_type": payment.card_type if payment is not None else None,
+            "bank_transaction_id": (
+                payment.bank_transaction_id if payment is not None else None
+            ),
+            "enrolled_at": (
+                enrollment.enrolled_at.isoformat()
+                if enrollment.enrolled_at else None
+            ),
+            "updated_at": (
+                payment.updated_at.isoformat()
+                if payment is not None and payment.updated_at else None
+            ),
+        })
+
+    return jsonify({"orders": orders, "count": len(orders)}), 200
+
+
 @payment_bp.get("/sslcommerz/status/<transaction_id>")
 @jwt_required()
 def sslcommerz_status(transaction_id: str):

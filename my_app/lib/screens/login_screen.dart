@@ -7,8 +7,10 @@ import 'package:provider/provider.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
+import '../models.dart';
 import '../services/firebase_auth_service.dart';
 import 'auth_chrome.dart';
+import 'edit_preferences_screen.dart';
 import 'register_screen.dart';
 import 'shell_screen.dart';
 
@@ -41,6 +43,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _completePostVerificationLogin() async {
     final authProvider = context.read<AuthProvider>();
+    final api = context.read<ApiClient>();
+    final preferenceProvider = context.read<PreferenceProvider>();
 
     try {
       await authProvider.login(
@@ -55,6 +59,64 @@ class _LoginScreenState extends State<LoginScreen> {
 
     if (!mounted) return;
 
+    LearningPreferences activePreferences = preferenceProvider.preferences;
+    try {
+      final accountPreferences = await api.accountPreferences();
+      if (!mounted) return;
+
+      if (accountPreferences == null) {
+        // No server preference row means this is a newly-created account (or
+        // an older account that never completed preference setup). Require one
+        // subject/skill before entering the main app.
+        final selected = await Navigator.of(context).push<LearningPreferences>(
+          MaterialPageRoute(
+            builder: (_) => const EditPreferencesScreen(
+              initialPreferences: LearningPreferences(),
+              requiredCompletion: true,
+            ),
+          ),
+        );
+        if (!mounted || selected == null) return;
+        activePreferences = selected;
+        await preferenceProvider.complete(selected);
+        try {
+          await api.savePreferences(selected);
+          await authProvider.refreshUser();
+        } on ApiException catch (error) {
+          if (mounted) {
+            _showMessage(
+              'Preferences are saved on this device. '
+              '${error.message}',
+            );
+          }
+        }
+      } else {
+        activePreferences = accountPreferences;
+        await preferenceProvider.complete(accountPreferences);
+      }
+    } on ApiException catch (error) {
+      // Preference sync must never invalidate a successful login. The local
+      // profile still lets public Popular/Top-rated/goal ranking work.
+      if (mounted) {
+        _showMessage('Signed in. Preference sync will retry later: ${error.message}');
+      }
+    }
+
+    if (!mounted) return;
+    await Future.wait([
+      context.read<CourseProvider>().loadPopular(
+        preferences: activePreferences,
+      ),
+      context.read<CourseProvider>().loadTopRated(
+        preferences: activePreferences,
+      ),
+      context.read<UserProvider>().loadPersonalized(
+        preferences: activePreferences,
+        authenticated: true,
+      ),
+    ]);
+
+    if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute<void>(builder: (_) => const ShellScreen()),
       (_) => false,

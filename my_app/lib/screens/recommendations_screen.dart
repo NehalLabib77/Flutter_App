@@ -73,7 +73,11 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       _goalError = null;
     });
     try {
-      final list = await context.read<UserProvider>().recommendByGoal(q);
+      final preferences = context.read<PreferenceProvider>().preferences;
+      final list = await context.read<UserProvider>().recommendByGoal(
+        q,
+        preferences: preferences,
+      );
       if (!mounted) return;
       setState(() => _goalResults = list);
     } on ApiException catch (e) {
@@ -141,7 +145,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               const SectionHeader(
                 icon: Icons.flag_rounded,
                 title: 'By your goal',
-                subtitle: 'Matches the text you typed',
+                subtitle: 'Matches your goal and learning preferences',
               ),
               const SizedBox(height: Spacing.sm),
               for (final c in _goalResults) ...[

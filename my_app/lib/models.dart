@@ -172,6 +172,68 @@ class LearningPreferences {
   }
 }
 
+/// One completed enrollment shown in Profile -> Order history.
+///
+/// The backend builds this from the existing Enrollment + Payment rows, so
+/// there is no second order database to keep in sync.
+class OrderHistoryItem {
+  final String courseId;
+  final Course? course;
+  final String transactionId;
+  final String paymentMethod;
+  final String paymentStatus;
+  final String? amount;
+  final String currency;
+  final bool validated;
+  final bool enrollmentCompleted;
+  final String? cardType;
+  final String? bankTransactionId;
+  final DateTime? enrolledAt;
+  final DateTime? updatedAt;
+
+  const OrderHistoryItem({
+    required this.courseId,
+    this.course,
+    required this.transactionId,
+    required this.paymentMethod,
+    required this.paymentStatus,
+    this.amount,
+    this.currency = 'BDT',
+    this.validated = false,
+    this.enrollmentCompleted = false,
+    this.cardType,
+    this.bankTransactionId,
+    this.enrolledAt,
+    this.updatedAt,
+  });
+
+  factory OrderHistoryItem.fromJson(Map<String, dynamic> json) {
+    DateTime? parseDate(dynamic value) {
+      final text = value?.toString().trim() ?? '';
+      return text.isEmpty ? null : DateTime.tryParse(text);
+    }
+
+    final courseRaw = json['course'];
+    return OrderHistoryItem(
+      courseId: (json['course_id'] ?? '').toString(),
+      course: courseRaw is Map
+          ? Course.fromJson(courseRaw.cast<String, dynamic>())
+          : null,
+      transactionId: (json['transaction_id'] ?? '').toString(),
+      paymentMethod: (json['payment_method'] ?? 'EduCompass').toString(),
+      paymentStatus: (json['payment_status'] ?? json['status'] ?? '').toString(),
+      amount: json['amount']?.toString(),
+      currency: (json['currency'] ?? 'BDT').toString(),
+      validated: json['validated'] == true,
+      enrollmentCompleted: json['enrollment_completed'] == true,
+      cardType: json['card_type']?.toString(),
+      bankTransactionId: json['bank_transaction_id']?.toString(),
+      enrolledAt: parseDate(json['enrolled_at']),
+      updatedAt: parseDate(json['updated_at']),
+    );
+  }
+}
+
 class AppUser {
   final int id;
   final String fullName;
