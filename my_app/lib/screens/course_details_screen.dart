@@ -91,13 +91,37 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       } catch (_) {
         // Similar is a non-critical nice-to-have.
       }
-      if (mounted) {
-        try {
-          final enrolled = await EnrollmentService().isEnrolled(course.id);
+      if (mounted && context.read<AuthProvider>().isLoggedIn) {
+        // SQL is the durable enrollment owner. This matters after Delete
+        // Account -> re-register: the Firebase UID is new, so its Firestore
+        // enrollment subcollection starts empty even though the preserved SQL
+        // account correctly still owns the course. Reconcile Flask first so
+        // the CTA and My Courses agree with the backend.
+        final auth = context.read<AuthProvider>();
+        final enrollmentProvider = context.read<EnrollmentProvider>();
+        final userId = auth.user?.id;
+        if (userId != null) {
+          enrollmentProvider.bindToUser(userId.toString());
+          try {
+            await enrollmentProvider.refreshFromBackend();
+          } catch (_) {
+            // Firestore/local cache remains a non-fatal fallback.
+          }
           if (!mounted) return;
-          setState(() => _enrolledRemote = enrolled);
-        } catch (_) {
-          // Non-fatal — the local prefs flag still drives the UI.
+          if (enrollmentProvider.isEnrolled(course.id)) {
+            setState(() => _enrolledRemote = true);
+          }
+        }
+
+        if (!_enrolledRemote) {
+          try {
+            final enrolled = await EnrollmentService().isEnrolled(course.id);
+            if (!mounted) return;
+            setState(() => _enrolledRemote = enrolled);
+          } catch (_) {
+            // Non-fatal — the account-scoped backend/local flag still drives
+            // the UI.
+          }
         }
       }
     } catch (e) {

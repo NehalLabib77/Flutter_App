@@ -632,12 +632,46 @@ class EnrollmentProvider extends ChangeNotifier {
     }
   }
 
+  /// Pull the authenticated account's durable SQL enrollments immediately.
+  ///
+  /// This is deliberately awaitable. Preserved enrollments can outlive a
+  /// Firebase identity (Delete Account -> re-register with the same email),
+  /// so screens that must know ownership cannot rely only on the Firestore
+  /// listener or a post-frame root sync. The backend user id remains the
+  /// durable enrollment owner and `/me/enrollments` is the source of truth
+  /// for restoring those rows.
+  Future<void> refreshFromBackend() async {
+    final accountKey = _accountKey;
+    final storageKey = _storageKey;
+    if (accountKey == null || storageKey == null) return;
+
+    _syncingFromRemote = true;
+    notifyListeners();
+    try {
+      final backendIds = await _api.enrollments();
+      if (_accountKey != accountKey || _storageKey != storageKey) return;
+
+      var changed = false;
+      for (final rawId in backendIds) {
+        final id = rawId.trim();
+        if (id.isNotEmpty && _ids.add(id)) changed = true;
+      }
+      if (changed) {
+        await _prefs.setStringList(storageKey, _ids.toList());
+      }
+    } finally {
+      if (_accountKey == accountKey) {
+        _syncingFromRemote = false;
+        notifyListeners();
+      }
+    }
+  }
+
   /// Refreshes enrollments for only the currently bound account.
   ///
-  /// Flask is queried once (important when Firestore is unavailable), while
-  /// the existing Firestore listener keeps cross-device changes live. Every
-  /// async callback captures the account key and ignores stale results if the
-  /// user switches accounts before the request completes.
+  /// Flask is pulled immediately in the background, while the existing
+  /// Firestore listener keeps live changes flowing. Every callback captures
+  /// the account key and ignores stale results after an account switch.
   void refreshFromRemote([EnrollmentService? service]) {
     final accountKey = _accountKey;
     final storageKey = _storageKey;
@@ -645,29 +679,11 @@ class EnrollmentProvider extends ChangeNotifier {
 
     cancelRemoteSubscription();
     final svc = service ?? EnrollmentService();
-    _syncingFromRemote = true;
-    notifyListeners();
-
     unawaited(
-      _api.enrollments().then((backendIds) async {
-        if (_accountKey != accountKey || _storageKey != storageKey) return;
-        var changed = false;
-        for (final id in backendIds) {
-          if (_ids.add(id)) changed = true;
-        }
-        if (changed) {
-          await _prefs.setStringList(storageKey, _ids.toList());
-        }
-        if (_accountKey == accountKey) {
-          _syncingFromRemote = false;
-          notifyListeners();
-        }
-      }).catchError((Object _) {
-        // Firestore/local cache can still drive the screen.
-        if (_accountKey == accountKey) {
-          _syncingFromRemote = false;
-          notifyListeners();
-        }
+      refreshFromBackend().catchError((Object error, StackTrace stack) {
+        // Local cache / Firestore can still drive the UI when Flask is
+        // temporarily unavailable.
+        debugPrint('Enrollment backend refresh failed: $error\n$stack');
       }),
     );
 

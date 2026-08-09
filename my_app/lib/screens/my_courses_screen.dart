@@ -28,6 +28,33 @@ class MyCoursesScreen extends StatefulWidget {
 }
 
 class _MyCoursesScreenState extends State<MyCoursesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Do not depend solely on the root post-frame sync. A deleted account can
+    // be re-registered with the same email while its SQL enrollment ownership
+    // is intentionally preserved. Pull that durable list whenever My Courses
+    // opens so the tab can never look empty while the server says "already
+    // enrolled".
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreEnrollments());
+  }
+
+  Future<void> _restoreEnrollments() async {
+    if (!mounted) return;
+    final auth = context.read<AuthProvider>();
+    final userId = auth.user?.id;
+    if (!auth.isLoggedIn || userId == null) return;
+
+    final enrollments = context.read<EnrollmentProvider>();
+    enrollments.bindToUser(userId.toString());
+    try {
+      await enrollments.refreshFromBackend();
+    } catch (_) {
+      // The account-scoped local cache / Firestore listener remain valid
+      // fallbacks when the network is temporarily unavailable.
+    }
+  }
+
   // id -> resolved Course (or null while loading / on failure).
   final Map<String, Course?> _resolved = {};
   // id -> fetch future so we don't double-issue the same call.

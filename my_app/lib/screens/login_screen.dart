@@ -98,7 +98,9 @@ class _LoginScreenState extends State<LoginScreen> {
       // Preference sync must never invalidate a successful login. The local
       // profile still lets public Popular/Top-rated/goal ranking work.
       if (mounted) {
-        _showMessage('Signed in. Preference sync will retry later: ${error.message}');
+        _showMessage(
+          'Signed in. Preference sync will retry later: ${error.message}',
+        );
       }
     }
 
