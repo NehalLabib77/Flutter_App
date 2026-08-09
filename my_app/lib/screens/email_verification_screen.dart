@@ -293,29 +293,9 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                             ),
                           ),
                           const SizedBox(height: Spacing.lg),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              SizedBox(
-                                width: 18,
-                                height: 18,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: scheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: Spacing.sm),
-                              Expanded(
-                                child: Text(
-                                  'EduCompass checks automatically. After you tap '
-                                  'the link, return to the app and you will be '
-                                  'taken forward without another button.',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: scheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ),
-                            ],
+                          const InfoBanner(
+                            icon: Icons.sync_rounded,
+                            message: 'EduCompass checks verification automatically. After you tap the email link, return to the app.',
                           ),
                           const SizedBox(height: Spacing.xl),
                           SizedBox(
@@ -345,7 +325,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
                           const SizedBox(height: Spacing.sm),
                           TextButton.icon(
                             onPressed: _signOut,
-                            icon: const Icon(Icons.switch_account_outlined),
+                            icon: const Icon(Icons.manage_accounts_outlined),
                             label: const Text('Use another account'),
                           ),
                         ],

@@ -60,7 +60,7 @@ class _LearningPathsScreenState extends State<LearningPathsScreen> {
 
   Widget _buildBody() {
     if (_loading) {
-      return const Center(child: CircularProgressIndicator());
+      return const LoadingState(message: 'Loading learning paths…');
     }
     if (_error != null) {
       return _ErrorState(error: _error!, onRetry: _load);
@@ -69,14 +69,16 @@ class _LearningPathsScreenState extends State<LearningPathsScreen> {
       return const _EmptyState();
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(Spacing.md),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
       itemCount: _paths.length + 1,
       separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
       itemBuilder: (_, i) {
         if (i == 0) {
-          return const Padding(
-            padding: EdgeInsets.only(bottom: Spacing.sm),
-            child: HeroBanner(
+          return const ResponsiveContent(
+            child: Padding(
+              padding: EdgeInsets.only(bottom: Spacing.sm),
+              child: HeroBanner(
               eyebrow: 'GUIDED TRACKS',
               title: 'Learn with a path',
               subtitle:
@@ -84,14 +86,17 @@ class _LearningPathsScreenState extends State<LearningPathsScreen> {
                   'follow a structured arc end-to-end.',
               icon: Icons.route_rounded,
             ),
+            ),
           );
         }
         final p = _paths[i - 1];
-        return _PathCard(
+        return ResponsiveContent(
+          child: _PathCard(
           path: p,
           onTap: () => Navigator.of(
             context,
           ).pushNamed(AppRoutes.learningPathDetail, arguments: p.id),
+        ),
         );
       },
     );
@@ -179,9 +184,11 @@ class _EmptyState extends StatelessWidget {
   Widget build(BuildContext context) {
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
       children: const [
-        HeroBanner(
+        ResponsiveContent(
+          maxWidth: 820,
+          child: HeroBanner(
           eyebrow: 'GUIDED TRACKS',
           title: 'No learning paths yet',
           subtitle:
@@ -189,10 +196,14 @@ class _EmptyState extends StatelessWidget {
               'refresh once they are available.',
           icon: Icons.route_outlined,
         ),
+        ),
         SizedBox(height: Spacing.lg),
-        EmptyState(
+        ResponsiveContent(
+          maxWidth: 720,
+          child: EmptyState(
           icon: Icons.route_outlined,
           message: 'No learning paths have been published yet.',
+        ),
         ),
       ],
     );
@@ -206,36 +217,16 @@ class _ErrorState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
-      padding: const EdgeInsets.all(Spacing.lg),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.xl),
       children: [
-        const SizedBox(height: Spacing.xl),
-        Icon(Icons.error_outline_rounded, size: 48, color: scheme.error),
-        const SizedBox(height: Spacing.md),
-        Text(
-          'Could not load paths',
-          textAlign: TextAlign.center,
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
-        ),
-        const SizedBox(height: Spacing.sm),
-        Text(
-          error,
-          textAlign: TextAlign.center,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: scheme.onSurfaceVariant,
-          ),
-        ),
-        const SizedBox(height: Spacing.md),
-        Center(
-          child: FilledButton.tonalIcon(
-            onPressed: onRetry,
-            icon: const Icon(Icons.refresh_rounded),
-            label: const Text('Retry'),
+        ResponsiveContent(
+          maxWidth: 720,
+          child: ErrorState(
+            title: 'Could not load paths',
+            message: error,
+            onRetry: onRetry,
           ),
         ),
       ],

@@ -220,7 +220,35 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       enrolled.refreshFromRemote();
     }
     if (!mounted) return;
+
+    // Update My Courses immediately. EnrollmentProvider is account-scoped and
+    // safely queues the id for the authenticated account if its root binding
+    // is still completing in this frame.
     await enrolled.enroll(c.id);
+
+    // Paid enrollments are created/validated by the existing payment flow.
+    // Free courses do not pass through that flow, so mirror them to both
+    // Firestore and Flask here. Remote failures are intentionally non-fatal:
+    // the user still sees the local enrollment and a later remote refresh can
+    // reconcile it.
+    if (c.isFree) {
+      final freeTransactionId = 'free:${c.id}';
+      try {
+        await EnrollmentService().saveEnrollment(
+          courseId: c.id,
+          paymentMethod: 'free',
+          transactionId: freeTransactionId,
+        );
+      } catch (e, st) {
+        debugPrint('Free enrollment Firestore sync failed: $e\n$st');
+      }
+      await enrolled.pushRemote(
+        courseId: c.id,
+        paymentMethod: 'free',
+        transactionId: freeTransactionId,
+      );
+    }
+
     if (!mounted) return;
     setState(() => _enrolledRemote = true);
     await context.read<UserProvider>().setProgress(c.id, 0);
@@ -307,18 +335,17 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: LoadingState(message: 'Loading course details…'));
     }
     if (_error != null || _course == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Text(
-              _error ?? 'Course not found',
-              textAlign: TextAlign.center,
-            ),
+        body: ResponsiveContent(
+          maxWidth: 720,
+          child: ErrorState(
+            title: 'Course unavailable',
+            message: _error ?? 'Course not found',
+            onRetry: _load,
           ),
         ),
       );
@@ -350,7 +377,10 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
               padding: EdgeInsets.only(
                 bottom: 116 + MediaQuery.paddingOf(context).bottom,
               ),
-              child: Column(
+              child: ResponsiveContent(
+                maxWidth: 980,
+                padding: EdgeInsets.zero,
+                child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Padding(
@@ -476,19 +506,24 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                   const SizedBox(height: Spacing.xl),
                 ],
               ),
+              ),
             ),
           ),
           Positioned(
             left: 0,
             right: 0,
             bottom: 0,
-            child: _BottomCTA(
+            child: ResponsiveContent(
+              maxWidth: 980,
+              padding: EdgeInsets.zero,
+              child: _BottomCTA(
               course: c,
               isEnrolled: isEnrolled,
               onPrimary: _enroll,
               onSecondary: (c.url == null || c.url!.isEmpty)
                   ? null
                   : () => openCourseUrl(context, c.url!),
+            ),
             ),
           ),
         ],
@@ -1110,8 +1145,10 @@ class _SimilarRail extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final visible = courses.take(_maxVisible).toList();
+    final textScale = MediaQuery.textScalerOf(context).scale(1.0);
+    final extraHeight = ((textScale - 1.0).clamp(0.0, 1.5) * 44).toDouble();
     return SizedBox(
-      height: 188,
+      height: 188 + extraHeight,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
@@ -1132,7 +1169,7 @@ class _SimilarCard extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     return SizedBox(
-      width: 148,
+      width: 156,
       child: Material(
         color: scheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(Radii.lg),

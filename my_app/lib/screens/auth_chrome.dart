@@ -111,7 +111,7 @@ class AuthScaffold extends StatelessWidget {
 
       // Blue AppBar with a hairline so it does not bleed into the body.
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(60),
+        preferredSize: const Size.fromHeight(64),
         child: Container(
           decoration: BoxDecoration(
             color: palette.accent,
@@ -206,7 +206,7 @@ class AuthScaffold extends StatelessWidget {
                       0.0,
                       constraints.maxWidth - (horizontal * 2),
                     );
-                    final cardWidth = math.min(430.0, availableWidth);
+                    final cardWidth = math.min(460.0, availableWidth);
 
                     return Padding(
                       padding: EdgeInsets.symmetric(
@@ -252,18 +252,13 @@ class _PaperCard extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: palette.paper,
-        borderRadius: const BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
-          bottomLeft: Radius.circular(8),
-          bottomRight: Radius.circular(20),
-        ),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(color: palette.hairline),
         boxShadow: [
           BoxShadow(
             color: palette.shadow,
-            blurRadius: 18,
-            offset: const Offset(0, 8),
+            blurRadius: 28,
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -318,8 +313,8 @@ class AuthHeading extends StatelessWidget {
           title,
           style: TextStyle(
             color: palette.ink,
-            fontSize: 24,
-            fontWeight: FontWeight.w700,
+            fontSize: 25,
+            fontWeight: FontWeight.w800,
             height: 1.08,
             letterSpacing: -0.5,
           ),
@@ -422,7 +417,7 @@ class _InsetFieldState extends State<InsetField> {
             const SizedBox(width: 7),
             Expanded(
               child: Text(
-                widget.label.toUpperCase(),
+                widget.label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
@@ -542,7 +537,7 @@ class AuthPrimaryButton extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: disabled ? null : onPressed,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(14),
           splashColor: const Color(0x33FFFFFF),
           highlightColor: const Color(0x22FFFFFF),
           child: Ink(
@@ -552,7 +547,7 @@ class AuthPrimaryButton extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [palette.accent, palette.accentDeep],
               ),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(14),
               boxShadow: [
                 BoxShadow(
                   color: palette.accentDeep.withValues(alpha: 0.35),
@@ -562,7 +557,7 @@ class AuthPrimaryButton extends StatelessWidget {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: 12),
+              padding: const EdgeInsets.symmetric(vertical: 14),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
@@ -575,8 +570,8 @@ class AuthPrimaryButton extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: Colors.white.withValues(alpha: 0.40),
                         borderRadius: const BorderRadius.only(
-                          topLeft: Radius.circular(10),
-                          bottomLeft: Radius.circular(10),
+                          topLeft: Radius.circular(14),
+                          bottomLeft: Radius.circular(14),
                         ),
                       ),
                     ),
@@ -598,14 +593,14 @@ class AuthPrimaryButton extends StatelessWidget {
                         const SizedBox(width: 10),
                         Flexible(
                           child: Text(
-                            label.toUpperCase(),
+                            label,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w700,
-                              letterSpacing: 2,
-                              fontSize: 13,
+                              letterSpacing: 0.15,
+                              fontSize: 14.5,
                             ),
                           ),
                         ),

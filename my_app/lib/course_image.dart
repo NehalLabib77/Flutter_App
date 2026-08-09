@@ -30,37 +30,172 @@ class CourseThumbnail extends StatelessWidget {
   Widget build(BuildContext context) {
     final url = course.imageUrl;
     final hasUrl = url != null && url.isNotEmpty;
-    if (!hasUrl) {
-      return _EnhancedPlaceholder(
-        size: size,
-        course: course,
+    final scheme = Theme.of(context).colorScheme;
+    final image = hasUrl
+        ? CachedNetworkImage(
+            imageUrl: url,
+            fit: BoxFit.cover,
+            alignment: Alignment.center,
+            fadeInDuration: const Duration(milliseconds: 180),
+            fadeOutDuration: const Duration(milliseconds: 90),
+            useOldImageOnUrlChange: true,
+            filterQuality: FilterQuality.high,
+            placeholder: (_, _) => _EnhancedPlaceholder(
+              size: size,
+              course: course,
+              borderRadius: borderRadius,
+            ),
+            errorWidget: (_, _, _) => _EnhancedPlaceholder(
+              size: size,
+              course: course,
+              borderRadius: borderRadius,
+            ),
+          )
+        : _EnhancedPlaceholder(
+            size: size,
+            course: course,
+            borderRadius: borderRadius,
+          );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
         borderRadius: borderRadius,
-      );
-    }
+        border: Border.all(
+          color: scheme.outlineVariant.withValues(alpha: 0.7),
+        ),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: image,
+    );
+  }
+}
+
+
+/// Edge-to-edge course artwork for larger promotional cards.
+///
+/// Unlike [CourseThumbnail], this widget expands to the constraints supplied
+/// by its parent and therefore works as a full Stack background. It uses the
+/// same cached image source and visually compatible fallback treatment.
+class CourseBackgroundImage extends StatelessWidget {
+  const CourseBackgroundImage({
+    super.key,
+    required this.course,
+    this.borderRadius = const BorderRadius.all(Radius.circular(18)),
+  });
+
+  final Course course;
+  final BorderRadius borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final url = course.imageUrl;
+    final hasUrl = url != null && url.trim().isNotEmpty;
+
     return ClipRRect(
       borderRadius: borderRadius,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: CachedNetworkImage(
-          imageUrl: url,
-          fit: BoxFit.cover,
-          alignment: Alignment.center,
-          fadeInDuration: const Duration(milliseconds: 180),
-          fadeOutDuration: const Duration(milliseconds: 90),
-          useOldImageOnUrlChange: true,
-          filterQuality: FilterQuality.high,
-          placeholder: (_, _) => _EnhancedPlaceholder(
-            size: size,
-            course: course,
-            borderRadius: borderRadius,
-          ),
-          errorWidget: (_, _, _) => _EnhancedPlaceholder(
-            size: size,
-            course: course,
-            borderRadius: borderRadius,
-          ),
+      child: SizedBox.expand(
+        child: hasUrl
+            ? CachedNetworkImage(
+                imageUrl: url!,
+                fit: BoxFit.cover,
+                alignment: Alignment.center,
+                fadeInDuration: const Duration(milliseconds: 180),
+                fadeOutDuration: const Duration(milliseconds: 90),
+                useOldImageOnUrlChange: true,
+                filterQuality: FilterQuality.high,
+                placeholder: (_, _) => _WidePlaceholder(course: course),
+                errorWidget: (_, _, _) => _WidePlaceholder(course: course),
+              )
+            : _WidePlaceholder(course: course),
+      ),
+    );
+  }
+}
+
+class _WidePlaceholder extends StatelessWidget {
+  const _WidePlaceholder({required this.course});
+
+  final Course course;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final label = (course.subject?.trim().isNotEmpty ?? false)
+        ? course.subject!
+        : (course.provider?.trim().isNotEmpty ?? false)
+            ? course.provider!
+            : 'EduCompass';
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            scheme.primary,
+            Color.lerp(scheme.primary, scheme.secondary, 0.72) ??
+                scheme.secondary,
+          ],
         ),
+      ),
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          Positioned(
+            right: -30,
+            top: -34,
+            child: Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.white.withValues(alpha: 0.09),
+              ),
+            ),
+          ),
+          Positioned(
+            left: -22,
+            bottom: -48,
+            child: Container(
+              width: 170,
+              height: 170,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: Colors.black.withValues(alpha: 0.08),
+              ),
+            ),
+          ),
+          Align(
+            alignment: Alignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.menu_book_rounded,
+                  size: 44,
+                  color: Colors.white.withValues(alpha: 0.88),
+                ),
+                const SizedBox(height: 8),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 28),
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      color: Colors.white.withValues(alpha: 0.92),
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

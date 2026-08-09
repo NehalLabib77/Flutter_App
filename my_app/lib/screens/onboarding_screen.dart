@@ -1,8 +1,7 @@
-/// First-launch learning-preference onboarding.
+/// Multi-step learning-preference onboarding.
 ///
-/// This sits in front of the existing AuthWrapper, so authentication remains
-/// optional. The selected profile is stored locally and immediately powers
-/// Home + For You; after login it is also mirrored to Flask.
+/// This screen only changes presentation. It keeps the existing
+/// [LearningPreferences] shape and saves through [PreferenceProvider.complete].
 library;
 
 import 'package:flutter/material.dart';
@@ -20,7 +19,9 @@ class OnboardingScreen extends StatefulWidget {
 }
 
 class _OnboardingScreenState extends State<OnboardingScreen> {
-  final _controller = PageController();
+  static const int _stepCount = 6;
+
+  final PageController _controller = PageController();
   int _page = 0;
   bool _saving = false;
 
@@ -91,8 +92,17 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   }
 
   void _next() {
+    if (_page >= _stepCount - 1) return;
     _controller.nextPage(
       duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _back() {
+    if (_page <= 0) return;
+    _controller.previousPage(
+      duration: const Duration(milliseconds: 240),
       curve: Curves.easeOutCubic,
     );
   }
@@ -100,37 +110,80 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final isLast = _page == 3;
+    final scheme = theme.colorScheme;
+    final isLast = _page == _stepCount - 1;
+    final progress = (_page + 1) / _stepCount;
+
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: const Text('Set up EduCompass'),
+        title: const Text('Personalize learning'),
         actions: [
           TextButton(
             onPressed: _saving ? null : _skip,
-            child: const Text(
-              'Skip',
-              style: TextStyle(color: Colors.white),
-            ),
+            child: const Text('Skip', style: TextStyle(color: Colors.white)),
           ),
+          const SizedBox(width: Spacing.xs),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
+            ResponsiveContent(
+              maxWidth: 760,
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.lg,
+                Spacing.md,
+                Spacing.lg,
+                Spacing.sm,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Step ${_page + 1} of $_stepCount',
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: scheme.primary,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${(progress * 100).round()}%',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: Spacing.sm),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(999),
+                    child: LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 7,
+                      backgroundColor: scheme.surfaceContainerHighest,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: PageView(
                 controller: _controller,
                 physics: const NeverScrollableScrollPhysics(),
                 onPageChanged: (value) => setState(() => _page = value),
                 children: [
-                  const _WelcomePage(),
                   _ChoicePage(
-                    eyebrow: 'INTERESTS',
+                    eyebrow: 'SUBJECTS',
                     title: 'What subjects interest you?',
                     subtitle:
-                        'Pick a few. These immediately shape Popular, Top rated and For you.',
-                    icon: Icons.category_outlined,
+                        'Choose a few broad areas. These help shape Popular, Top Rated and For You.',
+                    icon: Icons.category_rounded,
                     child: _MultiChoiceChips(
                       options: _subjectOptions,
                       selected: _subjects,
@@ -145,8 +198,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     eyebrow: 'SKILLS',
                     title: 'What do you want to learn?',
                     subtitle:
-                        'Choose skills or topics you want EduCompass to prioritize.',
-                    icon: Icons.auto_awesome_outlined,
+                        'Pick practical skills or topics you want EduCompass to prioritize.',
+                    icon: Icons.psychology_alt_rounded,
                     child: _MultiChoiceChips(
                       options: _skillOptions,
                       selected: _skills,
@@ -158,126 +211,141 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     ),
                   ),
                   _ChoicePage(
-                    eyebrow: 'LEARNING STYLE',
-                    title: 'Fine-tune your recommendations',
+                    eyebrow: 'LEVEL',
+                    title: 'Choose your learning level',
                     subtitle:
-                        'These are optional. Leave any row on Any if you have no preference.',
-                    icon: Icons.tune_rounded,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _SingleChoiceGroup(
-                          label: 'Level',
-                          options: const {
-                            '': 'Any',
-                            'Beginner': 'Beginner',
-                            'Intermediate': 'Intermediate',
-                            'Advanced': 'Advanced',
-                          },
-                          value: _level,
-                          onChanged: (value) => setState(() => _level = value),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        _SingleChoiceGroup(
-                          label: 'Course type',
-                          options: const {
-                            '': 'Any',
-                            'Course': 'Course',
-                            'Specialization': 'Specialization',
-                            'Professional Certificate': 'Professional cert.',
-                            'Guided Project': 'Guided project',
-                          },
-                          value: _courseType,
-                          onChanged: (value) =>
-                              setState(() => _courseType = value),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        _SingleChoiceGroup(
-                          label: 'Certificate',
-                          options: const {
-                            '': 'Any',
-                            'Certificate': 'Prefer certificate',
-                            'No Certificate': 'Not required',
-                          },
-                          value: _certificateType,
-                          onChanged: (value) =>
-                              setState(() => _certificateType = value),
-                        ),
-                        const SizedBox(height: Spacing.md),
-                        _SingleChoiceGroup(
-                          label: 'Price',
-                          options: const {
-                            '': 'Any',
-                            'Free': 'Free',
-                            'Paid': 'Paid',
-                          },
-                          value: _pricePreference,
-                          onChanged: (value) =>
-                              setState(() => _pricePreference = value),
-                        ),
-                      ],
+                        'Select the level that best matches where you want to start.',
+                    icon: Icons.stairs_rounded,
+                    child: _SingleChoiceGroup(
+                      options: const {
+                        '': 'Any level',
+                        'Beginner': 'Beginner',
+                        'Intermediate': 'Intermediate',
+                        'Advanced': 'Advanced',
+                      },
+                      value: _level,
+                      onChanged: (value) => setState(() => _level = value),
+                    ),
+                  ),
+                  _ChoicePage(
+                    eyebrow: 'COURSE TYPE',
+                    title: 'What format do you prefer?',
+                    subtitle:
+                        'Choose a format, or keep Any if you are open to everything.',
+                    icon: Icons.view_module_rounded,
+                    child: _SingleChoiceGroup(
+                      options: const {
+                        '': 'Any format',
+                        'Course': 'Course',
+                        'Specialization': 'Specialization',
+                        'Professional Certificate': 'Professional certificate',
+                        'Guided Project': 'Guided project',
+                      },
+                      value: _courseType,
+                      onChanged: (value) => setState(() => _courseType = value),
+                    ),
+                  ),
+                  _ChoicePage(
+                    eyebrow: 'CERTIFICATE',
+                    title: 'Do you want a certificate?',
+                    subtitle:
+                        'Tell us whether certification matters for your learning goal.',
+                    icon: Icons.workspace_premium_rounded,
+                    child: _SingleChoiceGroup(
+                      options: const {
+                        '': 'Any',
+                        'Certificate': 'Certificate preferred',
+                        'No Certificate': 'Certificate not required',
+                      },
+                      value: _certificateType,
+                      onChanged: (value) =>
+                          setState(() => _certificateType = value),
+                    ),
+                  ),
+                  _ChoicePage(
+                    eyebrow: 'PRICE',
+                    title: 'Choose your price preference',
+                    subtitle:
+                        'This helps EduCompass prioritize courses that fit your budget.',
+                    icon: Icons.payments_outlined,
+                    child: _SingleChoiceGroup(
+                      options: const {
+                        '': 'Any price',
+                        'Free': 'Free',
+                        'Paid': 'Paid',
+                      },
+                      value: _pricePreference,
+                      onChanged: (value) =>
+                          setState(() => _pricePreference = value),
                     ),
                   ),
                 ],
               ),
             ),
-            Padding(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.sm,
-                Spacing.md,
-                Spacing.md,
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: scheme.surface,
+                border: Border(
+                  top: BorderSide(color: scheme.outlineVariant),
+                ),
               ),
-              child: Row(
-                children: [
-                  Row(
-                    children: List.generate(4, (index) {
-                      final active = index == _page;
-                      return AnimatedContainer(
-                        duration: const Duration(milliseconds: 180),
-                        margin: const EdgeInsets.only(right: 6),
-                        width: active ? 22 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: active
-                              ? theme.colorScheme.primary
-                              : theme.colorScheme.outlineVariant,
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                      );
-                    }),
-                  ),
-                  const Spacer(),
-                  if (_page > 0)
-                    TextButton(
-                      onPressed: _saving
-                          ? null
-                          : () => _controller.previousPage(
-                              duration: const Duration(milliseconds: 240),
-                              curve: Curves.easeOut,
+              child: ResponsiveContent(
+                maxWidth: 760,
+                padding: const EdgeInsets.fromLTRB(
+                  Spacing.md,
+                  Spacing.sm,
+                  Spacing.md,
+                  Spacing.md,
+                ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final compact = constraints.maxWidth < 360;
+                    final backButton = TextButton.icon(
+                      onPressed: (_saving || _page == 0) ? null : _back,
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      label: const Text('Back'),
+                    );
+                    final nextButton = FilledButton.icon(
+                      onPressed: _saving ? null : (isLast ? _finish : _next),
+                      icon: _saving && isLast
+                          ? const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : Icon(
+                              isLast
+                                  ? Icons.check_rounded
+                                  : Icons.arrow_forward_rounded,
                             ),
-                      child: const Text('Back'),
-                    ),
-                  const SizedBox(width: Spacing.xs),
-                  FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                      minimumSize: const Size(0, 48),
-                    ),
-                    onPressed: _saving ? null : (isLast ? _finish : _next),
-                    icon: _saving && isLast
-                        ? const SizedBox(
-                            width: 16,
-                            height: 16,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : Icon(
-                            isLast
-                                ? Icons.check_rounded
-                                : Icons.arrow_forward_rounded,
-                          ),
-                    label: Text(isLast ? 'Use my preferences' : 'Next'),
-                  ),
-                ],
+                      label: Text(isLast ? 'Finish' : 'Next'),
+                    );
+
+                    if (compact) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          nextButton,
+                          if (_page > 0) ...[
+                            const SizedBox(height: Spacing.xs),
+                            backButton,
+                          ],
+                        ],
+                      );
+                    }
+
+                    return Row(
+                      children: [
+                        if (_page > 0) backButton else const SizedBox(width: 88),
+                        const Spacer(),
+                        nextButton,
+                      ],
+                    );
+                  },
+                ),
               ),
             ),
           ],
@@ -290,42 +358,6 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   void dispose() {
     _controller.dispose();
     super.dispose();
-  }
-}
-
-class _WelcomePage extends StatelessWidget {
-  const _WelcomePage();
-
-  @override
-  Widget build(BuildContext context) {
-    return const _ChoicePage(
-      eyebrow: 'PERSONALISE',
-      title: 'Courses that start with you',
-      subtitle:
-          'Tell EduCompass what you want to learn once. Your Home and For you tabs will start personalised even before you sign in.',
-      icon: Icons.explore_rounded,
-      child: EduCard(
-        border: true,
-        child: Column(
-          children: [
-            _BenefitRow(
-              icon: Icons.local_fire_department_outlined,
-              text: 'Popular right now, adjusted to your interests',
-            ),
-            SizedBox(height: Spacing.md),
-            _BenefitRow(
-              icon: Icons.star_outline_rounded,
-              text: 'Top-rated courses that also fit your profile',
-            ),
-            SizedBox(height: Spacing.md),
-            _BenefitRow(
-              icon: Icons.auto_awesome_outlined,
-              text: 'For You improves as you view, save and complete courses',
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }
 
@@ -347,29 +379,63 @@ class _ChoicePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(Spacing.md),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          HeroBanner(
-            eyebrow: eyebrow,
-            title: title,
-            subtitle: subtitle,
-            icon: icon,
+    final scheme = theme.colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontal = constraints.maxWidth >= 760;
+        final content = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            HeroBanner(
+              eyebrow: eyebrow,
+              title: title,
+              subtitle: subtitle,
+              icon: icon,
+            ),
+            const SizedBox(height: Spacing.lg),
+            EduCard(
+              border: true,
+              padding: EdgeInsets.all(horizontal ? Spacing.xl : Spacing.lg),
+              child: child,
+            ),
+            const SizedBox(height: Spacing.md),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  Icons.info_outline_rounded,
+                  size: 16,
+                  color: scheme.onSurfaceVariant,
+                ),
+                const SizedBox(width: Spacing.xs),
+                Flexible(
+                  child: Text(
+                    'You can continue without selecting an option.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: scheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+
+        return SingleChildScrollView(
+          padding: EdgeInsets.symmetric(
+            horizontal: horizontal ? Spacing.xl : Spacing.md,
+            vertical: Spacing.sm,
           ),
-          const SizedBox(height: Spacing.lg),
-          child,
-          const SizedBox(height: Spacing.md),
-          Text(
-            'You can continue without selecting everything.',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: content,
             ),
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
@@ -388,13 +454,16 @@ class _MultiChoiceChips extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Wrap(
-      spacing: Spacing.xs,
-      runSpacing: Spacing.xs,
+      spacing: Spacing.sm,
+      runSpacing: Spacing.sm,
       children: [
         for (final option in options)
           FilterChip(
             selected: selected.contains(option),
             label: Text(option),
+            avatar: selected.contains(option)
+                ? const Icon(Icons.check_rounded, size: 16)
+                : null,
             onSelected: (_) => onChanged(option),
           ),
       ],
@@ -404,13 +473,11 @@ class _MultiChoiceChips extends StatelessWidget {
 
 class _SingleChoiceGroup extends StatelessWidget {
   const _SingleChoiceGroup({
-    required this.label,
     required this.options,
     required this.value,
     required this.onChanged,
   });
 
-  final String label;
   final Map<String, String> options;
   final String value;
   final ValueChanged<String> onChanged;
@@ -418,47 +485,72 @@ class _SingleChoiceGroup extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-        const SizedBox(height: Spacing.xs),
-        Wrap(
-          spacing: Spacing.xs,
-          runSpacing: Spacing.xs,
+    final scheme = theme.colorScheme;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final twoColumns = constraints.maxWidth >= 560;
+        final itemWidth = twoColumns
+            ? (constraints.maxWidth - Spacing.sm) / 2
+            : constraints.maxWidth;
+
+        return Wrap(
+          spacing: Spacing.sm,
+          runSpacing: Spacing.sm,
           children: [
             for (final entry in options.entries)
-              ChoiceChip(
-                selected: value == entry.key,
-                label: Text(entry.value),
-                onSelected: (_) => onChanged(entry.key),
+              SizedBox(
+                width: itemWidth,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(Radii.md),
+                  onTap: () => onChanged(entry.key),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 160),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: Spacing.md,
+                      vertical: Spacing.md,
+                    ),
+                    decoration: BoxDecoration(
+                      color: value == entry.key
+                          ? scheme.primaryContainer
+                          : scheme.surfaceContainerLow,
+                      borderRadius: BorderRadius.circular(Radii.md),
+                      border: Border.all(
+                        color: value == entry.key
+                            ? scheme.primary
+                            : scheme.outlineVariant,
+                        width: value == entry.key ? 1.5 : 1,
+                      ),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          value == entry.key
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: value == entry.key
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: Spacing.sm),
+                        Expanded(
+                          child: Text(
+                            entry.value,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: value == entry.key
+                                  ? FontWeight.w800
+                                  : FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
           ],
-        ),
-      ],
-    );
-  }
-}
-
-class _BenefitRow extends StatelessWidget {
-  const _BenefitRow({required this.icon, required this.text});
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: Spacing.sm),
-        Expanded(child: Text(text)),
-      ],
+        );
+      },
     );
   }
 }

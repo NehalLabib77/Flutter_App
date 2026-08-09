@@ -99,12 +99,15 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
   @override
   Widget build(BuildContext context) {
     if (_loading) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return const Scaffold(body: LoadingState(message: 'Loading learning path…'));
     }
     if (_error != null || _path == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: _ErrorState(message: _error ?? 'Path not found', onRetry: _load),
+        body: ResponsiveContent(
+          maxWidth: 720,
+          child: _ErrorState(message: _error ?? 'Path not found', onRetry: _load),
+        ),
       );
     }
     final p = _path!;
@@ -116,17 +119,22 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
         title: Text(p.title, maxLines: 1, overflow: TextOverflow.ellipsis),
       ),
       body: ListView(
-        padding: const EdgeInsets.all(Spacing.md),
+        padding: const EdgeInsets.symmetric(vertical: Spacing.md),
         children: [
-          _PathSummary(
+          ResponsiveContent(
+            maxWidth: 900,
+            child: _PathSummary(
             title: p.title,
             description: p.description,
             done: done,
             total: total,
             pct: pct,
           ),
+          ),
           const SizedBox(height: Spacing.lg),
-          SectionHeader(
+          ResponsiveContent(
+            maxWidth: 900,
+            child: SectionHeader(
             icon: Icons.format_list_numbered_rounded,
             title: 'Path outline',
             subtitle: '$done of $total steps complete',
@@ -138,14 +146,18 @@ class _LearningPathDetailScreenState extends State<LearningPathDetailScreen> {
               ),
             ),
           ),
+          ),
           const SizedBox(height: Spacing.sm),
           for (var i = 0; i < p.steps.length; i++) ...[
-            _StepCard(
+            ResponsiveContent(
+              maxWidth: 900,
+              child: _StepCard(
               index: i + 1,
               step: p.steps[i],
               done: _completedSteps.contains(p.steps[i].id),
               onToggle: () => _toggleStep(p.steps[i]),
               onCourseTap: _openCourse,
+            ),
             ),
             const SizedBox(height: Spacing.sm),
           ],

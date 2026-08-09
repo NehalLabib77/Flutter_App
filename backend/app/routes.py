@@ -32,6 +32,7 @@ from .database_models import (
     UserInteraction,
     UserPreference,
     UserInterest,
+    Notification,
 )
 from .auth_otp import get_auth_otp_store
 from .extensions import db
@@ -300,24 +301,23 @@ def register():
                           code="WEAK_PASSWORD")
     if not full_name:
         return json_error("Full name is required.", code="MISSING_NAME")
-    # The SQL row is a thin mirror — Firebase Auth is the source of
-    # truth. If a SQL row exists for this email but the Firebase user
-    # is gone (e.g. someone deleted it directly in the Firebase
-    # console), drop the orphan so re-registration can succeed.
-    # Otherwise surface the usual "already registered" 409.
-    if User.query.filter_by(email=email).first():
+    # The SQL row is also the durable owner of enrollments. If Firebase
+    # identity was deleted through /auth/account, keep that SQL row so a
+    # later registration with the same email can re-attach to the same
+    # enrolled courses. All recommendation/profile state is cleared during
+    # deletion, so the returning learner is treated as new for preferences.
+    reactivating_user = User.query.filter_by(email=email).first()
+    if reactivating_user is not None:
         if firebase_client.is_configured():
             fb_user = firebase_client.get_auth_user_by_email(email)
-            if fb_user is None:
-                log.warning(
-                    "Stale SQL user for %s (no Firebase record) — "
-                    "deleting orphan before re-registration.", email,
-                )
-                User.query.filter_by(email=email).delete()
-                db.session.commit()
-            else:
+            if fb_user is not None:
                 return json_error("Email already registered.",
                                   status=409, code="EMAIL_TAKEN")
+            log.info(
+                "Re-registering preserved learner row for %s; "
+                "enrollments/payments remain attached.",
+                email,
+            )
         else:
             return json_error("Email already registered.",
                               status=409, code="EMAIL_TAKEN")
@@ -371,21 +371,30 @@ def register():
     except Exception:  # noqa: BLE001
         log.exception("Firestore profile write failed for uid=%s", uid)
 
-    # 3. Create the SQL mirror row. password_hash is set to a
-    #    meaningless sentinel — login goes through Firebase.
+    # 3. Create or reactivate the SQL mirror row. A reactivated row keeps
+    #    the same primary key, which preserves its enrollments/payments while
+    #    giving the learner a fresh Firebase identity and fresh preferences.
     from werkzeug.security import generate_password_hash
-    user = User(
-        email=email,
-        full_name=full_name,
-        phone_number=None,
-        phone_verified=False,
-        firebase_uid=uid,
-    )
-    user.password_hash = generate_password_hash(
-        # 32-byte random value so the hash exists but is unusable.
-        os.urandom(32).hex()
-    )
-    db.session.add(user)
+    if reactivating_user is not None:
+        user = reactivating_user
+        user.full_name = full_name
+        user.phone_number = None
+        user.phone_verified = False
+        user.avatar_key = "default"
+        user.firebase_uid = uid
+        user.password_hash = generate_password_hash(os.urandom(32).hex())
+    else:
+        user = User(
+            email=email,
+            full_name=full_name,
+            phone_number=None,
+            phone_verified=False,
+            firebase_uid=uid,
+        )
+        user.password_hash = generate_password_hash(
+            os.urandom(32).hex()
+        )
+        db.session.add(user)
     db.session.commit()
 
     # 4. Send the verification email. Best-effort — if this fails the
@@ -405,15 +414,13 @@ def register():
 @bp.delete("/auth/account")
 @jwt_required()
 def delete_account():
-    """Permanently delete the caller's account.
+    """Delete the login identity while preserving purchased/enrolled courses.
 
-    Removes the user from Firebase Auth (source of truth) and the SQL
-    mirror row in one transaction so the two stores can't drift out
-    of sync — which is the bug that left users stuck unable to
-    re-register after a manual Firebase deletion.
-
-    Returns ``204`` on success. Cascade on the SQL relationships
-    cleans up favourites / history / progress / enrollments.
+    Firebase Auth is removed so the email can register again. The SQL learner
+    row is intentionally retained because enrollments/payments are durable
+    ownership records keyed to ``User.id``. Recommendation/profile state is
+    wiped so the next verified login has no preference row and is forced
+    through preference setup again.
     """
 
     user = current_user()
@@ -423,9 +430,8 @@ def delete_account():
 
     uid = user.firebase_uid
 
-    # 1. Delete from Firebase Auth first. If this fails we abort
-    #    before touching SQL so we don't end up with the inverse
-    #    drift (SQL gone, Firebase user still alive).
+    # 1. Remove the Firebase identity first. If this fails, keep the current
+    #    SQL/session state intact so the two identity stores cannot drift.
     auth = firebase_client.auth_client()
     if auth is not None and uid:
         try:
@@ -433,16 +439,12 @@ def delete_account():
         except Exception as exc:  # noqa: BLE001
             try:
                 from firebase_admin import auth as fb_auth
-                # UserNotFoundError is fine — the SQL row may have
-                # outlived a manual Firebase deletion, which is
-                # exactly when this endpoint is most useful.
                 if not isinstance(exc, fb_auth.UserNotFoundError):
                     log.exception(
                         "Firebase delete_user failed for uid=%s", uid,
                     )
                     return json_error(
-                        "Could not delete account from authentication "
-                        "provider.",
+                        "Could not delete account from authentication provider.",
                         status=502, code="AUTH_PROVIDER_ERROR",
                     )
             except ImportError:
@@ -454,15 +456,32 @@ def delete_account():
                     status=502, code="AUTH_PROVIDER_ERROR",
                 )
 
-    # 2. Delete the SQL mirror row. Cascade on the relationships
-    #    in ``database_models.User`` cleans up favourites,
-    #    history, progress, enrollments, etc.
-    db.session.delete(user)
+    # 2. Reset account-owned recommendation/profile state. DO NOT delete the
+    #    User row, enrollments, or payments: those are intentionally preserved
+    #    so re-registering with the same email keeps course ownership/order
+    #    history while still behaving like a new learner for preferences.
+    user.interests.clear()
+    user.interactions.clear()
+    user.favorites.clear()
+    user.history.clear()
+    user.progress.clear()
+    user.learning_progress.clear()
+    if user.preference is not None:
+        db.session.delete(user.preference)
+    Notification.query.filter_by(user_id=user.id).delete(
+        synchronize_session=False
+    )
+
+    user.firebase_uid = None
+    user.phone_number = None
+    user.phone_verified = False
+    user.avatar_key = "default"
     db.session.commit()
 
-    # 3. Best-effort Firestore profile cleanup. Failures here are
-    #    logged but not surfaced — the user's identity is already
-    #    gone from Firebase Auth, which is what matters.
+    # 3. Best-effort cleanup of the old Firestore profile. Firestore child
+    #    enrollment documents are not trusted as the ownership source after
+    #    deletion; preserved SQL enrollments repopulate My Courses on the next
+    #    login through /me/enrollments.
     if uid:
         try:
             db_fs = firebase_client.firestore_client()
@@ -471,8 +490,15 @@ def delete_account():
         except Exception:  # noqa: BLE001
             log.exception("Firestore profile delete failed for uid=%s", uid)
 
-    log.info("Account deleted: uid=%s email=%s", uid, user.email)
-    return json_ok(None, message="Account deleted.", status=200)
+    log.info(
+        "Account identity deleted but enrollments preserved: user_id=%s email=%s",
+        user.id, user.email,
+    )
+    return json_ok(
+        {"enrollments_preserved": True},
+        message="Account deleted. Enrolled courses were preserved.",
+        status=200,
+    )
 
 
 @bp.post("/auth/login")
@@ -529,6 +555,12 @@ def login():
         user = User.query.filter_by(email=email).first()
         if user is not None and user.firebase_uid is None:
             user.firebase_uid = uid
+            fb_user = firebase_client.get_auth_user_by_email(email)
+            if fb_user is not None and (fb_user.display_name or "").strip():
+                user.full_name = fb_user.display_name.strip()
+            user.phone_number = None
+            user.phone_verified = False
+            user.avatar_key = "default"
             db.session.commit()
     if user is None:
         # Firebase says the account exists, but it doesn't in SQL.

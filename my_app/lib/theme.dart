@@ -26,10 +26,10 @@ class AppColors {
   static const Color amberSoft = Color(0xFFFFF7ED);
 
   // Light surfaces
-  static const Color pageBg = Color(0xFFF8FAFC);
+  static const Color pageBg = Color(0xFFF7F8FC);
   static const Color cardBg = Color(0xFFFFFFFF);
-  static const Color cardSoft = Color(0xFFF1F5F9);
-  static const Color border = Color(0xFFE2E8F0);
+  static const Color cardSoft = Color(0xFFF2F4F8);
+  static const Color border = Color(0xFFE1E6EF);
 
   // Dark surfaces — blue-black rather than pure black for softer contrast.
   static const Color darkPage = Color(0xFF0B1220);
@@ -147,7 +147,7 @@ ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
       centerTitle: false,
       elevation: 0,
       scrolledUnderElevation: 0,
-      toolbarHeight: 66,
+      toolbarHeight: 64,
       titleSpacing: 18,
       backgroundColor: isDark ? AppColors.darkCard : AppColors.navy,
       foregroundColor: Colors.white,
@@ -156,7 +156,7 @@ ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
       actionsIconTheme: const IconThemeData(color: Colors.white, size: 23),
       titleTextStyle: const TextStyle(
         color: Colors.white,
-        fontSize: 20,
+        fontSize: 19.5,
         fontWeight: FontWeight.w800,
         letterSpacing: 0.05,
       ),
@@ -165,7 +165,7 @@ ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
     ),
 
     cardTheme: CardThemeData(
-      elevation: isDark ? 0 : 1,
+      elevation: isDark ? 0 : 0.6,
       margin: EdgeInsets.zero,
       color: card,
       surfaceTintColor: Colors.transparent,
@@ -283,7 +283,7 @@ ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
     ),
 
     navigationBarTheme: NavigationBarThemeData(
-      height: 74,
+      height: 72,
       backgroundColor: isDark ? AppColors.darkCard : AppColors.cardBg,
       indicatorColor: isDark
           ? const Color(0xFF2D3373)
@@ -365,6 +365,87 @@ ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
+    ),
+
+    listTileTheme: ListTileThemeData(
+      minVerticalPadding: 10,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      iconColor: secondaryText,
+      textColor: onSurface,
+      titleTextStyle: TextStyle(
+        color: onSurface,
+        fontSize: 14.8,
+        height: 1.32,
+        fontWeight: FontWeight.w700,
+      ),
+      subtitleTextStyle: TextStyle(
+        color: secondaryText,
+        fontSize: 12.8,
+        height: 1.38,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+      ),
+    ),
+
+    drawerTheme: DrawerThemeData(
+      backgroundColor: card,
+      surfaceTintColor: Colors.transparent,
+      width: 320,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.horizontal(left: Radius.circular(24)),
+      ),
+    ),
+
+    popupMenuTheme: PopupMenuThemeData(
+      color: card,
+      surfaceTintColor: Colors.transparent,
+      elevation: 6,
+      textStyle: TextStyle(color: onSurface, fontSize: 14, fontWeight: FontWeight.w600),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadii.md),
+        side: BorderSide(color: outline.withValues(alpha: 0.7)),
+      ),
+    ),
+
+    checkboxTheme: CheckboxThemeData(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(5)),
+      side: BorderSide(color: outline, width: 1.4),
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return primary;
+        return Colors.transparent;
+      }),
+    ),
+
+    radioTheme: RadioThemeData(
+      fillColor: WidgetStateProperty.resolveWith((states) {
+        if (states.contains(WidgetState.selected)) return primary;
+        return secondaryText;
+      }),
+    ),
+
+    tooltipTheme: TooltipThemeData(
+      decoration: BoxDecoration(
+        color: isDark ? AppColors.darkCardRaised : const Color(0xFF172033),
+        borderRadius: BorderRadius.circular(AppRadii.sm),
+      ),
+      textStyle: const TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+    ),
+
+    floatingActionButtonTheme: FloatingActionButtonThemeData(
+      backgroundColor: primary,
+      foregroundColor: Colors.white,
+      elevation: 2,
+      focusElevation: 2,
+      hoverElevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppRadii.lg)),
+    ),
+
+    badgeTheme: BadgeThemeData(
+      backgroundColor: scheme.error,
+      textColor: Colors.white,
+      textStyle: const TextStyle(fontSize: 10.5, fontWeight: FontWeight.w800),
     ),
 
     textSelectionTheme: TextSelectionThemeData(

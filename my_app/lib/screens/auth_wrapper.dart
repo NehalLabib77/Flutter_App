@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../app_state.dart';
+import '../widgets/design.dart';
 import '../services/firebase_auth_service.dart';
 import 'email_verification_screen.dart';
 import 'login_screen.dart';
@@ -66,7 +67,7 @@ class _AuthContent extends StatelessWidget {
       builder: (context, auth, _) {
         if (auth.isBootstrapping) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: LoadingState(message: 'Preparing your account…'),
           );
         }
 
@@ -187,7 +188,7 @@ class _AuthGateState extends State<_AuthGate> {
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: LoadingState(message: 'Preparing your account…'),
           );
         }
         final user = snapshot.data;
@@ -203,7 +204,7 @@ class _AuthGateState extends State<_AuthGate> {
             _routeVerifiedUserToLogin(service);
           });
           return const Scaffold(
-            body: Center(child: CircularProgressIndicator()),
+            body: LoadingState(message: 'Preparing your account…'),
           );
         }
 

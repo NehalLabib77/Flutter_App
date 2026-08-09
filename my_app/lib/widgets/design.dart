@@ -720,119 +720,167 @@ class ProfileHeader extends StatelessWidget {
     final initial = fullName.trim().isNotEmpty
         ? fullName.trim()[0].toUpperCase()
         : '?';
-    return EduCard(
-      padding: const EdgeInsets.all(Spacing.lg),
-      border: true,
-      child: Row(
-        children: [
-          Container(
-            width: 52,
-            height: 52,
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [scheme.primary, scheme.secondary],
-              ),
-              shape: BoxShape.circle,
-            ),
-            alignment: Alignment.center,
-            child: busy
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 390;
+        final avatarSize = compact ? 56.0 : 68.0;
+
+        Widget actionButton({
+          required String tooltip,
+          required IconData icon,
+          required VoidCallback? onPressed,
+          bool loading = false,
+        }) {
+          return IconButton.filledTonal(
+            tooltip: tooltip,
+            onPressed: onPressed,
+            icon: loading
                 ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.white,
-                    ),
+                    width: 17,
+                    height: 17,
+                    child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                : Text(
-                    initial,
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      color: scheme.onPrimary,
-                      fontWeight: FontWeight.w800,
+                : Icon(icon, size: 20),
+          );
+        }
+
+        final identity = Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      fullName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: (compact
+                              ? theme.textTheme.titleMedium
+                              : theme.textTheme.titleLarge)
+                          ?.copyWith(fontWeight: FontWeight.w800),
                     ),
                   ),
-          ),
-          const SizedBox(width: Spacing.lg),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        fullName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
+                  if (onSwitchAccount != null) ...[
+                    const SizedBox(width: Spacing.xs),
+                    actionButton(
+                      tooltip: 'Switch account',
+                      icon: Icons.manage_accounts_rounded,
+                      loading: switchingAccount,
+                      onPressed: (busy || switchingAccount)
+                          ? null
+                          : onSwitchAccount,
                     ),
-                    if (onSwitchAccount != null) ...[
-                      const SizedBox(width: Spacing.xs),
-                      TextButton.icon(
-                        style: TextButton.styleFrom(
-                          minimumSize: Size.zero,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: Spacing.sm,
-                            vertical: Spacing.xs,
-                          ),
-                          visualDensity: VisualDensity.compact,
-                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        ),
-                        onPressed: (busy || switchingAccount)
-                            ? null
-                            : onSwitchAccount,
-                        icon: switchingAccount
-                            ? const SizedBox(
-                                width: 14,
-                                height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : const Icon(Icons.switch_account_outlined, size: 17),
-                        label: Text(
-                          switchingAccount ? 'Switching…' : 'Switch',
-                          style: const TextStyle(fontSize: 12),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  email,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
+                  if (onEdit != null) ...[
+                    const SizedBox(width: Spacing.xs),
+                    actionButton(
+                      tooltip: 'Edit display name',
+                      icon: Icons.edit_rounded,
+                      onPressed: busy ? null : onEdit,
+                    ),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    Icons.alternate_email_rounded,
+                    size: 15,
                     color: scheme.onSurfaceVariant,
                   ),
-                ),
-                if (interests.isNotEmpty) ...[
-                  const SizedBox(height: Spacing.sm),
-                  Wrap(
-                    spacing: Spacing.xs,
-                    runSpacing: Spacing.xs,
-                    children: [
-                      for (final i in interests.take(4))
-                        Pill(text: i, dense: true),
-                    ],
+                  const SizedBox(width: 5),
+                  Expanded(
+                    child: Text(
+                      email,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: scheme.onSurfaceVariant,
+                      ),
+                    ),
                   ),
                 ],
+              ),
+              if (interests.isNotEmpty) ...[
+                const SizedBox(height: Spacing.sm),
+                Wrap(
+                  spacing: Spacing.xs,
+                  runSpacing: Spacing.xs,
+                  children: [
+                    for (final i in interests.take(compact ? 3 : 4))
+                      Pill(text: i, dense: true),
+                  ],
+                ),
               ],
-            ),
+            ],
           ),
-          if (onEdit != null)
-            IconButton.filledTonal(
-              tooltip: 'Edit name',
-              icon: const Icon(Icons.edit_outlined, size: 19),
-              onPressed: busy ? null : onEdit,
-            ),
-        ],
-      ),
+        );
+
+        return Container(
+          padding: EdgeInsets.all(compact ? Spacing.md : Spacing.lg),
+          decoration: BoxDecoration(
+            color: scheme.surfaceContainer,
+            borderRadius: BorderRadius.circular(Radii.xl),
+            border: Border.all(color: scheme.outlineVariant),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(
+                  alpha: theme.brightness == Brightness.dark ? 0.14 : 0.045,
+                ),
+                blurRadius: 22,
+                offset: const Offset(0, 8),
+              ),
+            ],
+          ),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Container(
+                width: avatarSize,
+                height: avatarSize,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [scheme.primary, scheme.secondary],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.18),
+                      blurRadius: 18,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
+                ),
+                alignment: Alignment.center,
+                child: busy
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        initial,
+                        style: theme.textTheme.headlineSmall?.copyWith(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+              ),
+              SizedBox(width: compact ? Spacing.md : Spacing.lg),
+              identity,
+            ],
+          ),
+        );
+      },
     );
   }
 }
@@ -1009,6 +1057,314 @@ class StatChip extends StatelessWidget {
                     ),
                   ),
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Centers page content and applies responsive horizontal gutters while
+/// keeping a predictable maximum readable width on tablets and desktop-sized
+/// windows. This is presentation-only and can wrap any existing screen body.
+class ResponsiveContent extends StatelessWidget {
+  const ResponsiveContent({
+    super.key,
+    required this.child,
+    this.maxWidth = 1080,
+    this.padding,
+    this.alignment = Alignment.topCenter,
+  });
+
+  final Widget child;
+  final double maxWidth;
+  final EdgeInsetsGeometry? padding;
+  final AlignmentGeometry alignment;
+
+  @override
+  Widget build(BuildContext context) {
+    final width = MediaQuery.sizeOf(context).width;
+    final horizontal = width >= 1000
+        ? Spacing.xl
+        : width >= 600
+            ? Spacing.lg
+            : Spacing.md;
+    return Align(
+      alignment: alignment,
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: maxWidth),
+        child: SizedBox(
+          width: double.infinity,
+          child: Padding(
+            padding: padding ?? EdgeInsets.symmetric(horizontal: horizontal),
+            child: child,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Polished page-level heading for screens that benefit from a short context
+/// sentence below the AppBar. It keeps headings consistent without competing
+/// with the AppBar title.
+class PageLead extends StatelessWidget {
+  const PageLead({
+    super.key,
+    required this.title,
+    this.subtitle,
+    this.icon,
+    this.trailing,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData? icon;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (icon != null) ...[
+          IconBadge(icon: icon!, size: 42, iconSize: 21),
+          const SizedBox(width: Spacing.md),
+        ],
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: -0.15,
+                ),
+              ),
+              if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
+                const SizedBox(height: 4),
+                Text(
+                  subtitle!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: scheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+        if (trailing != null) ...[
+          const SizedBox(width: Spacing.sm),
+          trailing!,
+        ],
+      ],
+    );
+  }
+}
+
+/// Standard full-section surface for settings, summaries and forms.
+class SurfaceSection extends StatelessWidget {
+  const SurfaceSection({
+    super.key,
+    required this.child,
+    this.title,
+    this.subtitle,
+    this.icon,
+    this.trailing,
+    this.padding = const EdgeInsets.all(Spacing.lg),
+  });
+
+  final Widget child;
+  final String? title;
+  final String? subtitle;
+  final IconData? icon;
+  final Widget? trailing;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return EduCard(
+      border: true,
+      padding: padding,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (title != null) ...[
+            SectionHeader(
+              title: title!,
+              subtitle: subtitle,
+              icon: icon,
+              trailing: trailing,
+            ),
+            const SizedBox(height: Spacing.md),
+          ],
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+/// Reusable loading state with an optional message. The minimum height keeps
+/// screen transitions calm instead of jumping between tiny spinners and full
+/// content.
+class LoadingState extends StatelessWidget {
+  const LoadingState({
+    super.key,
+    this.message = 'Loading…',
+    this.minHeight = 220,
+  });
+
+  final String message;
+  final double minHeight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: BoxConstraints(minHeight: minHeight),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(
+              width: 30,
+              height: 30,
+              child: CircularProgressIndicator(strokeWidth: 2.8),
+            ),
+            const SizedBox(height: Spacing.md),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Reusable recoverable error state with a comfortable touch target.
+class ErrorState extends StatelessWidget {
+  const ErrorState({
+    super.key,
+    required this.message,
+    this.onRetry,
+    this.title = 'Something went wrong',
+  });
+
+  final String title;
+  final String message;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    return EmptyState(
+      icon: Icons.cloud_off_rounded,
+      message: '$title\n$message',
+      action: onRetry == null
+          ? null
+          : FilledButton.tonalIcon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Try again'),
+            ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: Spacing.xl,
+        vertical: Spacing.xxl,
+      ),
+    );
+  }
+}
+
+/// Adaptive horizontal action group. On narrow screens actions stack instead
+/// of shrinking into overflow-prone rows.
+class ResponsiveActions extends StatelessWidget {
+  const ResponsiveActions({
+    super.key,
+    required this.children,
+    this.breakpoint = 420,
+    this.spacing = Spacing.sm,
+  });
+
+  final List<Widget> children;
+  final double breakpoint;
+  final double spacing;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < breakpoint) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                children[i],
+                if (i != children.length - 1) SizedBox(height: spacing),
+              ],
+            ],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < children.length; i++) ...[
+              Expanded(child: children[i]),
+              if (i != children.length - 1) SizedBox(width: spacing),
+            ],
+          ],
+        );
+      },
+    );
+  }
+}
+
+/// Compact informational banner used for contextual hints, success messages
+/// and non-blocking warnings. Color is always paired with icon/text.
+class InfoBanner extends StatelessWidget {
+  const InfoBanner({
+    super.key,
+    required this.message,
+    this.icon = Icons.info_outline_rounded,
+    this.tone,
+  });
+
+  final String message;
+  final IconData icon;
+  final Color? tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final accent = tone ?? theme.colorScheme.primary;
+    return Container(
+      padding: const EdgeInsets.all(Spacing.md),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.09),
+        borderRadius: BorderRadius.circular(Radii.md),
+        border: Border.all(color: accent.withValues(alpha: 0.20)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 19, color: accent),
+          const SizedBox(width: Spacing.sm),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                height: 1.45,
+              ),
             ),
           ),
         ],

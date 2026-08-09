@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'onboarding_screen.dart';
 import 'shell_screen.dart';
+import '../widgets/design.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -47,9 +48,11 @@ class _SplashScreenState extends State<SplashScreen> {
     return Scaffold(
       body: SafeArea(
         child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Padding(
+              padding: const EdgeInsets.all(Spacing.xl),
+              child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Container(
@@ -102,6 +105,7 @@ class _SplashScreenState extends State<SplashScreen> {
                   ),
                 ),
               ],
+            ),
             ),
           ),
         ),

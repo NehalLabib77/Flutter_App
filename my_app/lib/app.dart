@@ -155,11 +155,10 @@ class _PreferenceGate extends StatelessWidget {
   }
 }
 
-/// Bridges [AuthProvider.isLoggedIn] → [EnrollmentProvider]'s remote
-/// subscription. On login we kick off `refreshFromRemote(...)` so any
-/// Firestore-only enrollments get merged into the local prefs-backed set;
-/// on logout we tear the subscription down so we don't keep listening for
-/// a user who has just signed out.
+/// Bridges the authenticated backend user id to [EnrollmentProvider].
+/// Every account gets a separate local enrollment cache; switching users
+/// immediately rebinds that cache and then refreshes only that user's
+/// Flask/Firestore enrollments. Logout clears the in-memory enrollment set.
 ///
 /// Lives at the root of the widget tree (above [AuthWrapper]) so the
 /// subscription outlives any screen swaps inside the shell.
@@ -172,23 +171,26 @@ class _EnrollmentRemoteSync extends StatefulWidget {
 }
 
 class _EnrollmentRemoteSyncState extends State<_EnrollmentRemoteSync> {
-  bool _lastSignedIn = false;
+  int? _lastUserId;
 
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
-    final signedIn = auth.isLoggedIn;
-    if (signedIn != _lastSignedIn) {
-      _lastSignedIn = signedIn;
-      // Schedule after this build so we don't call setState / mutate
-      // providers during build.
+    final userId = auth.isLoggedIn ? auth.user?.id : null;
+
+    // Compare the actual account id, not only the signed-in boolean. That is
+    // what prevents a fast Account A -> Account B switch from reusing A's
+    // in-memory/local enrollment list.
+    if (userId != _lastUserId) {
+      _lastUserId = userId;
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
         final enrollments = context.read<EnrollmentProvider>();
-        if (signedIn) {
+        if (userId != null) {
+          enrollments.bindToUser(userId.toString());
           enrollments.refreshFromRemote();
         } else {
-          enrollments.cancelRemoteSubscription();
+          enrollments.unbindUser();
         }
       });
     }

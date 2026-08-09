@@ -109,6 +109,12 @@ class _EditPreferencesScreenState extends State<EditPreferencesScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final pageWidth = MediaQuery.sizeOf(context).width;
+    final horizontalPadding = pageWidth > 860
+        ? (pageWidth - 820) / 2
+        : pageWidth > 600
+            ? Spacing.lg
+            : Spacing.md;
     return PopScope(
       canPop: !widget.requiredCompletion,
       child: Scaffold(
@@ -130,10 +136,10 @@ class _EditPreferencesScreenState extends State<EditPreferencesScreen> {
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(
+        padding: EdgeInsets.fromLTRB(
+          horizontalPadding,
           Spacing.md,
-          Spacing.md,
-          Spacing.md,
+          horizontalPadding,
           Spacing.xxl,
         ),
         children: [

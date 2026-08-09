@@ -209,6 +209,25 @@ class PreferenceProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Clears the deleted account's recommendation profile from this device
+  /// without reopening the install-time guest onboarding. The next signed-in
+  /// account is still checked against /me/preferences during login; when the
+  /// server preference row is absent, that account must complete setup again.
+  Future<void> clearForDeletedAccount() async {
+    _preferences = const LearningPreferences();
+    _onboardingDone = true;
+    await Future.wait([
+      _prefs.setBool(_doneKey, true),
+      _prefs.remove(_subjectsKey),
+      _prefs.remove(_skillsKey),
+      _prefs.remove(_levelKey),
+      _prefs.remove(_courseTypeKey),
+      _prefs.remove(_certificateKey),
+      _prefs.remove(_priceKey),
+    ]);
+    notifyListeners();
+  }
+
   /// Finishes onboarding without forcing a choice. Ranking then falls back
   /// to quality/popularity until the user supplies preferences or behavior.
   Future<void> skip() => complete(const LearningPreferences());
@@ -436,94 +455,165 @@ class UserProvider extends ChangeNotifier {
   }) => _api.updateLearningPathProgress(pathId, stepId, completed: completed);
 }
 
-/// Tracks the user's enrollments (local + persisted via SharedPreferences).
+/// Tracks the signed-in user's enrollments.
 ///
-/// The backend does not expose an enrollment endpoint yet, so we keep the
-/// list on-device. This lets "Enroll" -> "Pay" add a course to the user's
-/// learning list immediately, and survive a cold restart.
+/// Enrollment ids are cached locally for fast UI rendering, but the cache is
+/// strictly account-scoped. Each backend user gets its own SharedPreferences
+/// key (`enrolled_course_ids_user_<userId>`), so switching accounts can never
+/// reuse another account's "My Courses" list.
 ///
-/// Cross-device sync: after a successful login, the wiring in `app.dart`
-/// calls [refreshFromRemote], which subscribes to
-/// `EnrollmentService.myEnrolledCourseIds()` and merges any Firestore-only
-/// enrollments into the local set. The subscription is torn down on
-/// logout.
+/// Remote sync stays unchanged architecturally: Flask and Firestore are both
+/// queried for the currently authenticated account and merged into that
+/// account's local cache. The old device-global `enrolled_course_ids` key is
+/// deliberately discarded because it may contain enrollments from multiple
+/// accounts and therefore cannot be migrated safely.
 class EnrollmentProvider extends ChangeNotifier {
-  static const _key = 'enrolled_course_ids';
+  static const _legacyKey = 'enrolled_course_ids';
+  static const _userKeyPrefix = 'enrolled_course_ids_user_';
 
   final SharedPreferences _prefs;
   final ApiClient _api;
-  final Set<String> _ids;
+  final Set<String> _ids = <String>{};
+
+  // Enrollment taps can happen in the first frame after login, before the
+  // root auth-to-enrollment bridge has rebound this provider. Keep those
+  // ids temporarily so the UI updates immediately, then attach/persist them
+  // to the account as soon as bindToUser() runs.
+  final Set<String> _pendingIds = <String>{};
+
+  String? _accountKey;
+  String? _storageKey;
 
   /// Active Firestore subscription, if any. Non-null while a signed-in
   /// user is being mirrored from the remote source.
   StreamSubscription<List<String>>? _remoteSub;
 
   /// Set when [refreshFromRemote] is in-flight; lets the UI show a
-  /// spinner without spamming Firestore.
+  /// spinner without spamming Firestore/backend.
   bool _syncingFromRemote = false;
   bool get syncingFromRemote => _syncingFromRemote;
 
-  EnrollmentProvider(this._prefs, this._api)
-    : _ids = (_prefs.getStringList(_key) ?? const []).toSet();
+  EnrollmentProvider(this._prefs, this._api);
 
-  Set<String> get ids => _ids;
+  Set<String> get ids => Set.unmodifiable(_ids);
   bool isEnrolled(String courseId) => _ids.contains(courseId);
+  bool get isBoundToAccount => _accountKey != null;
 
-  /// Adds [courseId] to the local set and pushes the enrollment to the
-  /// Flask backend (best-effort). The Firestore doc write still lives
-  /// in `EnrollmentService.saveEnrollment` and is owned by the
-  /// `course_details_screen` flow so the payment txn id stays in one
-  /// place.
+  String _keyForAccount(String accountKey) =>
+      '$_userKeyPrefix${accountKey.trim()}';
+
+  /// Switches the local enrollment cache to [accountKey].
+  ///
+  /// This is intentionally synchronous because SharedPreferences reads are
+  /// synchronous once the instance has been created. That lets the UI clear
+  /// Account A immediately before Account B is shown.
+  void bindToUser(String accountKey) {
+    final normalized = accountKey.trim();
+    if (normalized.isEmpty) {
+      unbindUser();
+      return;
+    }
+    if (_accountKey == normalized) return;
+
+    cancelRemoteSubscription();
+    _accountKey = normalized;
+    _storageKey = _keyForAccount(normalized);
+
+    final pending = Set<String>.of(_pendingIds);
+    _pendingIds.clear();
+
+    _ids
+      ..clear()
+      ..addAll(_prefs.getStringList(_storageKey!) ?? const <String>[])
+      ..addAll(pending);
+
+    // A tap that arrived just before binding now belongs to this authenticated
+    // account. Persist it immediately so My Courses survives navigation/restart.
+    if (pending.isNotEmpty) {
+      unawaited(_prefs.setStringList(_storageKey!, _ids.toList()));
+    }
+
+    // Never import the legacy device-global list: it is exactly the source
+    // of the cross-account leak and may already contain mixed ownership.
+    unawaited(_prefs.remove(_legacyKey));
+
+    _syncingFromRemote = false;
+    notifyListeners();
+  }
+
+  /// Removes the active account from memory while keeping its own persisted
+  /// cache for the next time that same account signs in.
+  void unbindUser() {
+    cancelRemoteSubscription();
+    final hadState = _accountKey != null || _ids.isNotEmpty || _syncingFromRemote;
+    _accountKey = null;
+    _storageKey = null;
+    _ids.clear();
+    _pendingIds.clear();
+    _syncingFromRemote = false;
+    if (hadState) notifyListeners();
+  }
+
+  Future<void> _persistCurrentAccount() async {
+    final key = _storageKey;
+    if (key == null) return;
+    await _prefs.setStringList(key, _ids.toList());
+  }
+
+  /// Adds [courseId] to the active account cache.
+  ///
+  /// AuthProvider and this provider are bridged at the root with a post-frame
+  /// callback. On a very fast enrollment tap just after login that callback
+  /// may not have executed yet. Previously we threw here, which made a valid
+  /// enrollment look successful elsewhere but never appear in My Courses.
+  /// We now optimistically expose the id and hold it in [_pendingIds] until
+  /// bindToUser() assigns it to the authenticated account.
   Future<void> enroll(String courseId) async {
-    if (_ids.contains(courseId)) return;
-    _ids.add(courseId);
-    await _prefs.setStringList(_key, _ids.toList());
+    final normalized = courseId.trim();
+    if (normalized.isEmpty || _ids.contains(normalized)) return;
+
+    _ids.add(normalized);
+    if (_storageKey == null) {
+      _pendingIds.add(normalized);
+      notifyListeners();
+      return;
+    }
+
+    await _persistCurrentAccount();
     notifyListeners();
   }
 
   Future<void> unenroll(String courseId) async {
-    if (!_ids.contains(courseId)) return;
+    if (_storageKey == null || !_ids.contains(courseId)) return;
     _ids.remove(courseId);
-    await _prefs.setStringList(_key, _ids.toList());
+    await _persistCurrentAccount();
     notifyListeners();
   }
 
-  /// Drops [courseId] from every store: Firestore doc, SQL row on the
-  /// backend, and the local SharedPreferences-backed set. Firestore
-  /// failures are non-fatal (a missing/disabled client shouldn't
-  /// block the UI) but reported via [onSyncError] so the caller can
-  /// show a "could not sync removal" hint. The local list is updated
-  /// exactly once at the end so the UI never flickers.
+  /// Drops [courseId] from Firestore, SQL, and the current account's local
+  /// cache. Remote failures remain non-fatal exactly as before.
   Future<void> drop(
     String courseId, {
     void Function(Object error, [StackTrace? stack])? onSyncError,
   }) async {
-    // 1. Firestore doc removal — best-effort.
     try {
       await EnrollmentService().deleteEnrollment(courseId);
     } catch (e, st) {
       if (onSyncError != null) onSyncError(e, st);
     }
-    // 2. SQL row removal — best-effort. The 404 from the backend is
-    //    treated as success via ApiException already (we don't throw
-    //    on 4xx here, the screen is allowed to proceed).
     try {
       await _api.removeEnrollment(courseId);
     } catch (e, st) {
       if (onSyncError != null) onSyncError(e, st);
     }
-    // 3. Local prefs — always update and notify so the UI reflects
-    //    the drop immediately. The remote sync stream will reconcile
-    //    on its next emission.
     if (_ids.remove(courseId)) {
-      await _prefs.setStringList(_key, _ids.toList());
+      await _persistCurrentAccount();
       notifyListeners();
     }
   }
 
-  /// Pushes a previously-saved enrollment to the Flask backend. Safe
-  /// to call after `MockPaymentScreen` succeeds — the server row is
-  /// idempotent so a duplicate call just overwrites the same fields.
+  /// Pushes a previously-saved enrollment to the Flask backend. Safe to call
+  /// after payment succeeds; the server row is idempotent.
   Future<void> pushRemote({
     required String courseId,
     required String paymentMethod,
@@ -538,54 +628,77 @@ class EnrollmentProvider extends ChangeNotifier {
         paymentStatus: paymentStatus,
       );
     } catch (e, st) {
-      // Non-fatal — the local flag + Firestore doc are the source of
-      // truth for the user. Logged so the caller can surface a hint.
       debugPrint('EnrollmentProvider.pushRemote failed: $e\n$st');
     }
   }
 
-  /// Subscribes to [EnrollmentService.myEnrolledCourseIds] and merges
-  /// every incoming id into the local set. Safe to call multiple times —
-  /// a second call replaces the active subscription. Pass a fresh
-  /// [EnrollmentService] (the default constructor uses the live Firebase
-  /// singletons). Call [cancelRemoteSubscription] on logout.
+  /// Refreshes enrollments for only the currently bound account.
   ///
-  /// Returns immediately; the merge happens asynchronously.
+  /// Flask is queried once (important when Firestore is unavailable), while
+  /// the existing Firestore listener keeps cross-device changes live. Every
+  /// async callback captures the account key and ignores stale results if the
+  /// user switches accounts before the request completes.
   void refreshFromRemote([EnrollmentService? service]) {
+    final accountKey = _accountKey;
+    final storageKey = _storageKey;
+    if (accountKey == null || storageKey == null) return;
+
     cancelRemoteSubscription();
     final svc = service ?? EnrollmentService();
     _syncingFromRemote = true;
     notifyListeners();
+
+    unawaited(
+      _api.enrollments().then((backendIds) async {
+        if (_accountKey != accountKey || _storageKey != storageKey) return;
+        var changed = false;
+        for (final id in backendIds) {
+          if (_ids.add(id)) changed = true;
+        }
+        if (changed) {
+          await _prefs.setStringList(storageKey, _ids.toList());
+        }
+        if (_accountKey == accountKey) {
+          _syncingFromRemote = false;
+          notifyListeners();
+        }
+      }).catchError((Object _) {
+        // Firestore/local cache can still drive the screen.
+        if (_accountKey == accountKey) {
+          _syncingFromRemote = false;
+          notifyListeners();
+        }
+      }),
+    );
+
     _remoteSub = svc.myEnrolledCourseIds().listen(
       (remoteIds) {
+        if (_accountKey != accountKey || _storageKey != storageKey) return;
         var changed = false;
         for (final id in remoteIds) {
           if (_ids.add(id)) changed = true;
         }
         if (changed) {
-          // Fire-and-forget — the SharedPreferences write is durable and
-          // a failure should not block the in-memory merge that already
-          // updated listeners.
           unawaited(
             _prefs
-                .setStringList(_key, _ids.toList())
+                .setStringList(storageKey, _ids.toList())
                 .then((_) => true, onError: (_) => true),
           );
         }
         _syncingFromRemote = false;
-        if (changed) notifyListeners();
+        // Always notify here so a visible sync indicator can stop even when
+        // the list itself did not change.
+        notifyListeners();
       },
       onError: (Object _) {
-        // Non-fatal: the local list still drives the UI; the user can
-        // retry by re-logging in or pulling-to-refresh.
+        if (_accountKey != accountKey) return;
         _syncingFromRemote = false;
         notifyListeners();
       },
     );
   }
 
-  /// Cancels the Firestore subscription if one is active. Called on
-  /// logout so we don't keep listening after the user signs out.
+  /// Cancels the active Firestore subscription.
   void cancelRemoteSubscription() {
     _remoteSub?.cancel();
     _remoteSub = null;

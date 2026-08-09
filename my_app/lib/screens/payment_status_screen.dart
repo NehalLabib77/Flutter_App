@@ -134,8 +134,10 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
       appBar: AppBar(title: const Text('Payment status')),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(Spacing.lg),
-          child: Column(
+          padding: const EdgeInsets.symmetric(vertical: Spacing.lg),
+          child: ResponsiveContent(
+            maxWidth: 720,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Container(
@@ -252,6 +254,7 @@ class _PaymentStatusScreenState extends State<PaymentStatusScreen> {
               ],
             ],
           ),
+          ),
         ),
       ),
     );
@@ -273,40 +276,59 @@ class _DetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: 118,
-          child: Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: scheme.onSurfaceVariant,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = constraints.maxWidth < 380;
+        final labelWidget = Text(
+          label,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: scheme.onSurfaceVariant,
           ),
-        ),
-        Expanded(
-          child: Text(
-            value,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+        );
+        final valueWidget = Text(
+          value,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
-        ),
-        if (copyable)
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            tooltip: 'Copy',
-            onPressed: () async {
-              await Clipboard.setData(ClipboardData(text: value));
-              if (!context.mounted) return;
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Copied to clipboard.')),
-              );
-            },
-            icon: const Icon(Icons.copy_rounded, size: 18),
-          ),
-      ],
+        );
+        final copyButton = copyable
+            ? IconButton(
+                visualDensity: VisualDensity.compact,
+                tooltip: 'Copy',
+                onPressed: () async {
+                  await Clipboard.setData(ClipboardData(text: value));
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Copied to clipboard.')),
+                  );
+                },
+                icon: const Icon(Icons.copy_rounded, size: 18),
+              )
+            : null;
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              labelWidget,
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Expanded(child: valueWidget),
+                  if (copyButton != null) copyButton,
+                ],
+              ),
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 118, child: labelWidget),
+            Expanded(child: valueWidget),
+            if (copyButton != null) copyButton,
+          ],
+        );
+      },
     );
   }
 }

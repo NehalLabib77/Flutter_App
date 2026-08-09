@@ -9,6 +9,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../api_client.dart';
 import '../app_state.dart';
@@ -84,10 +85,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
       builder: (ctx) => AlertDialog(
         title: const Text('Delete account?'),
         content: const Text(
-          'This permanently removes your account from EduCompass and '
-          'from Firebase Authentication. Your favourites, history, '
-          'progress, and enrollments will be erased. This cannot be '
-          'undone.',
+          'This removes your EduCompass login identity, preferences, '
+          'favourites, history, and learning progress. Your enrolled '
+          'courses and their order records will be preserved if you '
+          'register again with the same email.',
         ),
         actions: [
           TextButton(
@@ -158,8 +159,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _deletingAccount = true);
     if (!mounted) return;
     final auth = context.read<AuthProvider>();
+    final preferenceProvider = context.read<PreferenceProvider>();
+    final prefs = await SharedPreferences.getInstance();
     try {
       await auth.deleteAccount();
+      // Deleting an identity must not leave the old recommendation profile
+      // on the device. Keep the install gate completed so the user is asked
+      // only after the next verified account login, where /me/preferences is
+      // the source of truth.
+      await preferenceProvider.clearForDeletedAccount();
+      await prefs.remove('home_welcome_seen_user_${user.id}');
     } on ApiException catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
@@ -244,6 +253,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     setState(() => _savingPreferences = true);
     final auth = context.read<AuthProvider>();
     final preferenceProvider = context.read<PreferenceProvider>();
+    final api = context.read<ApiClient>();
+    final courseProvider = context.read<CourseProvider>();
+    final userProvider = context.read<UserProvider>();
     String? syncWarning;
 
     try {
@@ -254,7 +266,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // hybrid ranker and legacy interests table stay in sync.
       if (auth.isLoggedIn) {
         try {
-          await context.read<ApiClient>().savePreferences(updated);
+          await api.savePreferences(updated);
           await auth.refreshUser();
         } on ApiException catch (e) {
           syncWarning = e.message;
@@ -266,9 +278,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       // Refresh every recommendation surface now; switching tabs after this
       // shows the new ranking instead of waiting for an app restart.
       await Future.wait([
-        context.read<CourseProvider>().loadPopular(preferences: updated),
-        context.read<CourseProvider>().loadTopRated(preferences: updated),
-        context.read<UserProvider>().loadPersonalized(
+        courseProvider.loadPopular(preferences: updated),
+        courseProvider.loadTopRated(preferences: updated),
+        userProvider.loadPersonalized(
           preferences: updated,
           authenticated: auth.isLoggedIn,
         ),
@@ -317,9 +329,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         title: const Text('Profile'),
         actions: [
           IconButton(
-            tooltip: 'Account menu',
+            tooltip: 'Account and settings',
             onPressed: () => _scaffoldKey.currentState?.openEndDrawer(),
-            icon: const Icon(Icons.menu_rounded),
+            icon: const Icon(Icons.account_circle_outlined),
           ),
           const SizedBox(width: Spacing.xs),
         ],
@@ -329,19 +341,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
         signingOut: _loggingOut,
         deleting: _deletingAccount,
         onOrderHistory: _openOrderHistory,
-        onEditPreferences: _editPreferences,
         onSignOut: _logout,
         onDeleteAccount: () => _deleteAccount(user),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(
-          Spacing.md,
-          Spacing.md,
-          Spacing.md,
-          Spacing.xxl,
-        ),
-        children: [
-          ProfileHeader(
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+          final horizontalPadding = width >= 900
+              ? Spacing.xl
+              : width >= 600
+                  ? Spacing.lg
+                  : Spacing.md;
+          final twoColumns = width >= 820;
+
+          final header = ProfileHeader(
             fullName: user.fullName,
             email: user.email,
             interests: user.interests,
@@ -349,17 +362,58 @@ class _ProfileScreenState extends State<ProfileScreen> {
             switchingAccount: _switchingAccount,
             onEdit: () => _editProfile(user),
             onSwitchAccount: _switchAccount,
-          ),
-          const SizedBox(height: Spacing.lg),
-          _RecommendationPreferencesCard(
+          );
+          final preferences = _RecommendationPreferencesCard(
             busy: _savingPreferences,
             onEdit: _editPreferences,
-          ),
-          const SizedBox(height: Spacing.md),
-          const _ThemeCard(),
-          const SizedBox(height: Spacing.md),
-          const _InfoCard(),
-        ],
+          );
+
+          return SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(
+              horizontalPadding,
+              Spacing.lg,
+              horizontalPadding,
+              Spacing.xxl,
+            ),
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1080),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    header,
+                    const SizedBox(height: Spacing.lg),
+                    if (twoColumns)
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 6,
+                            child: Column(
+                              children: [
+                                preferences,
+                                const SizedBox(height: Spacing.md),
+                                const _InfoCard(),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: Spacing.md),
+                          const Expanded(flex: 4, child: _ThemeCard()),
+                        ],
+                      )
+                    else ...[
+                      preferences,
+                      const SizedBox(height: Spacing.md),
+                      const _ThemeCard(),
+                      const SizedBox(height: Spacing.md),
+                      const _InfoCard(),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -371,7 +425,6 @@ class _ProfileAccountDrawer extends StatelessWidget {
     required this.signingOut,
     required this.deleting,
     required this.onOrderHistory,
-    required this.onEditPreferences,
     required this.onSignOut,
     required this.onDeleteAccount,
   });
@@ -380,7 +433,6 @@ class _ProfileAccountDrawer extends StatelessWidget {
   final bool signingOut;
   final bool deleting;
   final VoidCallback onOrderHistory;
-  final VoidCallback onEditPreferences;
   final VoidCallback onSignOut;
   final VoidCallback onDeleteAccount;
 
@@ -393,7 +445,9 @@ class _ProfileAccountDrawer extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
+    final drawerWidth = MediaQuery.sizeOf(context).width.clamp(280.0, 360.0).toDouble();
     return Drawer(
+      width: drawerWidth,
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -467,60 +521,141 @@ class _ProfileAccountDrawer extends StatelessWidget {
                 ),
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.receipt_long_outlined),
-              title: const Text('Order history'),
-              subtitle: const Text('View enrolled course payment details'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _afterClose(context, onOrderHistory),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+              child: _DrawerActionTile(
+                icon: Icons.receipt_long_rounded,
+                title: 'Order history',
+                subtitle: 'View enrolled course payment details',
+                onTap: () => _afterClose(context, onOrderHistory),
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.tune_rounded),
-              title: const Text('Edit preferences'),
-              subtitle: const Text('Update recommendation choices'),
-              trailing: const Icon(Icons.chevron_right_rounded),
-              onTap: () => _afterClose(context, onEditPreferences),
-            ),
-            const Divider(height: Spacing.lg),
-            ListTile(
-              leading: signingOut
-                  ? const SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.logout_rounded),
-              title: Text(signingOut ? 'Signing out…' : 'Sign out'),
-              onTap: signingOut ? null : () => _afterClose(context, onSignOut),
+            const SizedBox(height: Spacing.xs),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: Spacing.sm),
+              child: _DrawerActionTile(
+                icon: Icons.logout_rounded,
+                title: signingOut ? 'Signing out…' : 'Sign out',
+                loading: signingOut,
+                onTap: signingOut ? null : () => _afterClose(context, onSignOut),
+              ),
             ),
             const Spacer(),
-            const Divider(height: 1),
-            ListTile(
-              iconColor: scheme.error,
-              textColor: scheme.error,
-              leading: deleting
-                  ? SizedBox(
-                      width: 22,
-                      height: 22,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: scheme.error,
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                Spacing.sm,
+                Spacing.sm,
+                Spacing.sm,
+                Spacing.md,
+              ),
+              child: _DrawerActionTile(
+                icon: Icons.delete_outline_rounded,
+                title: deleting ? 'Deleting account…' : 'Delete account',
+                subtitle: 'Permanently remove your account',
+                loading: deleting,
+                danger: true,
+                onTap: deleting
+                    ? null
+                    : () => _afterClose(context, onDeleteAccount),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DrawerActionTile extends StatelessWidget {
+  const _DrawerActionTile({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.onTap,
+    this.loading = false,
+    this.danger = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onTap;
+  final bool loading;
+  final bool danger;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final scheme = theme.colorScheme;
+    final accent = danger ? scheme.error : scheme.primary;
+
+    return Material(
+      color: danger
+          ? scheme.errorContainer.withValues(alpha: 0.34)
+          : scheme.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(Radii.lg),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(Radii.lg),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(
+            horizontal: Spacing.md,
+            vertical: Spacing.md,
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: accent.withValues(alpha: 0.10),
+                  borderRadius: BorderRadius.circular(Radii.md),
+                ),
+                child: loading
+                    ? SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: accent,
+                        ),
+                      )
+                    : Icon(icon, color: accent, size: 21),
+              ),
+              const SizedBox(width: Spacing.md),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.bodyLarge?.copyWith(
+                        color: danger ? scheme.error : scheme.onSurface,
+                        fontWeight: FontWeight.w800,
                       ),
-                    )
-                  : const Icon(Icons.delete_forever_outlined),
-              title: Text(deleting ? 'Deleting account…' : 'Delete account'),
-              subtitle: Text(
-                'Permanently remove your account',
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: scheme.onSurfaceVariant,
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
-              onTap: deleting
-                  ? null
-                  : () => _afterClose(context, onDeleteAccount),
-            ),
-            const SizedBox(height: Spacing.sm),
-          ],
+              if (!danger && !loading)
+                Icon(
+                  Icons.chevron_right_rounded,
+                  color: scheme.onSurfaceVariant,
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -539,27 +674,41 @@ class _GuestProfile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        Spacing.md,
-        Spacing.md,
-        Spacing.md,
-        Spacing.xxl,
-      ),
-      children: [
-        const _GuestIdentityCard(),
-        const SizedBox(height: Spacing.md),
-        _GuestSignInCard(onSignIn: onSignIn),
-        const SizedBox(height: Spacing.md),
-        _RecommendationPreferencesCard(
-          busy: preferencesBusy,
-          onEdit: onEditPreferences,
-        ),
-        const SizedBox(height: Spacing.md),
-        const _ThemeCard(),
-        const SizedBox(height: Spacing.md),
-        const _InfoCard(),
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final horizontalPadding = constraints.maxWidth >= 600
+            ? Spacing.lg
+            : Spacing.md;
+        return SingleChildScrollView(
+          padding: EdgeInsets.fromLTRB(
+            horizontalPadding,
+            Spacing.lg,
+            horizontalPadding,
+            Spacing.xxl,
+          ),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: Column(
+                children: [
+                  const _GuestIdentityCard(),
+                  const SizedBox(height: Spacing.md),
+                  _GuestSignInCard(onSignIn: onSignIn),
+                  const SizedBox(height: Spacing.md),
+                  _RecommendationPreferencesCard(
+                    busy: preferencesBusy,
+                    onEdit: onEditPreferences,
+                  ),
+                  const SizedBox(height: Spacing.md),
+                  const _ThemeCard(),
+                  const SizedBox(height: Spacing.md),
+                  const _InfoCard(),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -946,147 +1095,6 @@ class _InfoCard extends StatelessWidget {
               'Version 1.0.0',
               style: theme.textTheme.labelMedium?.copyWith(
                 color: scheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AccountActionCard extends StatelessWidget {
-  const _AccountActionCard({required this.busy, required this.onSignOut});
-  final bool busy;
-  final VoidCallback onSignOut;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return EduCard(
-      border: true,
-      padding: const EdgeInsets.all(Spacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'ACCOUNT ACTIONS',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: scheme.primary,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          Row(
-            children: [
-              Icon(Icons.lock_outline_rounded, color: scheme.primary),
-              const SizedBox(width: Spacing.md),
-              Expanded(
-                child: Text(
-                  'Session',
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Spacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: busy ? null : onSignOut,
-              icon: busy
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.logout_rounded),
-              label: Text(busy ? 'Signing out…' : 'Sign out'),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DangerZoneCard extends StatelessWidget {
-  const _DangerZoneCard({
-    required this.busy,
-    required this.disabled,
-    required this.onDelete,
-  });
-
-  final bool busy;
-  final bool disabled;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final scheme = theme.colorScheme;
-    return EduCard(
-      border: true,
-      padding: const EdgeInsets.all(Spacing.lg),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'DANGER ZONE',
-            style: theme.textTheme.labelMedium?.copyWith(
-              color: scheme.error,
-              letterSpacing: 1.4,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-          const SizedBox(height: Spacing.sm),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.warning_amber_rounded, color: scheme.error),
-              const SizedBox(width: Spacing.md),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Delete account',
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Permanently remove your account, data, and enrollments.',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: scheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: Spacing.lg),
-          SizedBox(
-            width: double.infinity,
-            child: OutlinedButton.icon(
-              onPressed: (busy || disabled) ? null : onDelete,
-              icon: busy
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.delete_forever_outlined),
-              label: Text(busy ? 'Deleting account…' : 'Delete account'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: scheme.error,
-                side: BorderSide(color: scheme.error.withValues(alpha: 0.75)),
               ),
             ),
           ),

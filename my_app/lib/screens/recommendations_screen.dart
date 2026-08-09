@@ -111,17 +111,19 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           padding: const EdgeInsets.fromLTRB(0, Spacing.sm, 0, Spacing.xl),
           children: [
-            const Padding(
-              padding: EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.xs,
-                Spacing.md,
-                Spacing.sm,
+            const ResponsiveContent(
+              maxWidth: 940,
+              child: Padding(
+                padding: EdgeInsets.only(bottom: Spacing.sm),
+                child: PageLead(
+                  title: 'Recommendations built around you',
+                  subtitle: 'Your saved preferences start the ranking; your activity makes it smarter over time.',
+                  icon: Icons.auto_awesome_rounded,
+                ),
               ),
-              child: _IntroLine(),
             ),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
+            ResponsiveContent(
+              maxWidth: 940,
               child: _GoalCard(
                 controller: _ctrl,
                 searching: _searchingGoal,
@@ -129,12 +131,9 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               ),
             ),
             if (_goalError != null)
-              Padding(
-                padding: const EdgeInsets.only(
-                  top: Spacing.sm,
-                  left: Spacing.md,
-                  right: Spacing.md,
-                ),
+              ResponsiveContent(
+                maxWidth: 940,
+                padding: const EdgeInsets.only(top: Spacing.sm, left: Spacing.md, right: Spacing.md),
                 child: _ErrorBanner(
                   message: _goalError!,
                   onRetry: _runGoalSearch,
@@ -142,20 +141,19 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               ),
             if (_goalResults.isNotEmpty) ...[
               const SizedBox(height: Spacing.lg),
-              const SectionHeader(
+              const ResponsiveContent(
+                maxWidth: 940,
+                child: SectionHeader(
                 icon: Icons.flag_rounded,
                 title: 'By your goal',
                 subtitle: 'Matches your goal and learning preferences',
               ),
+              ),
               const SizedBox(height: Spacing.sm),
               for (final c in _goalResults) ...[
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(
-                    Spacing.md,
-                    0,
-                    Spacing.md,
-                    Spacing.sm,
-                  ),
+                ResponsiveContent(
+                  maxWidth: 940,
+                  padding: const EdgeInsets.fromLTRB(Spacing.md, 0, Spacing.md, Spacing.sm),
                   child: CourseRowCard(
                     title: c.name,
                     provider: c.provider,
@@ -172,14 +170,17 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
               ],
             ],
             const SizedBox(height: Spacing.lg),
-            const SectionHeader(
+            const ResponsiveContent(
+              maxWidth: 940,
+              child: SectionHeader(
               icon: Icons.recommend_rounded,
               title: 'Picks for you',
               subtitle: 'Preferences first, then refined by your activity',
             ),
+            ),
             const SizedBox(height: Spacing.sm),
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: Spacing.md),
+            const ResponsiveContent(
+              maxWidth: 940,
               child: _PersonalizedList(),
             ),
             const SizedBox(height: Spacing.xl),
@@ -320,26 +321,6 @@ class _ErrorBanner extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-/// Single-line subtitle that lives directly under the AppBar's
-/// "For you" title. Kept small and muted so the AppBar stays the
-/// single primary heading on this screen.
-class _IntroLine extends StatelessWidget {
-  const _IntroLine();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Text(
-      'Your saved preferences start the ranking; activity makes it smarter.',
-      maxLines: 2,
-      overflow: TextOverflow.ellipsis,
-      style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant,
       ),
     );
   }

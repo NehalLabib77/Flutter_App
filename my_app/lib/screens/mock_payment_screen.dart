@@ -809,13 +809,13 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
       body: SafeArea(
         child: SingleChildScrollView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: EdgeInsets.fromLTRB(
-            Spacing.lg,
-            Spacing.lg,
-            Spacing.lg,
-            Spacing.xxl + MediaQuery.paddingOf(context).bottom,
+          padding: EdgeInsets.only(
+            top: Spacing.lg,
+            bottom: Spacing.xxl + MediaQuery.paddingOf(context).bottom,
           ),
-          child: Column(
+          child: ResponsiveContent(
+            maxWidth: 760,
+            child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               HeroBanner(
@@ -1041,6 +1041,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                 ],
               ),
             ],
+          ),
           ),
         ),
       ),

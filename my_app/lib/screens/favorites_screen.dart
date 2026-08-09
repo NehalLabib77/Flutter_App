@@ -77,50 +77,63 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         child: user.favorites.isEmpty
             ? _empty(theme, user.loadingFavorites, user.favoritesError)
             : ListView.separated(
-                padding: const EdgeInsets.fromLTRB(
-                  Spacing.md,
-                  Spacing.md,
-                  Spacing.md,
-                  Spacing.xxl,
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.only(
+                  top: Spacing.md,
+                  bottom: Spacing.xxl,
                 ),
-                itemCount: user.favorites.length,
+                itemCount: user.favorites.length + 1,
                 separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
                 itemBuilder: (_, i) {
-                  final c = user.favorites[i];
-                  return Dismissible(
-                    key: ValueKey(c.id),
-                    direction: DismissDirection.endToStart,
-                    background: Container(
-                      alignment: Alignment.centerRight,
-                      padding: const EdgeInsets.only(right: Spacing.lg),
-                      decoration: BoxDecoration(
-                        color: scheme.errorContainer,
-                        borderRadius: BorderRadius.circular(Radii.lg),
-                      ),
-                      child: Icon(
-                        Icons.delete_rounded,
-                        color: scheme.onErrorContainer,
-                      ),
-                    ),
-                    onDismissed: (_) => _removeFavorite(c),
-                    child: CourseRowCard(
-                      title: c.name,
-                      provider: c.provider,
-                      level: c.level,
-                      subject: c.subject,
-                      skills: c.skills,
-                      rating: c.rating,
-                      isFree: c.isFree,
-                      thumbnail: CourseThumbnail(course: c, size: 68),
-                      trailing: IconButton(
-                        tooltip: 'Remove from favorites',
-                        icon: Icon(
-                          Icons.favorite_rounded,
-                          color: scheme.primary,
+                  if (i == 0) {
+                    return const ResponsiveContent(
+                      child: Padding(
+                        padding: EdgeInsets.only(bottom: Spacing.sm),
+                        child: PageLead(
+                          title: 'Saved for later',
+                          subtitle: 'Keep your shortlist focused and return to any course when you are ready.',
+                          icon: Icons.favorite_rounded,
                         ),
-                        onPressed: () => _removeFavorite(c),
                       ),
-                      onTap: () => _open(c),
+                    );
+                  }
+                  final c = user.favorites[i - 1];
+                  return ResponsiveContent(
+                    child: Dismissible(
+                      key: ValueKey(c.id),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: const EdgeInsets.only(right: Spacing.lg),
+                        decoration: BoxDecoration(
+                          color: scheme.errorContainer,
+                          borderRadius: BorderRadius.circular(Radii.lg),
+                        ),
+                        child: Icon(
+                          Icons.delete_rounded,
+                          color: scheme.onErrorContainer,
+                        ),
+                      ),
+                      onDismissed: (_) => _removeFavorite(c),
+                      child: CourseRowCard(
+                        title: c.name,
+                        provider: c.provider,
+                        level: c.level,
+                        subject: c.subject,
+                        skills: c.skills,
+                        rating: c.rating,
+                        isFree: c.isFree,
+                        thumbnail: CourseThumbnail(course: c, size: 68),
+                        trailing: IconButton(
+                          tooltip: 'Remove from favorites',
+                          icon: Icon(
+                            Icons.favorite_rounded,
+                            color: scheme.primary,
+                          ),
+                          onPressed: () => _removeFavorite(c),
+                        ),
+                        onTap: () => _open(c),
+                      ),
                     ),
                   );
                 },
@@ -137,10 +150,13 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     // ListView keeps pull-to-refresh available for both error and empty
     // states without introducing a nested scroll view.
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       children: [
-        const SizedBox(height: 80),
+        const SizedBox(height: Spacing.xxl),
         if (error != null)
-          EmptyState(
+          ResponsiveContent(
+            maxWidth: 680,
+            child: EmptyState(
             icon: Icons.cloud_off_rounded,
             message: error,
             action: FilledButton.icon(
@@ -148,9 +164,12 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
               icon: const Icon(Icons.refresh_rounded),
               label: const Text('Retry'),
             ),
+          ),
           )
         else
-          EmptyState(
+          ResponsiveContent(
+            maxWidth: 680,
+            child: EmptyState(
             icon: Icons.favorite_border_rounded,
             message: 'No favorites yet',
             action: Padding(
@@ -163,6 +182,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 ),
               ),
             ),
+          ),
           ),
       ],
     );

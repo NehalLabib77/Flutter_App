@@ -127,6 +127,7 @@ class _ShellScreenState extends State<ShellScreen> {
     final navIdle = scheme.onSurfaceVariant;
     final navActive = scheme.primary;
     final badgeBackground = navBackground;
+    final compactNavigation = MediaQuery.sizeOf(context).width < 390 && tabs.length >= 5;
     return Scaffold(
       body: IndexedStack(
         index: safeIndex,
@@ -134,34 +135,38 @@ class _ShellScreenState extends State<ShellScreen> {
       ),
       bottomNavigationBar: SafeArea(
         top: false,
-        child: NavigationBar(
-          height: 74,
-          selectedIndex: safeIndex,
-          onDestinationSelected: (i) => setState(() => _index = i),
-          backgroundColor: navBackground,
-          indicatorColor: navActive.withValues(alpha: isDark ? 0.30 : 0.12),
-          surfaceTintColor: Colors.transparent,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            final selected = states.contains(WidgetState.selected);
-            return TextStyle(
-              color: selected ? navActive : navIdle,
-              fontSize: 12,
-              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-            );
-          }),
-          destinations: [
-            for (final t in tabs)
-              NavigationDestination(
-                icon: _iconFor(
-                  t,
-                  user.loadingPersonalized,
-                  foreground: navIdle,
-                  badgeBackground: badgeBackground,
-                ),
-                selectedIcon: Icon(t.icon, color: navActive),
-                label: t.label,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: navBackground,
+            border: Border(
+              top: BorderSide(
+                color: scheme.outlineVariant.withValues(alpha: 0.72),
               ),
-          ],
+            ),
+          ),
+          child: NavigationBar(
+            height: 72,
+            selectedIndex: safeIndex,
+            labelBehavior: compactNavigation
+                ? NavigationDestinationLabelBehavior.onlyShowSelected
+                : NavigationDestinationLabelBehavior.alwaysShow,
+            onDestinationSelected: (i) => setState(() => _index = i),
+            backgroundColor: navBackground,
+            indicatorColor: navActive.withValues(alpha: isDark ? 0.28 : 0.11),
+            destinations: [
+              for (final t in tabs)
+                NavigationDestination(
+                  icon: _iconFor(
+                    t,
+                    user.loadingPersonalized,
+                    foreground: navIdle,
+                    badgeBackground: badgeBackground,
+                  ),
+                  selectedIcon: Icon(t.icon, color: navActive),
+                  label: t.label,
+                ),
+            ],
+          ),
         ),
       ),
     );

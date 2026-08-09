@@ -70,24 +70,36 @@ class CourseLessonsScreen extends StatelessWidget {
       body: lessons.isEmpty
           ? _NoLessons(course: course)
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.md,
-                Spacing.md,
-                Spacing.xl,
-              ),
+              padding: const EdgeInsets.symmetric(vertical: Spacing.md),
               itemCount: lessons.length + 1,
               separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
               itemBuilder: (context, i) {
                 if (i == 0) {
-                  return _Header(
-                    course: course,
-                    lessonCount: lessons.length,
-                    originalUrl: originalUrl,
+                  return ResponsiveContent(
+                    maxWidth: 900,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const PageLead(
+                          title: 'Course lessons',
+                          subtitle: 'Work through the lessons at your own pace and return whenever you need.',
+                          icon: Icons.play_circle_outline_rounded,
+                        ),
+                        const SizedBox(height: Spacing.md),
+                        _Header(
+                          course: course,
+                          lessonCount: lessons.length,
+                          originalUrl: originalUrl,
+                        ),
+                      ],
+                    ),
                   );
                 }
                 final lesson = lessons[i - 1];
-                return _LessonTile(lesson: lesson, courseTitle: course.name);
+                return ResponsiveContent(
+                  maxWidth: 900,
+                  child: _LessonTile(lesson: lesson, courseTitle: course.name),
+                );
               },
             ),
     );
@@ -272,21 +284,27 @@ class _NoLessons extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListView(
-      padding: const EdgeInsets.all(Spacing.md),
+      padding: const EdgeInsets.symmetric(vertical: Spacing.md),
       children: [
-        HeroBanner(
+        ResponsiveContent(
+          maxWidth: 720,
+          child: HeroBanner(
           eyebrow: 'NO VIDEOS YET',
           title: 'Lessons coming soon',
           subtitle: 'We are still indexing video lessons for "${course.name}".',
           icon: Icons.video_library_outlined,
         ),
+        ),
         const SizedBox(height: Spacing.lg),
-        FilledButton.icon(
+        ResponsiveContent(
+          maxWidth: 720,
+          child: FilledButton.icon(
           onPressed: () => Navigator.of(
             context,
           ).pushReplacementNamed(AppRoutes.courseDetails, arguments: course.id),
           icon: const Icon(Icons.arrow_back_rounded),
           label: const Text('Back to course'),
+        ),
         ),
       ],
     );

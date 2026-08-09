@@ -60,21 +60,31 @@ class _MyCoursesScreenState extends State<MyCoursesScreen> {
       body: ids.isEmpty
           ? const _EmptyState()
           : ListView.separated(
-              padding: const EdgeInsets.fromLTRB(
-                Spacing.md,
-                Spacing.md,
-                Spacing.md,
-                Spacing.xxl,
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(
+                top: Spacing.md,
+                bottom: Spacing.xxl,
               ),
-              itemCount: ids.length,
+              itemCount: ids.length + 1,
               separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
               itemBuilder: (_, i) {
-                final id = ids[i];
-                return _SwipeableCourseCard(
-                  id: id,
-                  course: _resolved[id],
-                  onDropped: (droppedId) => _dropOne(droppedId),
-                  onUnenroll: () => _dropOne(id),
+                if (i == 0) {
+                  return const ResponsiveContent(
+                    child: PageLead(
+                      title: 'Continue learning',
+                      subtitle: 'Your enrolled courses stay attached to this account and keep their progress here.',
+                      icon: Icons.school_rounded,
+                    ),
+                  );
+                }
+                final id = ids[i - 1];
+                return ResponsiveContent(
+                  child: _SwipeableCourseCard(
+                    id: id,
+                    course: _resolved[id],
+                    onDropped: (droppedId) => _dropOne(droppedId),
+                    onUnenroll: () => _dropOne(id),
+                  ),
                 );
               },
             ),
@@ -121,15 +131,19 @@ class _EmptyState extends StatelessWidget {
         vertical: Spacing.xl,
       ),
       children: [
-        const HeroBanner(
+        const ResponsiveContent(
+          child: HeroBanner(
           eyebrow: 'GET STARTED',
           title: 'Your learning list is empty',
           subtitle:
               'Browse the catalog and tap Enroll on any course to see it here.',
           icon: Icons.school_rounded,
         ),
+        ),
         const SizedBox(height: Spacing.lg),
-        EduCard(
+        ResponsiveContent(
+          maxWidth: 720,
+          child: EduCard(
           border: true,
           padding: const EdgeInsets.symmetric(
             horizontal: Spacing.lg,
@@ -171,6 +185,7 @@ class _EmptyState extends StatelessWidget {
               ),
             ],
           ),
+        ),
         ),
       ],
     );

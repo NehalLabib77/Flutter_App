@@ -57,28 +57,31 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
         onRefresh: _load,
         child: ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(
-            Spacing.md,
-            Spacing.md,
-            Spacing.md,
-            Spacing.xxl,
+          padding: const EdgeInsets.only(
+            top: Spacing.md,
+            bottom: Spacing.xxl,
           ),
           children: [
-            const HeroBanner(
+            const ResponsiveContent(
+              maxWidth: 900,
+              child: HeroBanner(
               eyebrow: 'ENROLLMENTS',
               title: 'Your course orders',
               subtitle:
                   'Payment and enrollment details for courses you joined.',
               icon: Icons.receipt_long_rounded,
             ),
+            ),
             const SizedBox(height: Spacing.lg),
             if (_loading && _orders.isEmpty)
-              const Padding(
-                padding: EdgeInsets.symmetric(vertical: Spacing.xxl),
-                child: Center(child: CircularProgressIndicator()),
+              const ResponsiveContent(
+                maxWidth: 900,
+                child: LoadingState(message: 'Loading order history…'),
               )
             else if (_error != null && _orders.isEmpty)
-              EmptyState(
+              ResponsiveContent(
+                maxWidth: 720,
+                child: EmptyState(
                 icon: Icons.cloud_off_rounded,
                 message: _error!,
                 action: FilledButton.icon(
@@ -86,16 +89,23 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
                   icon: const Icon(Icons.refresh_rounded),
                   label: const Text('Try again'),
                 ),
+              ),
               )
             else if (_orders.isEmpty)
-              const EmptyState(
+              const ResponsiveContent(
+                maxWidth: 720,
+                child: EmptyState(
                 icon: Icons.shopping_bag_outlined,
                 message:
                     'No enrolled-course orders yet. Your completed enrollments will appear here.',
+              ),
               )
             else ...[
               for (final order in _orders) ...[
-                _OrderCard(order: order),
+                ResponsiveContent(
+                  maxWidth: 900,
+                  child: _OrderCard(order: order),
+                ),
                 const SizedBox(height: Spacing.md),
               ],
             ],
@@ -301,32 +311,49 @@ class _DetailRow extends StatelessWidget {
     final scheme = theme.colorScheme;
     return Padding(
       padding: const EdgeInsets.only(bottom: Spacing.sm),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, size: 18, color: scheme.primary),
-          const SizedBox(width: Spacing.sm),
-          SizedBox(
-            width: 116,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: scheme.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 360;
+          final labelWidget = Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: scheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
             ),
-          ),
-          const SizedBox(width: Spacing.xs),
-          Expanded(
-            child: Text(
-              value,
-              textAlign: TextAlign.right,
-              style: theme.textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+          );
+          final valueWidget = Text(
+            value,
+            textAlign: compact ? TextAlign.left : TextAlign.right,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
             ),
-          ),
-        ],
+          );
+          if (compact) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(icon, size: 18, color: scheme.primary),
+                const SizedBox(width: Spacing.sm),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [labelWidget, const SizedBox(height: 2), valueWidget],
+                  ),
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Icon(icon, size: 18, color: scheme.primary),
+              const SizedBox(width: Spacing.sm),
+              SizedBox(width: 116, child: labelWidget),
+              const SizedBox(width: Spacing.xs),
+              Expanded(child: valueWidget),
+            ],
+          );
+        },
       ),
     );
   }
