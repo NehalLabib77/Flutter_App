@@ -33,6 +33,7 @@ from .database_models import (
     db,
 )
 from .firebase_client import upsert_user_enrollment
+from .recommendation_profile import record_interaction
 
 
 log = logging.getLogger(__name__)
@@ -317,6 +318,7 @@ def _upsert_enrollment(payment: Payment) -> bool:
             user_id=payment.user_id,
             course_id=payment.course_id,
         ).first()
+        created = enrollment is None
         if enrollment is None:
             enrollment = Enrollment(
                 user_id=payment.user_id,
@@ -337,6 +339,10 @@ def _upsert_enrollment(payment: Payment) -> bool:
             enrollment.payment_status = payment_status
             if not enrollment.payment_method:
                 enrollment.payment_method = payment_method
+        if created:
+            record_interaction(
+                payment.user_id, payment.course_id, "enroll", commit=False
+            )
         db.session.flush()
     except SQLAlchemyError:
         log.exception(

@@ -45,8 +45,7 @@ class DeepLinkService {
   /// gets to see it. Cleared by [consumeInitialVerificationCode].
   Uri? _pendingInitial;
 
-  DeepLinkService({AppLinks? appLinks})
-      : _appLinks = appLinks ?? AppLinks();
+  DeepLinkService({AppLinks? appLinks}) : _appLinks = appLinks ?? AppLinks();
 
   /// Stream of every deep link the OS hands us, after the [schemeFilter]
   /// (default: `educompass`) is applied. Tests can substitute this with
@@ -138,7 +137,8 @@ class DeepLinkService {
     if (!_isEduCompass(uri)) return false;
     final host = uri.host.toLowerCase();
     final segments = uri.pathSegments;
-    return host == 'payment' && segments.isNotEmpty &&
+    return host == 'payment' &&
+        segments.isNotEmpty &&
         segments.first.toLowerCase() == 'return';
   }
 

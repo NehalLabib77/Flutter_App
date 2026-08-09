@@ -69,6 +69,8 @@ def _maybe_create_tables(app: Flask) -> None:
         Notification,
         Payment,
         User,
+        UserInteraction,
+        UserPreference,
         UserInterest,
     )
 
@@ -222,6 +224,8 @@ def create_app(skip_model_load: bool = False) -> Flask:
             Notification,
             Payment,
             User,
+            UserInteraction,
+            UserPreference,
             UserInterest,
         )
 

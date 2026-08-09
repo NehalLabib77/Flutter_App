@@ -13,7 +13,7 @@ backend/
 │   ├── extensions.py          db, jwt, cors singletons
 │   ├── database_models.py     SQLAlchemy ORM models (User, Favorite, …)
 │   ├── routes.py              Blueprint mounted at /api/v1
-│   ├── model_loader.py        Loads TF-IDF joblib bundles from ml/artifacts/models/
+│   ├── model_loader.py        Loads the sparse TF-IDF v4 bundle from ml/artifacts/models/
 │   ├── model_service.py       Recommender service wrapping the loaded model
 │   ├── auth_otp.py            In-memory phone-OTP store (login / register)
 │   ├── data/                  Seed data bundled with the package
@@ -26,8 +26,7 @@ backend/
 └── requirements.txt
 ```
 
-The recommender joblib bundle lives at `../ml/artifacts/models/v2/` — override
-the location with `MODEL_DIR=...` in your `.env`.
+The current recommender bundle lives at `../ml/artifacts/models/v4/` and contains `courses.csv.gz`, the fitted TF-IDF vectorizer, and the sparse matrix. Override the location with `MODEL_DIR=...` in your `.env`.
 
 ## Install
 

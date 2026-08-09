@@ -80,6 +80,10 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       final course = await user.courseDetail(widget.courseId);
       if (!mounted) return;
       setState(() => _course = course);
+      if (context.read<AuthProvider>().isLoggedIn) {
+        await user.recordInteraction(course.id, 'view');
+        if (!mounted) return;
+      }
       try {
         final sim = await user.similarCourses(widget.courseId);
         if (!mounted) return;
@@ -125,9 +129,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -300,7 +304,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
     );
   }
 
-@override
+  @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
@@ -328,11 +332,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          c.name,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        title: Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: [
           if (isEnrolled)
             IconButton(
@@ -363,8 +363,7 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     child: _HeroImage(course: c),
                   ),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                     child: _PillRow(
                       course: c,
                       isEnrolled: isEnrolled,
@@ -377,26 +376,22 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                   ),
                   const SizedBox(height: Spacing.md),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                     child: _TitleBlock(course: c),
                   ),
                   const SizedBox(height: Spacing.md),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                     child: _StatsRow(course: c),
                   ),
                   const SizedBox(height: Spacing.md),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                     child: _PriceRow(course: c),
                   ),
                   const SizedBox(height: Spacing.lg),
                   Padding(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                    padding: const EdgeInsets.symmetric(horizontal: Spacing.lg),
                     child: _AboutCard(
                       description: c.description ?? '',
                       expanded: _expandedAbout,
@@ -407,16 +402,18 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                   if (c.skills.isNotEmpty) ...[
                     const SizedBox(height: Spacing.lg),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.lg,
+                      ),
                       child: _SkillsCard(skills: c.skills),
                     ),
                   ],
                   if (isEnrolled) ...[
                     const SizedBox(height: Spacing.lg),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.lg,
+                      ),
                       child: _ProgressCard(
                         value: progress,
                         saving: _savingProgress,
@@ -425,8 +422,9 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     ),
                     const SizedBox(height: Spacing.md),
                     Padding(
-                      padding:
-                          const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: Spacing.lg,
+                      ),
                       child: FilledButton.tonalIcon(
                         onPressed: () => Navigator.of(context).push(
                           MaterialPageRoute(
@@ -446,15 +444,17 @@ class _CourseDetailsScreenState extends State<CourseDetailsScreen> {
                     const SizedBox(height: Spacing.md),
                     if (c.url != null && c.url!.isNotEmpty)
                       Padding(
-                        padding:
-                            const EdgeInsets.symmetric(horizontal: Spacing.lg),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: Spacing.lg,
+                        ),
                         child: SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             onPressed: () => openCourseUrl(context, c.url!),
                             icon: const Icon(Icons.open_in_new_rounded),
                             label: const Text(
-                                'Open original course on the web'),
+                              'Open original course on the web',
+                            ),
                             style: OutlinedButton.styleFrom(
                               minimumSize: const Size.fromHeight(48),
                             ),
@@ -532,19 +532,19 @@ class _HeroImage extends StatelessWidget {
   }
 
   Widget _heroFallback(ColorScheme scheme) => DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [scheme.primaryContainer, scheme.tertiaryContainer],
-          ),
-        ),
-        child: Icon(
-          Icons.menu_book_rounded,
-          size: 72,
-          color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
-        ),
-      );
+    decoration: BoxDecoration(
+      gradient: LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [scheme.primaryContainer, scheme.tertiaryContainer],
+      ),
+    ),
+    child: Icon(
+      Icons.menu_book_rounded,
+      size: 72,
+      color: scheme.onPrimaryContainer.withValues(alpha: 0.6),
+    ),
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -720,19 +720,19 @@ class _PriceRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final priceLabel =
-        course.isFree ? 'Free' : 'Paid';
+    final priceLabel = course.isFree ? 'Free' : 'Paid';
     final sub = course.isFree
         ? 'Free for everyone'
         : ((course.price ?? '').trim().isNotEmpty
-            ? course.price!.trim()
-            : 'one-time');
+              ? course.price!.trim()
+              : 'one-time');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Container(
-            height: 1,
-            color: scheme.outlineVariant.withValues(alpha: 0.6)),
+          height: 1,
+          color: scheme.outlineVariant.withValues(alpha: 0.6),
+        ),
         const SizedBox(height: Spacing.md),
         Row(
           crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -842,8 +842,9 @@ class _AboutCard extends StatelessWidget {
               'Description: $description',
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
             ),
-            crossFadeState:
-                expanded ? CrossFadeState.showSecond : CrossFadeState.showFirst,
+            crossFadeState: expanded
+                ? CrossFadeState.showSecond
+                : CrossFadeState.showFirst,
             duration: EduDurations.medium,
             sizeCurve: Curves.easeInOut,
           ),
@@ -933,10 +934,7 @@ class _SkillsCardState extends State<_SkillsCard> {
       padding: const EdgeInsets.symmetric(vertical: Spacing.xs),
       itemCount: widget.skills.length,
       separatorBuilder: (_, _) => const SizedBox(height: Spacing.sm),
-      itemBuilder: (context, index) => _skillRow(
-        context,
-        widget.skills[index],
-      ),
+      itemBuilder: (context, index) => _skillRow(context, widget.skills[index]),
     );
 
     return EduCard(
@@ -1078,8 +1076,11 @@ class _SimilarHeader extends StatelessWidget {
     final theme = Theme.of(context);
     return Row(
       children: [
-        Icon(Icons.auto_awesome_rounded,
-            size: 20, color: theme.colorScheme.primary),
+        Icon(
+          Icons.auto_awesome_rounded,
+          size: 20,
+          color: theme.colorScheme.primary,
+        ),
         const SizedBox(width: Spacing.sm),
         Expanded(
           child: Text(
@@ -1137,10 +1138,9 @@ class _SimilarCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(Radii.lg),
         clipBehavior: Clip.antiAlias,
         child: InkWell(
-          onTap: () => Navigator.of(context).pushReplacementNamed(
-            AppRoutes.courseDetails,
-            arguments: course.id,
-          ),
+          onTap: () => Navigator.of(
+            context,
+          ).pushReplacementNamed(AppRoutes.courseDetails, arguments: course.id),
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(
@@ -1215,8 +1215,9 @@ class _BottomCTA extends StatelessWidget {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
     final primaryLabel = isEnrolled ? 'Continue learning' : 'Enroll now';
-    final primaryIcon =
-        isEnrolled ? Icons.play_arrow_rounded : Icons.lock_outline_rounded;
+    final primaryIcon = isEnrolled
+        ? Icons.play_arrow_rounded
+        : Icons.lock_outline_rounded;
 
     return Material(
       color: scheme.surface,
@@ -1240,10 +1241,9 @@ class _BottomCTA extends StatelessWidget {
             ),
             boxShadow: [
               BoxShadow(
-                color: Theme.of(context)
-                    .colorScheme
-                    .shadow
-                    .withValues(alpha: 0.12),
+                color: Theme.of(
+                  context,
+                ).colorScheme.shadow.withValues(alpha: 0.12),
                 blurRadius: 8,
                 offset: const Offset(0, -2),
               ),
@@ -1305,4 +1305,5 @@ class _BottomCTA extends StatelessWidget {
     );
   }
 }
+
 // end_marker

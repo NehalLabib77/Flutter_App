@@ -29,11 +29,22 @@ from .database_models import (
     History,
     LearningPathProgress,
     User,
+    UserInteraction,
+    UserPreference,
     UserInterest,
 )
 from .auth_otp import get_auth_otp_store
 from .extensions import db
 from . import firebase_client
+from .recommendation_profile import (
+    INTERACTION_WEIGHTS,
+    get_recent_interactions,
+    get_user_preferences,
+    normalize_preferences,
+    preferences_are_empty,
+    record_interaction,
+    upsert_user_preferences,
+)
 
 log = logging.getLogger(__name__)
 bp = Blueprint("api", __name__, url_prefix="/api/v1")
@@ -84,6 +95,31 @@ def int_arg(name: str, default: int, max_value: int | None = None) -> int:
     if max_value is not None:
         value = min(max_value, value)
     return value
+
+
+def int_body(data: dict, name: str, default: int, max_value: int | None = None) -> int:
+    raw = data.get(name, default)
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        value = default
+    value = max(1, value)
+    if max_value is not None:
+        value = min(value, max_value)
+    return value
+
+
+def _preferences_from_args() -> dict:
+    return normalize_preferences({
+        "subjects": request.args.get("subjects", ""),
+        "skills": request.args.get("skills", ""),
+        "level": request.args.get("level", ""),
+        "course_type": request.args.get("course_type", ""),
+        "certificate_type": request.args.get("certificate_type", ""),
+        "price_preference": request.args.get("price_preference", ""),
+        "provider": request.args.get("provider", ""),
+        "organization": request.args.get("organization", ""),
+    })
 
 
 def float_arg(name: str, default: float) -> float:
@@ -668,6 +704,98 @@ def update_profile():
 
 
 # ---------------------------------------------------------------------------
+# Learning preferences / behavioral interactions
+# ---------------------------------------------------------------------------
+
+@bp.get("/preferences/options")
+def preference_options():
+    """Public options used by first-launch preference onboarding."""
+    adapter = current_app.extensions["educompass_model"]
+    filters = adapter.filter_lists
+    # The catalogue can contain many fine-grained subjects. Return the most
+    # useful values first while still exposing the backend-derived lists.
+    return json_ok({
+        "subjects": filters.get("subjects", []),
+        "levels": filters.get("levels", []),
+        "course_types": filters.get("course_types", []),
+        "certificates": filters.get("certificates", []),
+        "price_preferences": ["Any", "Free", "Paid"],
+        "provider": "EduCompass",
+        "organization": "EduCompass",
+    })
+
+
+@bp.get("/me/preferences")
+@jwt_required()
+@verified_user_required
+def preferences_get():
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
+    return json_ok({"preferences": get_user_preferences(user.id)})
+
+
+@bp.put("/me/preferences")
+@jwt_required()
+@verified_user_required
+def preferences_update():
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
+    data = body()
+    prefs = normalize_preferences(data.get("preferences", data))
+    prefs = upsert_user_preferences(user.id, prefs, commit=True)
+    # Mirror subject/skill choices into the legacy interests table so old
+    # recommendation/profile code continues to see useful interests.
+    interests = list(dict.fromkeys(prefs["subjects"] + prefs["skills"]))[:50]
+    UserInterest.query.filter_by(user_id=user.id).delete()
+    for interest in interests:
+        db.session.add(UserInterest(user_id=user.id, interest=interest.casefold()))
+    db.session.commit()
+    return json_ok({"preferences": prefs}, message="Preferences saved.")
+
+
+@bp.get("/interactions")
+@jwt_required()
+@verified_user_required
+def interactions_list():
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
+    limit = int_arg("limit", 100, max_value=500)
+    return json_ok({"interactions": get_recent_interactions(user.id, limit=limit)})
+
+
+@bp.post("/interactions")
+@jwt_required()
+@verified_user_required
+def interactions_add():
+    user = current_user()
+    if user is None:
+        return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
+    data = body()
+    course_id = str(data.get("course_id") or "").strip()
+    kind = str(data.get("interaction_type") or "").strip().casefold()
+    if not course_id:
+        return json_error("Field 'course_id' is required.", code="MISSING_COURSE")
+    if kind not in INTERACTION_WEIGHTS:
+        return json_error(
+            "Unsupported interaction_type.",
+            code="INVALID_INTERACTION",
+        )
+    adapter = current_app.extensions.get("educompass_model")
+    if adapter is not None and adapter.get_course(course_id) is None:
+        return json_error("Course not found.", status=404, code="COURSE_NOT_FOUND")
+    record_interaction(user.id, course_id, kind, commit=True)
+    return json_ok(
+        {"course_id": course_id, "interaction_type": kind,
+         "weight": INTERACTION_WEIGHTS[kind]},
+        message="Interaction recorded.",
+        status=201,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Courses
 # ---------------------------------------------------------------------------
 
@@ -704,14 +832,16 @@ def courses_autocomplete():
 def courses_popular():
     adapter = current_app.extensions["educompass_model"]
     limit = int_arg("limit", 12, max_value=50)
-    return json_ok({"results": adapter.popular(limit=limit)})
+    preferences = _preferences_from_args()
+    return json_ok({"results": adapter.popular(limit=limit, preferences=preferences)})
 
 
 @bp.get("/courses/top-rated")
 def courses_top_rated():
     adapter = current_app.extensions["educompass_model"]
     limit = int_arg("limit", 12, max_value=50)
-    return json_ok({"results": adapter.top_rated(limit=limit)})
+    preferences = _preferences_from_args()
+    return json_ok({"results": adapter.top_rated(limit=limit, preferences=preferences)})
 
 
 @bp.get("/courses/<course_id>")
@@ -747,10 +877,25 @@ def recommendations_query():
     query = (data.get("query") or "").strip()
     if not query:
         return json_error("Field 'query' is required.", code="MISSING_QUERY")
-    limit = int_arg("top_n", 10, max_value=50)
+    limit = int_body(data, "top_n", 10, max_value=50)
     items = adapter.recommend_query(query=query, limit=limit)
     return json_ok({"query": query, "count": len(items),
                     "recommendations": items})
+
+
+@bp.post("/recommendations/preferences")
+def recommendations_preferences():
+    """Public cold-start recommendations from first-launch preferences."""
+    adapter = current_app.extensions["educompass_model"]
+    data = body()
+    preferences = normalize_preferences(data.get("preferences", data))
+    limit = int_body(data, "top_n", 10, max_value=50)
+    items = adapter.recommend_preferences(preferences, limit=limit)
+    return json_ok({
+        "count": len(items),
+        "preferences": preferences,
+        "recommendations": items,
+    })
 
 
 @bp.post("/recommendations/personalized")
@@ -762,17 +907,33 @@ def recommendations_personalized():
     if user is None:
         return json_error("Account not found.",
                           status=404, code="USER_NOT_FOUND")
-    limit = int_arg("top_n", 10, max_value=50)
+    data = body()
+    limit = int_body(data, "top_n", 10, max_value=50)
+    incoming = normalize_preferences(data.get("preferences", {}))
+    if not preferences_are_empty(incoming):
+        preferences = upsert_user_preferences(user.id, incoming, commit=True)
+    else:
+        preferences = get_user_preferences(user.id)
+
     interests = [str(i.interest) for i in user.interests if getattr(i, "interest", None)]
     favorites_ids = [str(f.course_id) for f in user.favorites]
     history_ids = [str(h.course_id) for h in user.history if h.course_id]
+    enrolled_ids = [str(e.course_id) for e in user.enrollments]
+    interactions = get_recent_interactions(user.id, limit=300)
     items = adapter.recommend_personalized(
         interests=interests,
         favorites_ids=favorites_ids,
         history_ids=history_ids,
+        interactions=interactions,
+        preferences=preferences,
+        enrolled_ids=enrolled_ids,
         limit=limit,
     )
-    return json_ok({"count": len(items), "recommendations": items})
+    return json_ok({
+        "count": len(items),
+        "preferences": preferences,
+        "recommendations": items,
+    })
 
 
 @bp.get("/recommendations/similar/<course_id>")
@@ -837,6 +998,7 @@ def favorites_add():
     if exists:
         return json_ok(message="Already saved.")
     db.session.add(Favorite(user_id=user.id, course_id=course_id))
+    record_interaction(user.id, course_id, "favorite", commit=False)
     db.session.commit()
     return json_ok(message="Saved.", status=201)
 
@@ -884,6 +1046,9 @@ def history_add():
     action = (data.get("action") or "view").strip()
     db.session.add(History(user_id=user.id, course_id=course_id,
                            action=action))
+    if course_id:
+        signal = action if action in INTERACTION_WEIGHTS else "view"
+        record_interaction(user.id, course_id, signal, commit=False)
     db.session.commit()
     return json_ok(message="Recorded.", status=201)
 
@@ -921,6 +1086,7 @@ def progress_update(course_id):
     row = CourseProgress.query.filter_by(
         user_id=user.id, course_id=str(course_id)
     ).first()
+    was_completed = bool(row.completed) if row is not None else False
     if row is None:
         row = CourseProgress(user_id=user.id, course_id=str(course_id),
                              progress=percent, completed=percent >= 100)
@@ -928,6 +1094,8 @@ def progress_update(course_id):
     else:
         row.progress = percent
         row.completed = percent >= 100
+    if percent >= 100 and not was_completed:
+        record_interaction(user.id, str(course_id), "complete", commit=False)
     db.session.commit()
     return json_ok(message="Progress saved.")
 
@@ -983,6 +1151,7 @@ def enrollments_add():
     row = Enrollment.query.filter_by(
         user_id=user.id, course_id=course_id
     ).first()
+    created = row is None
     if row is None:
         row = Enrollment(
             user_id=user.id,
@@ -998,6 +1167,8 @@ def enrollments_add():
         row.payment_method = payment_method
         row.transaction_id = transaction_id
         row.payment_status = payment_status
+    if created:
+        record_interaction(user.id, course_id, "enroll", commit=False)
     db.session.commit()
     return json_ok(row.to_dict(), message="Enrolled.", status=201)
 

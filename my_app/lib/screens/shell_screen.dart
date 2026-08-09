@@ -94,11 +94,7 @@ class _ShellScreenState extends State<ShellScreen> {
       screen: RecommendationsScreen(initialQuery: widget.initialQuery),
     );
     if (!signedIn) {
-      return [
-        _coreTabsTemplate[0],
-        forYou,
-        _coreTabsTemplate[2],
-      ];
+      return [_coreTabsTemplate[0], forYou, _coreTabsTemplate[2]];
     }
     // Insert My Courses and Favorites after "For you" so they sit at
     // indices 2 and 3 for signed-in users.
@@ -139,33 +135,33 @@ class _ShellScreenState extends State<ShellScreen> {
       bottomNavigationBar: SafeArea(
         top: false,
         child: NavigationBar(
-        height: 72,
-        selectedIndex: safeIndex,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        backgroundColor: navBackground,
-        indicatorColor: navActive.withValues(alpha: isDark ? 0.30 : 0.12),
-        surfaceTintColor: Colors.transparent,
-        labelTextStyle: WidgetStateProperty.resolveWith((states) {
-          final selected = states.contains(WidgetState.selected);
-          return TextStyle(
-            color: selected ? navActive : navIdle,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          );
-        }),
-        destinations: [
-          for (final t in tabs)
-            NavigationDestination(
-              icon: _iconFor(
-                t,
-                user.loadingPersonalized,
-                foreground: navIdle,
-                badgeBackground: badgeBackground,
+          height: 72,
+          selectedIndex: safeIndex,
+          onDestinationSelected: (i) => setState(() => _index = i),
+          backgroundColor: navBackground,
+          indicatorColor: navActive.withValues(alpha: isDark ? 0.30 : 0.12),
+          surfaceTintColor: Colors.transparent,
+          labelTextStyle: WidgetStateProperty.resolveWith((states) {
+            final selected = states.contains(WidgetState.selected);
+            return TextStyle(
+              color: selected ? navActive : navIdle,
+              fontSize: 12,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+            );
+          }),
+          destinations: [
+            for (final t in tabs)
+              NavigationDestination(
+                icon: _iconFor(
+                  t,
+                  user.loadingPersonalized,
+                  foreground: navIdle,
+                  badgeBackground: badgeBackground,
+                ),
+                selectedIcon: Icon(t.icon, color: navActive),
+                label: t.label,
               ),
-              selectedIcon: Icon(t.icon, color: navActive),
-              label: t.label,
-            ),
-        ],
+          ],
         ),
       ),
     );

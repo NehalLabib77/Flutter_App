@@ -85,6 +85,93 @@ class Course {
   }
 }
 
+
+/// Preference profile captured on first launch. It is intentionally small
+/// and serialisable so the same shape can be stored locally and sent to the
+/// Flask hybrid recommender.
+class LearningPreferences {
+  final List<String> subjects;
+  final List<String> skills;
+  final String level;
+  final String courseType;
+  final String certificateType;
+  final String pricePreference;
+
+  const LearningPreferences({
+    this.subjects = const [],
+    this.skills = const [],
+    this.level = '',
+    this.courseType = '',
+    this.certificateType = '',
+    this.pricePreference = '',
+  });
+
+  bool get isEmpty =>
+      subjects.isEmpty &&
+      skills.isEmpty &&
+      level.isEmpty &&
+      courseType.isEmpty &&
+      certificateType.isEmpty &&
+      pricePreference.isEmpty;
+
+  Map<String, dynamic> toJson() => {
+    'subjects': subjects,
+    'skills': skills,
+    'level': level,
+    'course_type': courseType,
+    'certificate_type': certificateType,
+    'price_preference': pricePreference,
+    // EduCompass is the app-facing catalogue owner after the dataset
+    // normalisation requested for this project.
+    'provider': 'EduCompass',
+    'organization': 'EduCompass',
+  };
+
+  Map<String, dynamic> toQueryParameters() => {
+    if (subjects.isNotEmpty) 'subjects': subjects.join('|'),
+    if (skills.isNotEmpty) 'skills': skills.join('|'),
+    if (level.isNotEmpty) 'level': level,
+    if (courseType.isNotEmpty) 'course_type': courseType,
+    if (certificateType.isNotEmpty) 'certificate_type': certificateType,
+    if (pricePreference.isNotEmpty) 'price_preference': pricePreference,
+    'provider': 'EduCompass',
+    'organization': 'EduCompass',
+  };
+
+  factory LearningPreferences.fromJson(Map<String, dynamic> json) {
+    List<String> listValue(dynamic value) {
+      if (value is List) {
+        return value
+            .map((item) => item.toString().trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      if (value is String && value.trim().isNotEmpty) {
+        final separator = value.contains('|') ? '|' : ',';
+        return value
+            .split(separator)
+            .map((item) => item.trim())
+            .where((item) => item.isNotEmpty)
+            .toList();
+      }
+      return const [];
+    }
+
+    return LearningPreferences(
+      subjects: listValue(json['subjects'] ?? json['preferred_subjects']),
+      skills: listValue(json['skills'] ?? json['preferred_skills']),
+      level: (json['level'] ?? json['preferred_level'] ?? '').toString(),
+      courseType:
+          (json['course_type'] ?? json['preferred_course_type'] ?? '')
+              .toString(),
+      certificateType:
+          (json['certificate_type'] ?? json['preferred_certificate_type'] ?? '')
+              .toString(),
+      pricePreference: (json['price_preference'] ?? '').toString(),
+    );
+  }
+}
+
 class AppUser {
   final int id;
   final String fullName;
@@ -403,9 +490,9 @@ class SslCommerzPaymentStatus {
           json['enrollment_completed'] == true,
       courseId: (payment['course_id'] ?? json['course_id'])?.toString(),
       cardType: (payment['card_type'] ?? json['card_type'])?.toString(),
-      bankTransactionId: (payment['bank_transaction_id'] ??
-              json['bank_transaction_id'])
-          ?.toString(),
+      bankTransactionId:
+          (payment['bank_transaction_id'] ?? json['bank_transaction_id'])
+              ?.toString(),
       riskLevel: parseRiskLevel(payment['risk_level'] ?? json['risk_level']),
       riskTitle: (payment['risk_title'] ?? json['risk_title'])?.toString(),
       updatedAt: parseUpdatedAt(payment['updated_at'] ?? json['updated_at']),

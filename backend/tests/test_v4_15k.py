@@ -3,7 +3,7 @@
 These tests guard the contracts that the v4 bundle must keep after the
 strict-AND URL+image filter:
 
-  * ``courses.parquet`` has **at most** 15,000 rows (never more, never
+  * ``courses.csv.gz`` has **at most** 15,000 rows (never more, never
     padded with invalid rows)
   * every final row has BOTH a valid ``url`` (http/https) and a valid
     ``image_url`` (http/https)
@@ -56,7 +56,7 @@ def adapter() -> RecommendationModelAdapter:
 
 @pytest.fixture(scope="module")
 def courses_df() -> pd.DataFrame:
-    return pd.read_parquet(V4_DIR / "courses.parquet", engine="pyarrow")
+    return pd.read_csv(V4_DIR / "courses.csv.gz", low_memory=False)
 
 
 @pytest.fixture(scope="module")

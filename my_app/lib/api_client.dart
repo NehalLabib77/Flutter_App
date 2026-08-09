@@ -129,8 +129,8 @@ class ApiClient {
     }
 
     var message = (body['message'] ?? 'Request failed').toString();
-    final code =
-        (body['error_code'] ?? body['error'] ?? body['code'])?.toString();
+    final code = (body['error_code'] ?? body['error'] ?? body['code'])
+        ?.toString();
 
     // A bearer token is issued only after the backend confirms email
     // verification. Older backend deployments may still re-check Firebase on
@@ -138,7 +138,8 @@ class ApiClient {
     // temporary Firebase Admin failure. Do not tell an already logged-in user
     // to verify again; describe it as a session problem instead.
     if (code == 'EMAIL_NOT_VERIFIED' && _cachedBearer != null) {
-      message = 'Your signed-in session could not be confirmed. '
+      message =
+          'Your signed-in session could not be confirmed. '
           'Please sign out and sign in again.';
     }
 
@@ -437,13 +438,27 @@ class ApiClient {
         .toList();
   }
 
-  Future<List<Course>> popularCourses({int limit = 12}) async {
-    final data = await _get('/courses/popular', {'limit': limit});
+  Future<List<Course>> popularCourses({
+    int limit = 12,
+    LearningPreferences? preferences,
+  }) async {
+    final query = <String, dynamic>{'limit': limit};
+    if (preferences != null) {
+      query.addAll(preferences.toQueryParameters());
+    }
+    final data = await _get('/courses/popular', query);
     return _mapCourses(data['results']);
   }
 
-  Future<List<Course>> topRatedCourses({int limit = 12}) async {
-    final data = await _get('/courses/top-rated', {'limit': limit});
+  Future<List<Course>> topRatedCourses({
+    int limit = 12,
+    LearningPreferences? preferences,
+  }) async {
+    final query = <String, dynamic>{'limit': limit};
+    if (preferences != null) {
+      query.addAll(preferences.toQueryParameters());
+    }
+    final data = await _get('/courses/top-rated', query);
     return _mapCourses(data['results']);
   }
 
@@ -474,9 +489,38 @@ class ApiClient {
     return _mapCourses(data['recommendations']);
   }
 
-  Future<List<Course>> recommendPersonalized({int limit = 10}) async {
-    final data = await _post('/recommendations/personalized', {'top_n': limit});
+  Future<List<Course>> recommendPersonalized({
+    int limit = 10,
+    LearningPreferences? preferences,
+  }) async {
+    final data = await _post('/recommendations/personalized', {
+      'top_n': limit,
+      if (preferences != null) 'preferences': preferences.toJson(),
+    });
     return _mapCourses(data['recommendations']);
+  }
+
+  Future<List<Course>> recommendByPreferences(
+    LearningPreferences preferences, {
+    int limit = 10,
+  }) async {
+    final data = await _post(
+      '/recommendations/preferences',
+      {'top_n': limit, 'preferences': preferences.toJson()},
+      auth: false,
+    );
+    return _mapCourses(data['recommendations']);
+  }
+
+  Future<void> savePreferences(LearningPreferences preferences) async {
+    await _put('/me/preferences', {'preferences': preferences.toJson()});
+  }
+
+  Future<void> recordInteraction(String courseId, String interactionType) async {
+    await _post('/interactions', {
+      'course_id': courseId,
+      'interaction_type': interactionType,
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -518,7 +562,7 @@ class ApiClient {
     bool completed = false,
   }) {
     return _put('/me/progress/$courseId', {
-      'progress': percent,
+      'percent': percent,
       'completed': completed,
     });
   }

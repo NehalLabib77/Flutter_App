@@ -29,11 +29,7 @@ class AuthWrapper extends StatelessWidget {
   final AuthProvider? authProvider;
   final FirebaseAuthService? firebaseAuthService;
 
-  const AuthWrapper({
-    super.key,
-    this.authProvider,
-    this.firebaseAuthService,
-  });
+  const AuthWrapper({super.key, this.authProvider, this.firebaseAuthService});
 
   /// Wire the deep-link cold-start reader. Called once from
   /// `main.dart` after `DeepLinkService.start()` has had a chance
@@ -156,9 +152,7 @@ class _AuthGateState extends State<_AuthGate> {
   /// Wire the deep-link cold-start reader. Called once from
   /// `main.dart` after `DeepLinkService.start()` has had a chance
   /// to capture the initial URI.
-  static void installColdStartReader(
-    String? Function() reader,
-  ) {
+  static void installColdStartReader(String? Function() reader) {
     _consumeInitialVerificationCode = reader;
   }
 
@@ -174,7 +168,8 @@ class _AuthGateState extends State<_AuthGate> {
         }
         final user = snapshot.data;
         if (user != null && !user.emailVerified) {
-          final service = _serviceOverride ?? FirebaseAuthServiceFactory.instance;
+          final service =
+              _serviceOverride ?? FirebaseAuthServiceFactory.instance;
           // Kick off the cold-start oobCode apply after the first
           // frame so the stream listener has had time to attach.
           WidgetsBinding.instance.addPostFrameCallback((_) {

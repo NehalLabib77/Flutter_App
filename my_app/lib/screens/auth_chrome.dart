@@ -219,15 +219,10 @@ class AuthScaffold extends StatelessWidget {
                         // the complete login/register card to squeeze while
                         // typing.
                         child: ConstrainedBox(
-                          constraints: BoxConstraints(
-                            maxWidth: cardWidth,
-                          ),
+                          constraints: BoxConstraints(maxWidth: cardWidth),
                           child: SizedBox(
                             width: double.infinity,
-                            child: _PaperCard(
-                              palette: palette,
-                              child: child,
-                            ),
+                            child: _PaperCard(palette: palette, child: child),
                           ),
                         ),
                       ),
@@ -647,10 +642,7 @@ class AuthFootnoteLink extends StatelessWidget {
       child: Wrap(
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          Text(
-            prefix,
-            style: TextStyle(color: palette.inkSoft, fontSize: 12),
-          ),
+          Text(prefix, style: TextStyle(color: palette.inkSoft, fontSize: 12)),
           const SizedBox(width: 6),
           GestureDetector(
             onTap: onTap,

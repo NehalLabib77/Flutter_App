@@ -11,10 +11,7 @@ import 'auth_chrome.dart';
 import 'login_screen.dart';
 
 class RegisterScreen extends StatefulWidget {
-  const RegisterScreen({
-    super.key,
-    this.firebaseAuthService,
-  });
+  const RegisterScreen({super.key, this.firebaseAuthService});
 
   final FirebaseAuthService? firebaseAuthService;
 
@@ -86,11 +83,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+          content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
         ),
       );
   }

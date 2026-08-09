@@ -2,7 +2,7 @@
 
 Loads the v4 bundle shipped under ``ml/artifacts/models/v4/``:
 
-* ``courses.parquet``         – slim courses frame (no ``deployment_text``)
+* ``courses.csv.gz``          – compressed slim courses frame (no ``deployment_text``)
 * ``tfidf_vectorizer.joblib`` – fitted :class:`TfidfVectorizer`
 * ``tfidf_matrix.npz``        – pre-computed CSR float32 TF-IDF matrix
 * ``model_config.json``       – optional field/rerank weights
@@ -87,6 +87,7 @@ _COURSE_FIELDS: tuple[str, ...] = (
     "lectures_count", "duration", "instructor", "price", "language",
     "image_url", "url", "certificate_type", "course_type", "is_free",
     "has_image", "has_course_url", "popularity_score", "data_quality_score",
+    "source_file",
 )
 
 # Fields returned on list endpoints (search, popular, top-rated,
@@ -96,7 +97,7 @@ _COURSE_FIELDS: tuple[str, ...] = (
 _SLIM_LIST_FIELDS: tuple[str, ...] = (
     "course_id", "course_name", "image_url", "url", "rating",
     "reviews_count", "students_enrolled", "level", "subject",
-    "provider", "duration", "is_free", "certificate_type",
+    "provider", "duration", "is_free", "certificate_type", "skills",
     "popularity_score",
 )
 
@@ -112,11 +113,10 @@ _CATEGORICAL_FIELDS: tuple[str, ...] = (
 # is the default pandas rehydrates from Parquet, but the schema never
 # needs that precision for course metadata.
 _FLOAT32_FIELDS: tuple[str, ...] = (
-    "rating", "popularity_score", "data_quality_score", "price",
-    "students_enrolled",
+    "rating", "popularity_score", "data_quality_score",
 )
 _INT32_FIELDS: tuple[str, ...] = (
-    "reviews_count", "lectures_count",
+    "reviews_count", "lectures_count", "students_enrolled",
 )
 _BOOL_FIELDS: tuple[str, ...] = (
     "is_free", "has_image", "has_course_url",
@@ -215,7 +215,7 @@ def _safe_column_array(
 ) -> np.ndarray:
     """Return a float32 numpy array for ranking without ever raising KeyError.
 
-    The optimized ``courses.parquet`` may be missing ranking columns
+    The optimized ``courses.csv.gz`` may be missing ranking columns
     (e.g. ``popularity_score``, ``reviews_count``, ``students_enrolled``)
     because the v4 training script keeps the on-disk frame as slim as
     possible. The ranking paths in :class:`RecommendationModelAdapter`
@@ -553,7 +553,10 @@ class RecommendationModelAdapter:
 
     # -- popularity -----------------------------------------------------
 
-    def popular(self, limit: int = 12, slim: bool = True) -> list[dict]:
+    def popular(self, limit: int = 12, slim: bool = True, preferences: dict | None = None) -> list[dict]:
+        if preferences and any(preferences.get(k) for k in ("subjects", "skills", "level", "course_type", "certificate_type", "price_preference")):
+            from .hybrid_ranker import rank_courses
+            return rank_courses(self, preferences=preferences, limit=limit, mode="popular")
         # ``popularity_score`` is the canonical column, but the slim
         # v4 bundle may have dropped it. Fall back to engagement
         # proxies (students_enrolled → reviews_count → 0).
@@ -567,7 +570,10 @@ class RecommendationModelAdapter:
             slim=slim,
         )
 
-    def top_rated(self, limit: int = 12, slim: bool = True) -> list[dict]:
+    def top_rated(self, limit: int = 12, slim: bool = True, preferences: dict | None = None) -> list[dict]:
+        if preferences and any(preferences.get(k) for k in ("subjects", "skills", "level", "course_type", "certificate_type", "price_preference")):
+            from .hybrid_ranker import rank_courses
+            return rank_courses(self, preferences=preferences, limit=limit, mode="top_rated")
         # ``rating`` is always present; the bonus tries ``reviews_count``
         # first, then falls back to ``popularity_score`` / enrolment.
         return self._top_by_score(
@@ -593,7 +599,7 @@ class RecommendationModelAdapter:
         of O(n log n) and only allocates ``limit`` result rows.
 
         Every column lookup goes through :func:`_safe_column_array` so
-        a slimmed-down ``courses.parquet`` that no longer ships
+        a slimmed-down ``courses.csv.gz`` that no longer ships
         ``popularity_score`` / ``reviews_count`` / ``students_enrolled``
         falls back to the next available proxy and ultimately to a
         zero-filled array — never to a ``KeyError``.
@@ -665,20 +671,36 @@ class RecommendationModelAdapter:
         history_ids: Iterable[str],
         favorites_ids: Iterable[str],
         limit: int = 10,
+        preferences: dict | None = None,
+        interactions: Iterable[dict] | None = None,
+        enrolled_ids: Iterable[str] | None = None,
     ) -> list[dict]:
-        parts: list[str] = [s for s in (interests or []) if s]
-        seed_ids = list(dict.fromkeys(
-            list(favorites_ids or []) + list(history_ids or [])
-        ))
-        for cid in seed_ids:
-            idx = self.row_index.get(str(cid))
-            if idx is None:
-                continue
-            parts.append(self.rows[idx].text[:500])
-        if not parts:
-            return self.popular(limit=limit)
-        q = " ".join(parts)
-        return self.recommend_query(q, limit=limit)
+        # New hybrid path: the same TF-IDF vectors are reused for explicit
+        # preferences and a weighted behavior profile. No second ML model is
+        # loaded, so memory characteristics stay close to the previous v4.
+        if preferences or interactions or favorites_ids or history_ids or interests:
+            from .hybrid_ranker import rank_courses
+            return rank_courses(
+                self,
+                preferences=preferences or {},
+                interests=interests,
+                interactions=interactions,
+                favorites_ids=favorites_ids,
+                history_ids=history_ids,
+                enrolled_ids=enrolled_ids,
+                limit=limit,
+                mode="for_you",
+            )
+        return self.popular(limit=limit)
+
+    def recommend_preferences(
+        self, preferences: dict | None, limit: int = 10
+    ) -> list[dict]:
+        """Cold-start recommendations for guests / first launch."""
+        from .hybrid_ranker import rank_courses
+        return rank_courses(
+            self, preferences=preferences or {}, limit=limit, mode="for_you"
+        )
 
     # -- filter listings -----------------------------------------------
 
@@ -740,7 +762,7 @@ def load_adapter(
     if not mdir.is_dir():
         raise ModelLoadError(f"model path is not a directory: {mdir}")
 
-    courses_path = mdir / "courses.parquet"
+    courses_path = mdir / "courses.csv.gz"
     vectorizer_path = mdir / "tfidf_vectorizer.joblib"
     matrix_path = mdir / "tfidf_matrix.npz"
 
@@ -755,43 +777,39 @@ def load_adapter(
 
     log.info("loading v4 model from %s", mdir)
 
-    # Parquet; Arrow schema is stable across pandas versions. We only
-    # pull the columns API endpoints actually serialize so the
-    # DataFrame stays small (≪ 200 MB even with 24k courses).
+    # Inspect/load only API columns. Compressed CSV avoids the pyarrow
+    # dependency while preserving the same model/corpus row alignment.
     try:
-        all_cols = pd.read_parquet(
-            courses_path, engine="pyarrow", columns=None
-        ).columns.tolist()
+        all_cols = pd.read_csv(courses_path, nrows=0).columns.tolist()
     except Exception as exc:
         raise ModelLoadError(
-            f"failed to inspect courses.parquet: {exc}. "
-            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+            f"failed to inspect {courses_path.name}: {exc}. "
+            f"Re-run ml/training/train_v4_15k.py to regenerate the bundle."
         ) from exc
 
     if "course_id" not in all_cols:
         raise ModelLoadError(
-            "courses.parquet is missing required 'course_id' column; "
-            "re-run ml/training/train_v4.py to regenerate the v4 bundle."
+            f"{courses_path.name} is missing required 'course_id' column; "
+            "re-run ml/training/train_v4_15k.py."
         )
 
     wanted_cols = [c for c in _COURSE_FIELDS if c in all_cols]
     extra_cols = [c for c in all_cols if c not in _COURSE_FIELDS]
     if extra_cols:
         log.info(
-            "courses.parquet: dropping %d unused columns at load time: %s",
-            len(extra_cols), ", ".join(extra_cols[:8]) +
+            "%s: dropping %d unused columns at load time: %s",
+            courses_path.name, len(extra_cols), ", ".join(extra_cols[:8]) +
             ("..." if len(extra_cols) > 8 else ""),
         )
 
     try:
-        courses_df = pd.read_parquet(
-            courses_path, engine="pyarrow",
-            columns=wanted_cols,
+        courses_df = pd.read_csv(
+            courses_path, usecols=wanted_cols, low_memory=False
         )
     except Exception as exc:
         raise ModelLoadError(
-            f"failed to load courses.parquet: {exc}. "
-            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+            f"failed to load {courses_path.name}: {exc}. "
+            f"Re-run ml/training/train_v4_15k.py to regenerate the bundle."
         ) from exc
 
     courses_df = _optimize_courses_dataframe(courses_df)
@@ -803,7 +821,7 @@ def load_adapter(
     except Exception as exc:
         raise ModelLoadError(
             f"failed to load tfidf_matrix.npz: {exc}. "
-            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+            f"Re-run ml/training/train_v4_15k.py to regenerate the bundle."
         ) from exc
 
     if not issparse(tfidf_matrix):
@@ -819,8 +837,8 @@ def load_adapter(
     if tfidf_matrix.shape[0] != len(courses_df):
         raise ModelLoadError(
             f"matrix row count ({tfidf_matrix.shape[0]}) does not match "
-            f"courses.parquet row count ({len(courses_df)}). "
-            f"Re-run ml/training/train_v4.py to regenerate the bundle."
+            f"courses.csv.gz row count ({len(courses_df)}). "
+            f"Re-run ml/training/train_v4_15k.py to regenerate the bundle."
         )
 
     try:

@@ -29,6 +29,7 @@ class _FakeRecommendationAdapter:
         favorites_ids,
         history_ids,
         limit,
+        **_kwargs,
     ):
         return []
 
@@ -40,6 +41,8 @@ def app() -> Flask:
     app.extensions["educompass_model"] = _FakeRecommendationAdapter()
 
     with app.app_context():
+        db.session.execute(text("DELETE FROM user_interactions"))
+        db.session.execute(text("DELETE FROM user_preferences"))
         db.session.execute(text("DELETE FROM favorites"))
         db.session.execute(text("DELETE FROM users"))
         db.session.commit()

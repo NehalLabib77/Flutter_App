@@ -61,51 +61,47 @@ class AppRadii {
   static const double lg = 18;
   static const double xl = 20;
   static const double pill = 999;
-  static const BorderRadius pillRadius =
-      BorderRadius.all(Radius.circular(pill));
-  static const BorderRadius cardRadius =
-      BorderRadius.all(Radius.circular(lg));
+  static const BorderRadius pillRadius = BorderRadius.all(
+    Radius.circular(pill),
+  );
+  static const BorderRadius cardRadius = BorderRadius.all(Radius.circular(lg));
 }
 
-ThemeData _base({
-  required ColorScheme seedScheme,
-  required bool isDark,
-}) {
+ThemeData _base({required ColorScheme seedScheme, required bool isDark}) {
   final primary = isDark ? AppColors.blueBright : AppColors.navy;
   final page = isDark ? AppColors.darkPage : AppColors.pageBg;
   final card = isDark ? AppColors.darkCard : AppColors.cardBg;
   final raised = isDark ? AppColors.darkCardRaised : Colors.white;
-  final onSurface =
-      isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
-  final secondary =
-      isDark ? AppColors.darkTextSecondary : AppColors.textSecondary;
+  final onSurface = isDark ? AppColors.darkTextPrimary : AppColors.textPrimary;
+  final secondary = isDark
+      ? AppColors.darkTextSecondary
+      : AppColors.textSecondary;
   final outline = isDark ? AppColors.darkBorder : AppColors.border;
   final input = isDark ? const Color(0xFF202A47) : Colors.white;
 
   final scheme = seedScheme.copyWith(
     primary: primary,
     onPrimary: isDark ? const Color(0xFF0A1830) : Colors.white,
-    primaryContainer:
-        isDark ? const Color(0xFF203D72) : AppColors.lightBlue,
-    onPrimaryContainer:
-        isDark ? AppColors.darkTextPrimary : AppColors.navyDeep,
+    primaryContainer: isDark ? const Color(0xFF203D72) : AppColors.lightBlue,
+    onPrimaryContainer: isDark ? AppColors.darkTextPrimary : AppColors.navyDeep,
     secondary: isDark ? const Color(0xFF9CB9F0) : AppColors.blue,
     surface: page,
     onSurface: onSurface,
     onSurfaceVariant: secondary,
     surfaceContainerLowest: page,
-    surfaceContainerLow:
-        isDark ? const Color(0xFF141B30) : const Color(0xFFF0F3F9),
+    surfaceContainerLow: isDark
+        ? const Color(0xFF141B30)
+        : const Color(0xFFF0F3F9),
     surfaceContainer: card,
     surfaceContainerHigh: card,
     surfaceContainerHighest: raised,
     outline: outline,
     outlineVariant: outline,
     error: isDark ? const Color(0xFFFFB3B8) : AppColors.danger,
-    errorContainer:
-        isDark ? const Color(0xFF51252D) : const Color(0xFFFFE8EA),
-    onErrorContainer:
-        isDark ? const Color(0xFFFFDADB) : const Color(0xFF7A1B26),
+    errorContainer: isDark ? const Color(0xFF51252D) : const Color(0xFFFFE8EA),
+    onErrorContainer: isDark
+        ? const Color(0xFFFFDADB)
+        : const Color(0xFF7A1B26),
   );
 
   final overlay = isDark
@@ -172,10 +168,8 @@ ThemeData _base({
     ),
 
     chipTheme: ChipThemeData(
-      backgroundColor:
-          isDark ? const Color(0xFF283452) : AppColors.lightBlue,
-      selectedColor:
-          isDark ? const Color(0xFF2D4B80) : const Color(0xFFDCE8F8),
+      backgroundColor: isDark ? const Color(0xFF283452) : AppColors.lightBlue,
+      selectedColor: isDark ? const Color(0xFF2D4B80) : const Color(0xFFDCE8F8),
       side: BorderSide.none,
       labelStyle: TextStyle(color: onSurface, fontWeight: FontWeight.w700),
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
@@ -192,9 +186,7 @@ ThemeData _base({
         disabledForegroundColor: secondary.withValues(alpha: 0.7),
         minimumSize: const Size.fromHeight(48),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppRadii.pillRadius,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.pillRadius),
         textStyle: const TextStyle(
           fontWeight: FontWeight.w800,
           fontSize: 15,
@@ -209,9 +201,7 @@ ThemeData _base({
         foregroundColor: onSurface,
         side: BorderSide(color: outline, width: 1.2),
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 12),
-        shape: const RoundedRectangleBorder(
-          borderRadius: AppRadii.pillRadius,
-        ),
+        shape: const RoundedRectangleBorder(borderRadius: AppRadii.pillRadius),
         textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14),
       ),
     ),
@@ -262,8 +252,9 @@ ThemeData _base({
     navigationBarTheme: NavigationBarThemeData(
       height: 72,
       backgroundColor: isDark ? AppColors.darkPage : Colors.white,
-      indicatorColor:
-          isDark ? const Color(0xFF263E70) : const Color(0xFFE1EAF7),
+      indicatorColor: isDark
+          ? const Color(0xFF263E70)
+          : const Color(0xFFE1EAF7),
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
@@ -288,10 +279,12 @@ ThemeData _base({
       style: SegmentedButton.styleFrom(
         backgroundColor: card,
         foregroundColor: secondary,
-        selectedBackgroundColor:
-            isDark ? const Color(0xFF2B4478) : const Color(0xFFDDE7F7),
-        selectedForegroundColor:
-            isDark ? AppColors.darkTextPrimary : AppColors.navy,
+        selectedBackgroundColor: isDark
+            ? const Color(0xFF2B4478)
+            : const Color(0xFFDDE7F7),
+        selectedForegroundColor: isDark
+            ? AppColors.darkTextPrimary
+            : AppColors.navy,
         side: BorderSide(color: outline, width: 1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadii.pill),
@@ -301,8 +294,9 @@ ThemeData _base({
     ),
 
     snackBarTheme: SnackBarThemeData(
-      backgroundColor:
-          isDark ? AppColors.darkCardRaised : const Color(0xFF1A1F2C),
+      backgroundColor: isDark
+          ? AppColors.darkCardRaised
+          : const Color(0xFF1A1F2C),
       contentTextStyle: const TextStyle(color: Colors.white, height: 1.35),
       behavior: SnackBarBehavior.floating,
       insetPadding: const EdgeInsets.all(12),

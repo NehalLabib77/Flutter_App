@@ -46,16 +46,9 @@ Future<void> main() async {
   // URI synchronously via the installed reader below.
   final deepLinks = DeepLinkService();
   await deepLinks.start();
-  AuthWrapper.installColdStartReader(
-    deepLinks.consumeInitialVerificationCode,
-  );
+  AuthWrapper.installColdStartReader(deepLinks.consumeInitialVerificationCode);
 
   runApp(
-    EduCompassApp(
-      api: api,
-      auth: auth,
-      prefs: prefs,
-      deepLinks: deepLinks,
-    ),
+    EduCompassApp(api: api, auth: auth, prefs: prefs, deepLinks: deepLinks),
   );
 }

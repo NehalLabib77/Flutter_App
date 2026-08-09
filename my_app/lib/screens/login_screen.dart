@@ -13,10 +13,7 @@ import 'register_screen.dart';
 import 'shell_screen.dart';
 
 class LoginScreen extends StatefulWidget {
-  const LoginScreen({
-    super.key,
-    this.firebaseAuthService,
-  });
+  const LoginScreen({super.key, this.firebaseAuthService});
 
   final FirebaseAuthService? firebaseAuthService;
 
@@ -59,9 +56,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (!mounted) return;
 
     Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(
-        builder: (_) => const ShellScreen(),
-      ),
+      MaterialPageRoute<void>(builder: (_) => const ShellScreen()),
       (_) => false,
     );
   }
@@ -120,9 +115,7 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (!mounted) return;
-      _showMessage(
-        'Verification email has been sent again. Check your inbox.',
-      );
+      _showMessage('Verification email has been sent again. Check your inbox.');
     } on FirebaseAuthFailure catch (error) {
       if (!mounted) return;
       _showMessage(error.message);
@@ -141,9 +134,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => RegisterScreen(
-          firebaseAuthService: _service,
-        ),
+        builder: (_) => RegisterScreen(firebaseAuthService: _service),
       ),
     );
   }
@@ -156,11 +147,7 @@ class _LoginScreenState extends State<LoginScreen> {
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(
-            message,
-            maxLines: 3,
-            overflow: TextOverflow.ellipsis,
-          ),
+          content: Text(message, maxLines: 3, overflow: TextOverflow.ellipsis),
         ),
       );
   }

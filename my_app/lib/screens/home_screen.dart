@@ -38,12 +38,13 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     _searchCtrl = TextEditingController();
     _searchFocus = FocusNode();
-    // Kick off both providers in parallel — they're independently cached.      
+    // Kick off both providers in parallel — they're independently cached.
     Future.microtask(() {
       if (!mounted) return;
       final c = context.read<CourseProvider>();
-      c.loadPopular();
-      c.loadTopRated();
+      final preferences = context.read<PreferenceProvider>().preferences;
+      c.loadPopular(preferences: preferences);
+      c.loadTopRated(preferences: preferences);
     });
   }
 
@@ -64,10 +65,9 @@ class _HomeScreenState extends State<HomeScreen> {
     // Drop focus before navigation so the keyboard isn't left floating
     // over the pushed screen for the brief moment before it builds.
     _searchFocus.unfocus();
-    Navigator.of(context).pushNamed(
-      AppRoutes.recommendations,
-      arguments: {'query': q},
-    );
+    Navigator.of(
+      context,
+    ).pushNamed(AppRoutes.recommendations, arguments: {'query': q});
   }
 
   @override
@@ -87,11 +87,12 @@ class _HomeScreenState extends State<HomeScreen> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final c = context.read<CourseProvider>();
+      final preferences = context.read<PreferenceProvider>().preferences;
       if (c.popular.isEmpty && !c.loadingPopular) {
-        c.loadPopular();
+        c.loadPopular(preferences: preferences);
       }
       if (c.topRated.isEmpty && !c.loadingTopRated) {
-        c.loadTopRated();
+        c.loadTopRated(preferences: preferences);
       }
     });
   }
@@ -111,19 +112,15 @@ class _HomeScreenState extends State<HomeScreen> {
     final eyebrow = isGuest ? 'EDUCOMPASS' : 'TODAY';
     final title = isGuest ? 'Welcome to EduCompass' : 'Hi $displayName 👋';
     final subtitle = isGuest
-        ? 'Sign in for personalised picks, or browse as a guest.'
-        : 'What will you learn today?';
+        ? 'Your learning preferences are already shaping these picks.'
+        : 'Your preferences and activity shape what you see today.';
 
     return Scaffold(
       appBar: AppBar(
         title: const Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.explore_rounded,
-              color: Colors.white,
-              size: 22,
-            ),
+            Icon(Icons.explore_rounded, color: Colors.white, size: 22),
             SizedBox(width: Spacing.xs),
             Flexible(
               child: Text(
@@ -167,19 +164,19 @@ class _HomeScreenState extends State<HomeScreen> {
       ),
       body: RefreshIndicator(
         onRefresh: () async {
+          final preferences = context.read<PreferenceProvider>().preferences;
           await Future.wait([
-            context.read<CourseProvider>().loadPopular(),
-            context.read<CourseProvider>().loadTopRated(),
+            context.read<CourseProvider>().loadPopular(
+              preferences: preferences,
+            ),
+            context.read<CourseProvider>().loadTopRated(
+              preferences: preferences,
+            ),
           ]);
         },
         child: ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(
-            0,
-            Spacing.md,
-            0,
-            Spacing.xl,
-          ),
+          padding: const EdgeInsets.fromLTRB(0, Spacing.md, 0, Spacing.xl),
           children: [
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: Spacing.md),
@@ -219,22 +216,26 @@ class _HomeScreenState extends State<HomeScreen> {
             const SizedBox(height: Spacing.lg),
             _Section(
               title: 'Popular right now',
-              subtitle: 'What other learners are enrolling in this week',
+              subtitle: 'Trending courses, re-ranked for your interests',
               icon: Icons.local_fire_department_rounded,
               courses: courses.popular,
               loading: courses.loadingPopular,
               errorMessage: courses.popularError,
-              onRetry: () => context.read<CourseProvider>().loadPopular(),
+              onRetry: () => context.read<CourseProvider>().loadPopular(
+                preferences: context.read<PreferenceProvider>().preferences,
+              ),
             ),
             const SizedBox(height: Spacing.md),
             _Section(
               title: 'Top rated',
-              subtitle: 'Highest-rated picks across every subject',
+              subtitle: 'Strong ratings, adjusted to your preferences',
               icon: Icons.star_rate_rounded,
               courses: courses.topRated,
               loading: courses.loadingTopRated,
               errorMessage: courses.topRatedError,
-              onRetry: () => context.read<CourseProvider>().loadTopRated(),
+              onRetry: () => context.read<CourseProvider>().loadTopRated(
+                preferences: context.read<PreferenceProvider>().preferences,
+              ),
             ),
             const SizedBox(height: Spacing.xl),
           ],
@@ -274,10 +275,9 @@ class _Section extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final width = MediaQuery.sizeOf(context).width;
     final cardWidth = (width - 48).clamp(278.0, 340.0).toDouble();
-    final railHeight = MediaQuery.textScalerOf(context)
-        .scale(178)
-        .clamp(178.0, 218.0)
-        .toDouble();
+    final railHeight = MediaQuery.textScalerOf(
+      context,
+    ).scale(178).clamp(178.0, 218.0).toDouble();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

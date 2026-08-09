@@ -105,7 +105,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
   final FirebaseAuth _auth;
 
   _DefaultFirebaseAuthService([FirebaseAuth? auth])
-      : _auth = auth ?? FirebaseAuth.instance;
+    : _auth = auth ?? FirebaseAuth.instance;
 
   @override
   String? get currentUserEmail => _auth.currentUser?.email;
@@ -144,10 +144,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
     } on FirebaseAuthException catch (e) {
       throw _mapFirebaseError(e);
     } catch (e) {
-      throw FirebaseAuthFailure(
-        FirebaseAuthFailureKind.other,
-        e.toString(),
-      );
+      throw FirebaseAuthFailure(FirebaseAuthFailureKind.other, e.toString());
     }
   }
 
@@ -187,10 +184,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
       throw _mapFirebaseError(e);
     } catch (e) {
       if (e is FirebaseAuthFailure) rethrow;
-      throw FirebaseAuthFailure(
-        FirebaseAuthFailureKind.other,
-        e.toString(),
-      );
+      throw FirebaseAuthFailure(FirebaseAuthFailureKind.other, e.toString());
     }
   }
 
@@ -281,10 +275,7 @@ class _DefaultFirebaseAuthService implements FirebaseAuthService {
     } on FirebaseAuthException catch (e) {
       throw _mapFirebaseError(e);
     } catch (e) {
-      throw FirebaseAuthFailure(
-        FirebaseAuthFailureKind.other,
-        e.toString(),
-      );
+      throw FirebaseAuthFailure(FirebaseAuthFailureKind.other, e.toString());
     }
   }
 

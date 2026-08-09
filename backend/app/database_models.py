@@ -14,6 +14,7 @@ from sqlalchemy import (
     Column,
     DateTime,
     ForeignKey,
+    Float,
     Integer,
     Numeric,
     String,
@@ -66,6 +67,10 @@ class User(db.Model):
 
     interests = relationship("UserInterest", backref="user",
                              cascade="all, delete-orphan")
+    preference = relationship("UserPreference", backref="user", uselist=False,
+                              cascade="all, delete-orphan")
+    interactions = relationship("UserInteraction", backref="user",
+                                cascade="all, delete-orphan")
     favorites = relationship("Favorite", backref="user",
                              cascade="all, delete-orphan")
     history = relationship("History", backref="user",
@@ -110,6 +115,39 @@ class UserInterest(db.Model):
     __table_args__ = (
         UniqueConstraint("user_id", "interest", name="uq_user_interest"),
     )
+
+
+class UserPreference(db.Model):
+    """Structured preferences collected during first-launch onboarding."""
+
+    __tablename__ = "user_preferences"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, unique=True, index=True)
+    preferred_subjects = Column(Text, nullable=False, default="[]")
+    preferred_skills = Column(Text, nullable=False, default="[]")
+    preferred_level = Column(String(80), nullable=False, default="")
+    preferred_course_type = Column(String(100), nullable=False, default="")
+    preferred_certificate_type = Column(String(100), nullable=False, default="")
+    preferred_provider = Column(String(120), nullable=False, default="EduCompass")
+    preferred_organization = Column(String(120), nullable=False, default="EduCompass")
+    price_preference = Column(String(32), nullable=False, default="")
+    updated_at = Column(DateTime, nullable=False, default=_utcnow, onupdate=_utcnow)
+
+
+class UserInteraction(db.Model):
+    """Implicit/explicit learner signals used by the hybrid reranker."""
+
+    __tablename__ = "user_interactions"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
+                     nullable=False, index=True)
+    course_id = Column(String(64), nullable=False, index=True)
+    interaction_type = Column(String(30), nullable=False, index=True)
+    weight = Column(Float, nullable=False, default=1.0)
+    created_at = Column(DateTime, nullable=False, default=_utcnow, index=True)
 
 
 class Favorite(db.Model):

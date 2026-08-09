@@ -4,11 +4,13 @@ The actual adapter lives in `backend/model_loader.py`. This module only
 re-exposes its public names and provides route-friendly helpers
 (``extract_features``, ``bounded_int``).
 
-The new flat layout treats the v2 joblib artifacts as the source of truth —
+The current deployment layout treats the lightweight v4 bundle as the source of truth —
 no package-relative imports, no leftover ``app/`` prefix.
 """
 
 from __future__ import annotations
+
+import os
 
 from .model_loader import (
     BundleMeta,

@@ -10,6 +10,7 @@ import 'navigation.dart';
 import 'screens/auth_wrapper.dart';
 import 'screens/course_details_screen.dart';
 import 'screens/learning_path_detail_screen.dart';
+import 'screens/onboarding_screen.dart';
 import 'screens/shell_screen.dart';
 import 'services/deep_link_service.dart';
 import 'theme.dart';
@@ -29,6 +30,9 @@ Widget wrapWithProviders(BuildContext context, Widget child) {
       ChangeNotifierProvider<AuthProvider>.value(value: auth),
       ChangeNotifierProvider<CourseProvider>.value(value: courses),
       ChangeNotifierProvider<UserProvider>.value(value: user),
+      ChangeNotifierProvider<PreferenceProvider>.value(
+        value: context.read<PreferenceProvider>(),
+      ),
       ChangeNotifierProvider<EnrollmentProvider>.value(
         value: context.read<EnrollmentProvider>(),
       ),
@@ -69,6 +73,7 @@ class EduCompassApp extends StatelessWidget {
         ChangeNotifierProvider.value(value: auth),
         ChangeNotifierProvider(create: (_) => CourseProvider(api)),
         ChangeNotifierProvider(create: (_) => UserProvider(api)),
+        ChangeNotifierProvider(create: (_) => PreferenceProvider(prefs)),
         ChangeNotifierProvider(create: (_) => EnrollmentProvider(prefs, api)),
         ChangeNotifierProvider(create: (_) => ThemeProvider(prefs)),
         // Expose the singleton DeepLinkService constructed in
@@ -87,7 +92,9 @@ class EduCompassApp extends StatelessWidget {
           // AuthWrapper subscribes to AuthProvider.user and swaps between
           // LoginScreen and ShellScreen. The JWT lives in SharedPreferences
           // so a cold restart lands back on the right screen.
-          home: const _EnrollmentRemoteSync(child: AuthWrapper()),
+          home: const _PreferenceGate(
+            child: _EnrollmentRemoteSync(child: AuthWrapper()),
+          ),
           routes: {
             // The "For you" tab lives inside the bottom-nav shell, so
             // routing to it from a screen outside the shell (e.g. the
@@ -107,10 +114,7 @@ class EduCompassApp extends StatelessWidget {
               // back to Home without crashing.
               return wrapWithProviders(
                 ctx,
-                ShellScreen(
-                  initialTabIndex: 1,
-                  initialQuery: initialQuery,
-                ),
+                ShellScreen(initialTabIndex: 1, initialQuery: initialQuery),
               );
             },
             AppRoutes.courseDetails: (ctx) {
@@ -130,6 +134,24 @@ class EduCompassApp extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+
+/// First-install gate. The existing authentication and shell architecture is
+/// untouched; this simply asks learning preferences once before handing the
+/// user to [AuthWrapper]. Preferences are saved locally and work for guests.
+class _PreferenceGate extends StatelessWidget {
+  const _PreferenceGate({required this.child});
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final preferences = context.watch<PreferenceProvider>();
+    if (!preferences.onboardingDone) {
+      return const OnboardingScreen();
+    }
+    return child;
   }
 }
 

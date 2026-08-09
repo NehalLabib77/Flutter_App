@@ -48,9 +48,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
       if (!mounted) return;
       if (!_initialLoaded) {
         _initialLoaded = true;
-        if (context.read<AuthProvider>().isLoggedIn) {
-          context.read<UserProvider>().loadPersonalized();
-        }
+        _loadPersonalized();
       }
       // If we were launched with a prefilled query (e.g. from the
       // home-screen search bar) fire the goal search automatically so
@@ -88,10 +86,16 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
     }
   }
 
-  Future<void> _refreshPersonalized() async {
-    if (!context.read<AuthProvider>().isLoggedIn) return;
-    await context.read<UserProvider>().loadPersonalized();
+  Future<void> _loadPersonalized() async {
+    final auth = context.read<AuthProvider>();
+    final preferences = context.read<PreferenceProvider>().preferences;
+    await context.read<UserProvider>().loadPersonalized(
+      preferences: preferences,
+      authenticated: auth.isLoggedIn,
+    );
   }
+
+  Future<void> _refreshPersonalized() => _loadPersonalized();
 
   @override
   Widget build(BuildContext context) {
@@ -101,12 +105,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
         onRefresh: _refreshPersonalized,
         child: ListView(
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          padding: const EdgeInsets.fromLTRB(
-            0,
-            Spacing.sm,
-            0,
-            Spacing.xl,
-          ),
+          padding: const EdgeInsets.fromLTRB(0, Spacing.sm, 0, Spacing.xl),
           children: [
             const Padding(
               padding: EdgeInsets.fromLTRB(
@@ -172,7 +171,7 @@ class _RecommendationsScreenState extends State<RecommendationsScreen> {
             const SectionHeader(
               icon: Icons.recommend_rounded,
               title: 'Picks for you',
-              subtitle: 'Driven by your interests and favourites',
+              subtitle: 'Preferences first, then refined by your activity',
             ),
             const SizedBox(height: Spacing.sm),
             const Padding(
@@ -332,7 +331,7 @@ class _IntroLine extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Text(
-      'Describe a goal or let your favourites drive the picks.',
+      'Your saved preferences start the ranking; activity makes it smarter.',
       maxLines: 2,
       overflow: TextOverflow.ellipsis,
       style: theme.textTheme.bodySmall?.copyWith(
@@ -347,15 +346,6 @@ class _PersonalizedList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final auth = context.watch<AuthProvider>();
-    if (!auth.isLoggedIn) {
-      return const EmptyState(
-        icon: Icons.person_outline_rounded,
-        message: 'Sign in to receive personalised picks from your interests '
-            'and favourites.',
-      );
-    }
-
     final user = context.watch<UserProvider>();
     if (user.loadingPersonalized && user.personalized.isEmpty) {
       return const Padding(
@@ -368,12 +358,19 @@ class _PersonalizedList extends StatelessWidget {
       if (error != null) {
         return _ErrorBanner(
           message: error,
-          onRetry: () => context.read<UserProvider>().loadPersonalized(),
+          onRetry: () {
+            final auth = context.read<AuthProvider>();
+            final preferences = context.read<PreferenceProvider>().preferences;
+            context.read<UserProvider>().loadPersonalized(
+              preferences: preferences,
+              authenticated: auth.isLoggedIn,
+            );
+          },
         );
       }
       return const EmptyState(
         icon: Icons.tips_and_updates_outlined,
-        message: 'Add favourites or set a goal to unlock personalised picks.',
+        message: 'Choose learning preferences or set a goal to improve these picks.',
       );
     }
     return Column(

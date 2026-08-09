@@ -117,7 +117,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     if (typed == null || typed.toLowerCase() != user.email.toLowerCase()) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Email did not match. Account not deleted.')),
+        const SnackBar(
+          content: Text('Email did not match. Account not deleted.'),
+        ),
       );
       return;
     }
@@ -129,8 +131,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       await auth.deleteAccount();
     } on ApiException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(e.message)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(e.message)));
       setState(() => _deletingAccount = false);
     }
     // No `finally` — on success the screen is about to be unmounted
@@ -230,10 +233,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: Spacing.md),
           const _InfoCard(),
           const SizedBox(height: Spacing.md),
-          _AccountActionCard(
-            busy: _loggingOut,
-            onSignOut: _logout,
-          ),
+          _AccountActionCard(busy: _loggingOut, onSignOut: _logout),
           const SizedBox(height: Spacing.md),
           _DangerZoneCard(
             busy: _deletingAccount,

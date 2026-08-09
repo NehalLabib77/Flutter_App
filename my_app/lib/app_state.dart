@@ -151,6 +151,57 @@ class AuthProvider extends ChangeNotifier {
   }
 }
 
+
+/// First-launch learning preferences. These are device-local so guest users
+/// immediately receive preference-aware recommendations; after sign-in the
+/// same profile is mirrored to Flask by [UserProvider.loadPersonalized].
+class PreferenceProvider extends ChangeNotifier {
+  static const _doneKey = 'learning_preferences_onboarding_v2';
+  static const _subjectsKey = 'learning_preferences_subjects';
+  static const _skillsKey = 'learning_preferences_skills';
+  static const _levelKey = 'learning_preferences_level';
+  static const _courseTypeKey = 'learning_preferences_course_type';
+  static const _certificateKey = 'learning_preferences_certificate_type';
+  static const _priceKey = 'learning_preferences_price';
+
+  final SharedPreferences _prefs;
+  bool _onboardingDone;
+  LearningPreferences _preferences;
+
+  PreferenceProvider(this._prefs)
+    : _onboardingDone = _prefs.getBool(_doneKey) ?? false,
+      _preferences = LearningPreferences(
+        subjects: _prefs.getStringList(_subjectsKey) ?? const [],
+        skills: _prefs.getStringList(_skillsKey) ?? const [],
+        level: _prefs.getString(_levelKey) ?? '',
+        courseType: _prefs.getString(_courseTypeKey) ?? '',
+        certificateType: _prefs.getString(_certificateKey) ?? '',
+        pricePreference: _prefs.getString(_priceKey) ?? '',
+      );
+
+  bool get onboardingDone => _onboardingDone;
+  LearningPreferences get preferences => _preferences;
+
+  Future<void> complete(LearningPreferences preferences) async {
+    _preferences = preferences;
+    _onboardingDone = true;
+    await Future.wait([
+      _prefs.setBool(_doneKey, true),
+      _prefs.setStringList(_subjectsKey, preferences.subjects),
+      _prefs.setStringList(_skillsKey, preferences.skills),
+      _prefs.setString(_levelKey, preferences.level),
+      _prefs.setString(_courseTypeKey, preferences.courseType),
+      _prefs.setString(_certificateKey, preferences.certificateType),
+      _prefs.setString(_priceKey, preferences.pricePreference),
+    ]);
+    notifyListeners();
+  }
+
+  /// Finishes onboarding without forcing a choice. Ranking then falls back
+  /// to quality/popularity until the user supplies preferences or behavior.
+  Future<void> skip() => complete(const LearningPreferences());
+}
+
 /// Owns browse/search state and the in-memory cache of recent queries.
 class CourseProvider extends ChangeNotifier {
   final ApiClient _api;
@@ -171,12 +222,12 @@ class CourseProvider extends ChangeNotifier {
   String? get popularError => _popularError;
   String? get topRatedError => _topRatedError;
 
-  Future<void> loadPopular() async {
+  Future<void> loadPopular({LearningPreferences? preferences}) async {
     _loadingPopular = true;
     _popularError = null;
     notifyListeners();
     try {
-      _popular = await _api.popularCourses();
+      _popular = await _api.popularCourses(preferences: preferences);
     } on ApiException catch (e) {
       _popularError = e.message;
     } catch (e) {
@@ -187,12 +238,12 @@ class CourseProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadTopRated() async {
+  Future<void> loadTopRated({LearningPreferences? preferences}) async {
     _loadingTopRated = true;
     _topRatedError = null;
     notifyListeners();
     try {
-      _topRated = await _api.topRatedCourses();
+      _topRated = await _api.topRatedCourses(preferences: preferences);
     } on ApiException catch (e) {
       _topRatedError = e.message;
     } catch (e) {
@@ -291,14 +342,33 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> loadPersonalized() async {
+  Future<void> loadPersonalized({
+    required LearningPreferences preferences,
+    required bool authenticated,
+  }) async {
     _loadingPersonalized = true;
     _personalizedError = null;
     notifyListeners();
     try {
-      _personalized = await _api.recommendPersonalized();
+      if (authenticated) {
+        // Save the first-launch profile server-side for cross-device use.
+        // Recommendation still sends the same profile in this request so a
+        // transient preference-save issue never blocks the results.
+        if (!preferences.isEmpty) {
+          try {
+            await _api.savePreferences(preferences);
+          } catch (_) {}
+        }
+        _personalized = await _api.recommendPersonalized(
+          preferences: preferences,
+        );
+      } else {
+        _personalized = await _api.recommendByPreferences(preferences);
+      }
     } on ApiException catch (e) {
-      _personalizedError = _authenticatedErrorMessage(e);
+      _personalizedError = authenticated
+          ? _authenticatedErrorMessage(e)
+          : e.message;
     } catch (e) {
       _personalizedError = _api.describeNetworkError(e);
     } finally {
@@ -307,6 +377,13 @@ class UserProvider extends ChangeNotifier {
     }
   }
 
+  Future<void> recordInteraction(String courseId, String type) async {
+    try {
+      await _api.recordInteraction(courseId, type);
+    } catch (_) {
+      // Behavioral telemetry should never stop course browsing.
+    }
+  }
 
   String _authenticatedErrorMessage(ApiException error) {
     if (error.code == 'EMAIL_NOT_VERIFIED') {

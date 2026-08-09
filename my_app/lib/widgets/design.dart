@@ -847,10 +847,7 @@ class Pill extends StatelessWidget {
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.14),
           borderRadius: BorderRadius.circular(Radii.sm),
-          border: Border.all(
-            color: accent.withValues(alpha: 0.16),
-            width: 1,
-          ),
+          border: Border.all(color: accent.withValues(alpha: 0.16), width: 1),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,

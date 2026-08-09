@@ -50,9 +50,9 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       );
     } on ApiException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.message)),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (_) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -75,11 +75,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
       body: RefreshIndicator(
         onRefresh: () async => context.read<UserProvider>().loadFavorites(),
         child: user.favorites.isEmpty
-            ? _empty(
-                theme,
-                user.loadingFavorites,
-                user.favoritesError,
-              )
+            ? _empty(theme, user.loadingFavorites, user.favoritesError)
             : ListView.separated(
                 padding: const EdgeInsets.fromLTRB(
                   Spacing.md,
@@ -133,11 +129,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
     );
   }
 
-  Widget _empty(
-    ThemeData theme,
-    bool loading,
-    String? error,
-  ) {
+  Widget _empty(ThemeData theme, bool loading, String? error) {
     if (loading) {
       return const Center(child: CircularProgressIndicator());
     }

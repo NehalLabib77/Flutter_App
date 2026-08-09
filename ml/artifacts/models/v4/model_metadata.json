@@ -1,19 +1,33 @@
 {
-  "model_name": "EduCompass TF-IDF Course Recommender (v4 strict-AND)",
-  "model_type": "Content-based NLP recommendation system",
+  "model_name": "EduCompass TF-IDF + Hybrid Ranking v4",
+  "model_type": "Content vectors with preference/behavior hybrid reranking",
   "model_version": "v4",
-  "subset_size": 3107,
-  "number_of_courses": 3107,
+  "number_of_courses": 3124,
   "number_of_features": 20000,
-  "vectorizer": "TfidfVectorizer",
-  "ngram_range": [
-    1,
-    2
-  ],
-  "max_features": 20000,
-  "filter_policy": "strict_AND: valid course_url AND valid image_url",
-  "recommendation_methods": [
-    "Natural-language query recommendation",
-    "Similar-course recommendation"
+  "training_source": "data/processed/educompass_courses.csv",
+  "provider": "EduCompass",
+  "organization": "EduCompass",
+  "course_schema_columns": [
+    "course_id",
+    "course_name",
+    "description",
+    "skills",
+    "subject",
+    "level",
+    "organization",
+    "provider",
+    "rating",
+    "reviews_count",
+    "students_enrolled",
+    "lectures_count",
+    "duration",
+    "instructor",
+    "price",
+    "language",
+    "image_url",
+    "url",
+    "certificate_type",
+    "course_type",
+    "source_file"
   ]
 }

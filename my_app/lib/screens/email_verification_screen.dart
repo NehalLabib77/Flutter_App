@@ -48,7 +48,8 @@ class EmailVerificationScreen extends StatefulWidget {
   final Duration pollInterval;
 
   @override
-  State<EmailVerificationScreen> createState() => _EmailVerificationScreenState();
+  State<EmailVerificationScreen> createState() =>
+      _EmailVerificationScreenState();
 }
 
 class _EmailVerificationScreenState extends State<EmailVerificationScreen>
@@ -142,9 +143,7 @@ class _EmailVerificationScreenState extends State<EmailVerificationScreen>
       if (triggeredByResume) {
         // Only nag on a user-initiated resume; the periodic poll
         // should stay silent so we don't spam SnackBars.
-        _showSnack(
-          'Still waiting — tap the link in the verification email.',
-        );
+        _showSnack('Still waiting — tap the link in the verification email.');
       }
     } on FirebaseAuthFailure catch (e) {
       if (!mounted || _navigated) return;

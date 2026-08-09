@@ -211,7 +211,7 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
       final message = widget.isCourseFree
           ? 'Provider information is temporarily unavailable.'
           : 'Payment gateway is unreachable (${error.message}). '
-              'Please try again.';
+                'Please try again.';
 
       setState(() {
         // A failed provider request must never be interpreted as a free
@@ -495,9 +495,9 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
               transactionId: polled?.transactionId.isNotEmpty == true
                   ? polled!.transactionId
                   : session.transactionId,
-                  status: 'unknown',
-                  sourceUri: Uri.parse('educompass://payment/return'),
-                ),
+              status: 'unknown',
+              sourceUri: Uri.parse('educompass://payment/return'),
+            ),
           );
           markHandled();
         }());
@@ -550,8 +550,8 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
       if (verified.isFailure) {
         _finishWithFailure(
           transactionId: transactionId,
-          method: verified.paymentMethod ??
-              BillingConfig.sslcommerzProviderName,
+          method:
+              verified.paymentMethod ?? BillingConfig.sslcommerzProviderName,
           message: verified.normalizedStatus == 'CANCELLED'
               ? 'Payment was cancelled at the gateway.'
               : 'Gateway declined the payment.',
@@ -873,10 +873,10 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                       free
                           ? 'No payment is required for this course.'
                           : _providerLoading
-                              ? 'Checking the payment gateway configuration…'
-                              : unavailable
-                                  ? 'The payment gateway is currently unavailable.'
-                                  : 'You will be redirected to SSLCOMMERZ to complete payment.',
+                          ? 'Checking the payment gateway configuration…'
+                          : unavailable
+                          ? 'The payment gateway is currently unavailable.'
+                          : 'You will be redirected to SSLCOMMERZ to complete payment.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -893,10 +893,10 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                               free
                                   ? Icons.workspace_premium_rounded
                                   : unavailable
-                                      ? Icons.cloud_off_rounded
-                                      : _providerLoading
-                                          ? Icons.sync_rounded
-                                          : Icons.lock_outline_rounded,
+                                  ? Icons.cloud_off_rounded
+                                  : _providerLoading
+                                  ? Icons.sync_rounded
+                                  : Icons.lock_outline_rounded,
                               color: scheme.primary,
                             ),
                             ConstrainedBox(
@@ -907,10 +907,10 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                                 free
                                     ? 'Free enrollment'
                                     : unavailable
-                                        ? 'Payment unavailable'
-                                        : _providerLoading
-                                            ? 'Checking gateway'
-                                            : 'Pay with SSLCOMMERZ',
+                                    ? 'Payment unavailable'
+                                    : _providerLoading
+                                    ? 'Checking gateway'
+                                    : 'Pay with SSLCOMMERZ',
                                 key: free
                                     ? const Key('free_enrollment_label')
                                     : null,
@@ -921,7 +921,9 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                                 ),
                               ),
                             ),
-                            if (!free && !unavailable && _providerSandbox == true)
+                            if (!free &&
+                                !unavailable &&
+                                _providerSandbox == true)
                               Pill(
                                 text: 'SANDBOX',
                                 icon: Icons.science_outlined,
@@ -944,8 +946,8 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                       free
                           ? 'Confirm enrollment'
                           : unavailable
-                              ? 'Gateway connection'
-                              : 'Checkout',
+                          ? 'Gateway connection'
+                          : 'Checkout',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -955,10 +957,10 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                       free
                           ? 'You can enrol in this course without paying. The backend will record your enrollment immediately.'
                           : unavailable
-                              ? 'Retry the gateway check. Paid enrollment remains blocked until the server confirms SSLCOMMERZ is available.'
-                              : _providerLoading
-                                  ? 'Please wait while EduCompass checks the payment gateway.'
-                                  : 'Tap the button below to open the secure SSLCOMMERZ checkout in your browser. After paying, you will return to the app.',
+                          ? 'Retry the gateway check. Paid enrollment remains blocked until the server confirms SSLCOMMERZ is available.'
+                          : _providerLoading
+                          ? 'Please wait while EduCompass checks the payment gateway.'
+                          : 'Tap the button below to open the secure SSLCOMMERZ checkout in your browser. After paying, you will return to the app.',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,
                       ),
@@ -967,45 +969,47 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                     SizedBox(
                       width: double.infinity,
                       child: FilledButton.icon(
-                      key: free
-                          ? const Key('free_enrollment_cta')
-                          : const Key('payment_primary_cta'),
-                      onPressed: _busy || _providerLoading
-                          ? null
-                          : free
-                              ? _freeEnrol
+                        key: free
+                            ? const Key('free_enrollment_cta')
+                            : const Key('payment_primary_cta'),
+                        onPressed: _busy || _providerLoading
+                            ? null
+                            : free
+                            ? _freeEnrol
+                            : unavailable
+                            ? _refreshProviderInfo
+                            : _startCheckout,
+                        icon: _busy || _providerLoading
+                            ? const SizedBox(
+                                height: 18,
+                                width: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : Icon(
+                                free
+                                    ? Icons.check_circle_outline_rounded
+                                    : unavailable
+                                    ? Icons.refresh_rounded
+                                    : Icons.open_in_new_rounded,
+                              ),
+                        label: Text(
+                          free
+                              ? 'Enrol for free'
+                              : _providerLoading
+                              ? 'Checking gateway…'
                               : unavailable
-                                  ? _refreshProviderInfo
-                                  : _startCheckout,
-                      icon: _busy || _providerLoading
-                          ? const SizedBox(
-                              height: 18,
-                              width: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : Icon(
-                              free
-                                  ? Icons.check_circle_outline_rounded
-                                  : unavailable
-                                      ? Icons.refresh_rounded
-                                      : Icons.open_in_new_rounded,
-                            ),
-                      label: Text(
-                        free
-                            ? 'Enrol for free'
-                            : _providerLoading
-                                ? 'Checking gateway…'
-                                : unavailable
-                                    ? 'Retry gateway'
-                                    : _busy
-                                        ? 'Opening gateway…'
-                                        : _displayAmount == null
-                                            ? 'Continue to SSLCOMMERZ'
-                                            : 'Pay $_formattedAmount',
-                        key: _busy && !free
-                            ? const Key('payment_loading_label')
-                            : null,
-                      ),
+                              ? 'Retry gateway'
+                              : _busy
+                              ? 'Opening gateway…'
+                              : _displayAmount == null
+                              ? 'Continue to SSLCOMMERZ'
+                              : 'Pay $_formattedAmount',
+                          key: _busy && !free
+                              ? const Key('payment_loading_label')
+                              : null,
+                        ),
                       ),
                     ),
                   ],
@@ -1026,8 +1030,8 @@ class _MockPaymentScreenState extends State<MockPaymentScreen> {
                       free
                           ? 'Free courses do not call the gateway.'
                           : unavailable
-                              ? 'Paid enrollment cannot continue until the gateway check succeeds.'
-                              : 'Complete checkout in the secure SSLCOMMERZ page, then return to EduCompass.',
+                          ? 'Paid enrollment cannot continue until the gateway check succeeds.'
+                          : 'Complete checkout in the secure SSLCOMMERZ page, then return to EduCompass.',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: scheme.onSurfaceVariant,

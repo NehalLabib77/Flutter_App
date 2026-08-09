@@ -9,7 +9,7 @@ v4 differences from v3 (the tests below cover the new contract):
 * bundle ships a pre-built CSR matrix in ``tfidf_matrix.npz`` instead
   of having ``load_adapter`` call ``vectorizer.transform`` over the
   corpus at startup
-* ``courses.parquet`` no longer carries a ``deployment_text`` column
+* ``courses.csv.gz`` no longer carries a ``deployment_text`` column
 * matrix dtype/format/row-count invariants are enforced in the loader
 * vocab capped at 20 000 features
 """
@@ -46,7 +46,7 @@ def adapter() -> RecommendationModelAdapter:
 
 
 def test_v4_bundle_files_exist():
-    assert (V4_DIR / "courses.parquet").exists(), "courses.parquet missing"
+    assert (V4_DIR / "courses.csv.gz").exists(), "courses.csv.gz missing"
     assert (V4_DIR / "tfidf_vectorizer.joblib").exists(), \
         "tfidf_vectorizer.joblib missing"
     assert (V4_DIR / "tfidf_matrix.npz").exists(), "tfidf_matrix.npz missing"
@@ -74,22 +74,20 @@ def test_v4_artifact_under_100mb():
 
 
 def test_courses_df_no_deployment_text():
-    df = pd.read_parquet(V4_DIR / "courses.parquet", engine="pyarrow")
+    df = pd.read_csv(V4_DIR / "courses.csv.gz", low_memory=False)
     assert "course_id" in df.columns
     assert "deployment_text" not in df.columns, \
         "v4 must not ship deployment_text (memory cost removed)"
     assert len(df) > 0
 
 
-def test_courses_compact_dtypes():
-    """v4 trims parquet size via compact dtypes."""
-    df = pd.read_parquet(V4_DIR / "courses.parquet", engine="pyarrow")
-    assert df["course_id"].dtype.kind in "iu", \
-        f"course_id should be int, got {df['course_id'].dtype}"
+def test_courses_compact_dtypes(adapter):
+    """Runtime loader downcasts numeric/categorical columns after CSV load."""
+    df = adapter.courses_df
     if "rating" in df.columns:
-        # If the column survived pruning, it must be float-compact.
-        assert df["rating"].dtype == np.float32, \
-            f"rating dtype should be float32, got {df['rating'].dtype}"
+        assert df["rating"].dtype == np.float32
+    if "subject" in df.columns:
+        assert str(df["subject"].dtype) == "category"
 
 
 # ---------------------------------------------------------------------------
@@ -114,7 +112,7 @@ def test_matrix_is_sparse_float32_csr(adapter):
 
 def test_matrix_shape_matches_corpus(adapter):
     assert adapter.tfidf_matrix.shape[0] == len(adapter.courses_df), \
-        "matrix row count must equal courses.parquet row count"
+        "matrix row count must equal courses.csv.gz row count"
 
 
 def test_vocabulary_size_capped_at_20k(adapter):
@@ -218,7 +216,7 @@ def test_missing_courses_file_raises_clear_error(tmp_path):
 
 def test_missing_vectorizer_raises_clear_error(tmp_path):
     df = pd.DataFrame({"course_id": [1]})
-    df.to_parquet(tmp_path / "courses.parquet", engine="pyarrow", index=False)
+    df.to_csv(tmp_path / "courses.csv.gz", index=False, compression="gzip")
     from scipy.sparse import csr_matrix, save_npz
     save_npz(tmp_path / "tfidf_matrix.npz",
              csr_matrix(np.zeros((1, 1), dtype=np.float32)),
@@ -230,7 +228,7 @@ def test_missing_vectorizer_raises_clear_error(tmp_path):
 
 def test_missing_matrix_raises_clear_error(tmp_path):
     df = pd.DataFrame({"course_id": [1]})
-    df.to_parquet(tmp_path / "courses.parquet", engine="pyarrow", index=False)
+    df.to_csv(tmp_path / "courses.csv.gz", index=False, compression="gzip")
     joblib.dump(object(), tmp_path / "tfidf_vectorizer.joblib")
     with pytest.raises(ModelLoadError) as exc:
         load_adapter(model_dir=tmp_path)
@@ -240,7 +238,7 @@ def test_missing_matrix_raises_clear_error(tmp_path):
 def test_courses_rowcount_mismatch_raises_clear_error(tmp_path):
     """If courses has 1 row but matrix has 2, the loader must reject."""
     df = pd.DataFrame({"course_id": [1]})
-    df.to_parquet(tmp_path / "courses.parquet", engine="pyarrow", index=False)
+    df.to_csv(tmp_path / "courses.csv.gz", index=False, compression="gzip")
     joblib.dump(object(), tmp_path / "tfidf_vectorizer.joblib")
     from scipy.sparse import csr_matrix, save_npz
     save_npz(tmp_path / "tfidf_matrix.npz",
