@@ -348,10 +348,10 @@ def register():
             if isinstance(exc, fb_auth.EmailAlreadyExistsError):
                 return json_error("Email already registered.",
                                   status=409, code="EMAIL_TAKEN")
-            if isinstance(exc, fb_auth.InvalidPasswordError):
+            if isinstance(exc, fb_auth.InvalidPasswordError): # type: ignore
                 return json_error("Password must be at least 8 characters.",
                                   code="WEAK_PASSWORD")
-            if isinstance(exc, fb_auth.InvalidEmailError):
+            if isinstance(exc, fb_auth.InvalidEmailError): # type: ignore
                 return json_error("A valid email is required.",
                                   code="INVALID_EMAIL")
         except ImportError:
@@ -385,11 +385,11 @@ def register():
         user.password_hash = generate_password_hash(os.urandom(32).hex())
     else:
         user = User(
-            email=email,
-            full_name=full_name,
-            phone_number=None,
-            phone_verified=False,
-            firebase_uid=uid,
+            email=email, # type: ignore
+            full_name=full_name, # type: ignore
+            phone_number=None, # type: ignore
+            phone_verified=False, # type: ignore
+            firebase_uid=uid, # type: ignore
         )
         user.password_hash = generate_password_hash(
             os.urandom(32).hex()
@@ -433,7 +433,7 @@ def delete_account():
     # 1. Remove the Firebase identity first. If this fails, keep the current
     #    SQL/session state intact so the two identity stores cannot drift.
     auth = firebase_client.auth_client()
-    if auth is not None and uid:
+    if auth is not None and uid: # type: ignore
         try:
             auth.delete_user(uid)
         except Exception as exc:  # noqa: BLE001
@@ -824,7 +824,7 @@ def interactions_add():
     adapter = current_app.extensions.get("educompass_model")
     if adapter is not None and adapter.get_course(course_id) is None:
         return json_error("Course not found.", status=404, code="COURSE_NOT_FOUND")
-    record_interaction(user.id, course_id, kind, commit=True)
+    record_interaction(user.id, course_id, kind, commit=True) # type: ignore
     return json_ok(
         {"course_id": course_id, "interaction_type": kind,
          "weight": INTERACTION_WEIGHTS[kind]},

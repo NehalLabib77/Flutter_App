@@ -58,10 +58,7 @@ class ApiConfig {
       url = url.substring(0, url.length - 4);
     }
 
-    // Make sure the scheme is present and is http(s). `10.0.2.2`
-    // without a scheme used to silently fall back to plain http on
-    // some platforms — force https for any host that doesn't start
-    // with one.
+
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
       url = 'https://$url';
     }

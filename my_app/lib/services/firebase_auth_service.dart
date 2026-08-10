@@ -1,16 +1,4 @@
-/// Thin wrapper around `package:firebase_auth/firebase_auth.dart` for
-/// the email-link verification flow.
-///
-/// The EduCompass backend already verifies passwords and issues its own
-/// JWT — but Firebase is the source of truth for whether the user's
-/// email address is verified. This service exposes only the operations
-/// the auth screens need: register, login (with a verified-only gate),
-/// reload the cached user, send / resend the verification email, and
-/// sign out.
-///
-/// All methods that talk to Firebase surface a typed [FirebaseAuthFailure]
-/// so the UI can render a localised message without re-importing
-/// `package:firebase_auth`.
+
 library;
 
 import 'package:firebase_auth/firebase_auth.dart';

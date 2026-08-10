@@ -8,12 +8,6 @@ import 'package:url_launcher/url_launcher.dart';
 
 import 'models.dart';
 
-/// Compact, square-ish course thumbnail with an enhanced fallback.
-///
-/// - When the remote image loads: clipped, cover-fit.
-/// - When missing or loading: an enriched placeholder showing a subtle
-///   diagonal gradient + the provider's initials + a small book icon, so the
-///   tile still reads as a course card even without a network image.
 class CourseThumbnail extends StatelessWidget {
   const CourseThumbnail({
     super.key,
@@ -289,13 +283,7 @@ class _EnhancedPlaceholder extends StatelessWidget {
   }
 }
 
-/// Open a course URL in the platform browser. Surfaces an error snackbar
-/// when launching fails so the user is never silently dropped.
-///
-/// Only `http://` and `https://` URLs are accepted. Anything else
-/// (`javascript:`, `file:`, `data:`, `intent:`, raw schemes, malformed
-/// strings) is rejected so a malicious course row cannot smuggle a
-/// browser-injection or file-handler payload through the API.
+
 Future<void> openCourseUrl(BuildContext context, String url) async {
   final messenger = ScaffoldMessenger.of(context);
   final uri = Uri.tryParse(url.trim());

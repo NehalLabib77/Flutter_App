@@ -13,14 +13,7 @@ Future<void> main() async {
   // Required before any plugin (Firebase / shared_preferences) call.
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase so MockPaymentService can reach FirebaseFirestore
-  // and FirebaseAuth when a course is selected. Must happen before runApp.
-  //
-  // Wrapped in a try/catch so the app still boots if Firebase has not been
-  // configured for this build (e.g. placeholder API keys in
-  // firebase_options.dart). `Firebase.apps.isEmpty` is then false once we
-  // exit, and `MockPaymentService` will report a clear error per call
-  // instead of crashing the whole UI tree on first provider creation.
+
   try {
     if (Firebase.apps.isEmpty) {
       await Firebase.initializeApp(
@@ -40,10 +33,7 @@ Future<void> main() async {
   // flag so AuthWrapper can pick the right screen on the first build.
   await auth.bootstrap();
 
-  // Start the deep-link listener so an `educompass://verify-email?oobCode=...`
-  // click from the verification email bounces back into the app and
-  // auto-applies the action code. AuthWrapper also reads the cold-start
-  // URI synchronously via the installed reader below.
+
   final deepLinks = DeepLinkService();
   await deepLinks.start();
   AuthWrapper.installColdStartReader(deepLinks.consumeInitialVerificationCode);
