@@ -1,21 +1,4 @@
-/// Centralized API configuration.
-///
-/// Every HTTP call in the app goes through [ApiClient] in
-/// `lib/api_client.dart`, which reads [ApiConfig.baseUrl] from this file.
-/// Keeping the configuration in one place makes it impossible for the
-/// app to accidentally call `localhost`, `10.0.2.2`, or two different
-/// Render URLs from different screens.
-///
-/// ---------------------------------------------------------------------------
-/// Production / staging / dev override
-/// ---------------------------------------------------------------------------
-///
-/// Override the host at build time without touching source:
-///
-///   flutter run --dart-define=API_BASE_URL=https://my-other-host.example.com
-///
-/// Anything else (timeouts, headers, debug logging) is exposed as a
-/// public field and can be overridden in tests by passing a custom
+
 /// [ApiClient].
 library;
 
@@ -24,22 +7,13 @@ import 'package:flutter/foundation.dart';
 class ApiConfig {
   ApiConfig._();
 
-  /// The bare backend host. The HTTP client always appends `/api/v1`
-  /// (or `/api` for the health probe), so this string MUST NOT contain
-  /// a trailing `/`, must NOT contain `/api/v1`, and MUST start with
-  /// `http://` or `https://`.
-  ///
-  /// The placeholder below is the Render host you configured; replace
-  /// it with your actual service URL before shipping a release build.
+
   static const String _productionBaseUrl = String.fromEnvironment(
     'API_BASE_URL',
     defaultValue: 'https://educompass-api.onrender.com',
   );
 
-  /// Effective base URL used by [ApiClient].
-  ///
-  /// We always strip a trailing `/` so joining paths with `$baseUrl/api/v1`
-  /// never accidentally produces `https://.../api/v1`.
+
   static String get baseUrl => _sanitize(_productionBaseUrl);
 
   /// Whether debug logging of full URLs, status codes and response

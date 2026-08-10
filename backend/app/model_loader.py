@@ -90,10 +90,7 @@ _COURSE_FIELDS: tuple[str, ...] = (
     "source_file",
 )
 
-# Fields returned on list endpoints (search, popular, top-rated,
-# recommendations, similar, favourites). The full ``course_row_to_dict``
-# payload is only used on the detail endpoint, where the client has
-# explicitly asked for everything.
+
 _SLIM_LIST_FIELDS: tuple[str, ...] = (
     "course_id", "course_name", "image_url", "url", "rating",
     "reviews_count", "students_enrolled", "level", "subject",
@@ -101,17 +98,12 @@ _SLIM_LIST_FIELDS: tuple[str, ...] = (
     "popularity_score",
 )
 
-# Categorical columns (low-cardinality) that benefit from
-# ``pd.Categorical`` storage. A 24k-row frame with object dtype for
-# these fields bloats RSS by 10–30 MB.
 _CATEGORICAL_FIELDS: tuple[str, ...] = (
     "subject", "level", "provider", "organization", "language",
     "certificate_type", "course_type",
 )
 
-# Numeric columns that should be downcast to 32-bit dtypes. ``float64``
-# is the default pandas rehydrates from Parquet, but the schema never
-# needs that precision for course metadata.
+
 _FLOAT32_FIELDS: tuple[str, ...] = (
     "rating", "popularity_score", "data_quality_score",
 )

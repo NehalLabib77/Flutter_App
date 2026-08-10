@@ -1,11 +1,3 @@
-/// Single HTTP client used by every provider in the app.
-///
-/// Wraps every Flask endpoint, injects the JWT bearer token, maps
-/// errors to [ApiException], and applies a global timeout.
-///
-/// The base URL is read from `lib/config/api_config.dart`. Override at
-/// build time with
-///   --dart-define=API_BASE_URL=https://my-other-host.example.com
 library;
 
 import 'dart:async';
@@ -24,8 +16,7 @@ class ApiException implements Exception {
 
   const ApiException(this.statusCode, this.message, {this.code});
 
-  /// True when the failure was a network problem (DNS, socket, TLS)
-  /// rather than a server-side HTTP error.
+
   bool get isNetwork => statusCode == 0;
 
   @override
@@ -119,10 +110,6 @@ class ApiClient {
         return {'value': data};
       }
 
-      // Payment callbacks/provider routes intentionally return a plain
-      // JSON object so older clients and gateway tooling can consume
-      // them. Accept successful 2xx payloads that do not declare an
-      // explicit success flag.
       if (successFlag == null) {
         return body;
       }
@@ -132,11 +119,6 @@ class ApiClient {
     final code = (body['error_code'] ?? body['error'] ?? body['code'])
         ?.toString();
 
-    // A bearer token is issued only after the backend confirms email
-    // verification. Older backend deployments may still re-check Firebase on
-    // every request and can incorrectly return EMAIL_NOT_VERIFIED during a
-    // temporary Firebase Admin failure. Do not tell an already logged-in user
-    // to verify again; describe it as a session problem instead.
     if (code == 'EMAIL_NOT_VERIFIED' && _cachedBearer != null) {
       message =
           'Your signed-in session could not be confirmed. '
@@ -313,10 +295,7 @@ class ApiClient {
     }
   }
 
-  /// Human-readable hint for connection-level failures so screens
-  /// don't have to translate `SocketException` / `TimeoutException`
-  /// themselves. Includes the configured base URL so the developer
-  /// can confirm they're pointed at the right host.
+
   String describeNetworkError(Object error) {
     if (error is SocketException) {
       return 'Cannot reach the EduCompass server at $baseUrl. '
