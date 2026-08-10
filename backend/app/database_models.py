@@ -88,7 +88,7 @@ class User(db.Model):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password: str) -> bool:
-        return check_password_hash(self.password_hash, password)
+        return check_password_hash(self.password_hash, password) # type: ignore
 
     def to_dict(self) -> dict:
         return {
@@ -100,7 +100,7 @@ class User(db.Model):
             "phone_verified": self.phone_verified,
             "avatar_key": self.avatar_key,
             "interests": [i.interest for i in self.interests],
-            "created_at": self.created_at.isoformat() if self.created_at else None,
+            "created_at": self.created_at.isoformat() if self.created_at else None, # type: ignore
         }
 
 
@@ -171,7 +171,7 @@ class History(db.Model):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"),
                      nullable=False, index=True)
     course_id = Column(String(64), nullable=True, index=True)
-    query = Column(String(255), nullable=True)
+    query = Column(String(255), nullable=True) # type: ignore
     action = Column(String(64), nullable=False)
     created_at = Column(DateTime, nullable=False, default=_utcnow)
 
@@ -262,7 +262,7 @@ class Enrollment(db.Model):
             "payment_method": self.payment_method,
             "transaction_id": self.transaction_id,
             "payment_status": self.payment_status,
-            "enrolled_at": self.enrolled_at.isoformat() if self.enrolled_at else None,
+            "enrolled_at": self.enrolled_at.isoformat() if self.enrolled_at else None, # type: ignore
         }
 
 
@@ -311,7 +311,7 @@ class Payment(db.Model):
             "bank_transaction_id": self.bank_transaction_id,
             "risk_level": self.risk_level,
             "risk_title": self.risk_title,
-            "updated_at": self.updated_at.isoformat() if self.updated_at else None,
+            "updated_at": self.updated_at.isoformat() if self.updated_at else None, # type: ignore
         }
 
 

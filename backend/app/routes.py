@@ -472,21 +472,21 @@ def delete_account():
         synchronize_session=False
     )
 
-    user.firebase_uid = None
-    user.phone_number = None
-    user.phone_verified = False
-    user.avatar_key = "default"
+    user.firebase_uid = None # type: ignore
+    user.phone_number = None # type: ignore
+    user.phone_verified = False # type: ignore
+    user.avatar_key = "default" # type: ignore
     db.session.commit()
 
     # 3. Best-effort cleanup of the old Firestore profile. Firestore child
     #    enrollment documents are not trusted as the ownership source after
     #    deletion; preserved SQL enrollments repopulate My Courses on the next
     #    login through /me/enrollments.
-    if uid:
+    if uid: # type: ignore
         try:
             db_fs = firebase_client.firestore_client()
             if db_fs is not None:
-                db_fs.collection("users").document(uid).delete()
+                db_fs.collection("users").document(uid).delete() # type: ignore
         except Exception:  # noqa: BLE001
             log.exception("Firestore profile delete failed for uid=%s", uid)
 
@@ -569,11 +569,11 @@ def login():
         from werkzeug.security import generate_password_hash
         fb_user = firebase_client.get_auth_user_by_email(email)
         user = User(
-            email=email,
-            full_name=(fb_user.display_name if fb_user else "") or email,
-            phone_number=None,
-            phone_verified=False,
-            firebase_uid=uid,
+            email=email, # type: ignore
+            full_name=(fb_user.display_name if fb_user else "") or email, # type: ignore
+            phone_number=None, # type: ignore
+            phone_verified=False, # type: ignore
+            firebase_uid=uid, # type: ignore
         )
         user.password_hash = generate_password_hash(os.urandom(32).hex())
         db.session.add(user)
@@ -663,7 +663,7 @@ def send_verification():
     if firebase_client.is_email_verified(uid):
         return json_ok(None, message=(
             "This email is already verified."
-        ), code="ALREADY_VERIFIED")
+        ), code="ALREADY_VERIFIED")  # type: ignore
 
     try:
         firebase_client.send_verification_email(email)
@@ -723,14 +723,14 @@ def update_profile():
     data = body()
     name = (data.get("full_name") or "").strip()
     if name:
-        user.full_name = name
+        user.full_name = name # type: ignore
     interests = data.get("interests")
     if isinstance(interests, list):
         UserInterest.query.filter_by(user_id=user.id).delete()
         for slug in interests[:50]:
             clean = str(slug).strip().casefold()
             if clean:
-                db.session.add(UserInterest(user_id=user.id, interest=clean))
+                db.session.add(UserInterest(user_id=user.id, interest=clean)) # type: ignore
     db.session.commit()
     return json_ok(user.to_dict(), message="Profile updated.")
 
@@ -768,7 +768,7 @@ def preferences_get():
         UserPreference.query.filter_by(user_id=user.id).first() is not None
     )
     return json_ok({
-        "preferences": get_user_preferences(user.id),
+        "preferences": get_user_preferences(user.id), # type: ignore
         "configured": configured,
     })
 
@@ -782,13 +782,13 @@ def preferences_update():
         return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
     data = body()
     prefs = normalize_preferences(data.get("preferences", data))
-    prefs = upsert_user_preferences(user.id, prefs, commit=True)
+    prefs = upsert_user_preferences(user.id, prefs, commit=True) # type: ignore
     # Mirror subject/skill choices into the legacy interests table so old
     # recommendation/profile code continues to see useful interests.
     interests = list(dict.fromkeys(prefs["subjects"] + prefs["skills"]))[:50]
     UserInterest.query.filter_by(user_id=user.id).delete()
     for interest in interests:
-        db.session.add(UserInterest(user_id=user.id, interest=interest.casefold()))
+        db.session.add(UserInterest(user_id=user.id, interest=interest.casefold())) # type: ignore
     db.session.commit()
     return json_ok({"preferences": prefs}, message="Preferences saved.")
 
@@ -801,7 +801,7 @@ def interactions_list():
     if user is None:
         return json_error("Account not found.", status=404, code="USER_NOT_FOUND")
     limit = int_arg("limit", 100, max_value=500)
-    return json_ok({"interactions": get_recent_interactions(user.id, limit=limit)})
+    return json_ok({"interactions": get_recent_interactions(user.id, limit=limit)}) # type: ignore
 
 
 @bp.post("/interactions")
@@ -964,15 +964,15 @@ def recommendations_personalized():
     limit = int_body(data, "top_n", 10, max_value=50)
     incoming = normalize_preferences(data.get("preferences", {}))
     if not preferences_are_empty(incoming):
-        preferences = upsert_user_preferences(user.id, incoming, commit=True)
+        preferences = upsert_user_preferences(user.id, incoming, commit=True) # type: ignore
     else:
-        preferences = get_user_preferences(user.id)
+        preferences = get_user_preferences(user.id) # type: ignore
 
     interests = [str(i.interest) for i in user.interests if getattr(i, "interest", None)]
     favorites_ids = [str(f.course_id) for f in user.favorites]
     history_ids = [str(h.course_id) for h in user.history if h.course_id]
     enrolled_ids = [str(e.course_id) for e in user.enrollments]
-    interactions = get_recent_interactions(user.id, limit=300)
+    interactions = get_recent_interactions(user.id, limit=300) # type: ignore
     items = adapter.recommend_personalized(
         interests=interests,
         favorites_ids=favorites_ids,
@@ -1050,8 +1050,8 @@ def favorites_add():
                                       course_id=course_id).first()
     if exists:
         return json_ok(message="Already saved.")
-    db.session.add(Favorite(user_id=user.id, course_id=course_id))
-    record_interaction(user.id, course_id, "favorite", commit=False)
+    db.session.add(Favorite(user_id=user.id, course_id=course_id)) # type: ignore
+    record_interaction(user.id, course_id, "favorite", commit=False) # type: ignore
     db.session.commit()
     return json_ok(message="Saved.", status=201)
 
@@ -1097,11 +1097,11 @@ def history_add():
     data = body()
     course_id = str(data.get("course_id") or "").strip() or None
     action = (data.get("action") or "view").strip()
-    db.session.add(History(user_id=user.id, course_id=course_id,
-                           action=action))
+    db.session.add(History(user_id=user.id, course_id=course_id, # type: ignore
+                           action=action)) # type: ignore
     if course_id:
         signal = action if action in INTERACTION_WEIGHTS else "view"
-        record_interaction(user.id, course_id, signal, commit=False)
+        record_interaction(user.id, course_id, signal, commit=False) # type: ignore
     db.session.commit()
     return json_ok(message="Recorded.", status=201)
 
@@ -1141,14 +1141,14 @@ def progress_update(course_id):
     ).first()
     was_completed = bool(row.completed) if row is not None else False
     if row is None:
-        row = CourseProgress(user_id=user.id, course_id=str(course_id),
-                             progress=percent, completed=percent >= 100)
+        row = CourseProgress(user_id=user.id, course_id=str(course_id), # type: ignore
+                             progress=percent, completed=percent >= 100) # type: ignore
         db.session.add(row)
     else:
         row.progress = percent
         row.completed = percent >= 100
     if percent >= 100 and not was_completed:
-        record_interaction(user.id, str(course_id), "complete", commit=False)
+        record_interaction(user.id, str(course_id), "complete", commit=False) # type: ignore
     db.session.commit()
     return json_ok(message="Progress saved.")
 
@@ -1207,11 +1207,11 @@ def enrollments_add():
     created = row is None
     if row is None:
         row = Enrollment(
-            user_id=user.id,
-            course_id=course_id,
-            payment_method=payment_method,
-            transaction_id=transaction_id,
-            payment_status=payment_status,
+            user_id=user.id, # type: ignore
+            course_id=course_id, # type: ignore
+            payment_method=payment_method, # type: ignore
+            transaction_id=transaction_id, # type: ignore
+            payment_status=payment_status,# type: ignore
         )
         db.session.add(row)
     else:
@@ -1221,7 +1221,7 @@ def enrollments_add():
         row.transaction_id = transaction_id
         row.payment_status = payment_status
     if created:
-        record_interaction(user.id, course_id, "enroll", commit=False)
+        record_interaction(user.id, course_id, "enroll", commit=False) # type: ignore
     db.session.commit()
     return json_ok(row.to_dict(), message="Enrolled.", status=201)
 
@@ -1350,8 +1350,8 @@ def learning_path_progress_update(path_id):
         user_id=user.id, path_id=str(path_id), step_id=step_id
     ).first()
     if row is None:
-        row = LearningPathProgress(user_id=user.id, path_id=str(path_id),
-                                   step_id=step_id, completed=completed)
+        row = LearningPathProgress(user_id=user.id, path_id=str(path_id), # type: ignore
+                                   step_id=step_id, completed=completed) # type: ignore
         db.session.add(row)
     else:
         row.completed = completed
